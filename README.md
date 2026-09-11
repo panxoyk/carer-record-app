@@ -16,6 +16,6 @@ pnpm app:run -- --dart-define=SUPABASE_URL=http://127.0.0.1:54321 --dart-define=
 
 La clave publicable local aparece al ejecutar `pnpm db:start`; nunca se debe añadir una Service Role Key a Flutter. `pnpm db:reset` reconstruye la base exclusivamente desde migraciones y `supabase/seed.sql`. La cuenta administrativa local es `admin@example.test` / `ChangeMe123!`.
 
-Comandos de verificación: `pnpm app:analyze`, `pnpm app:test`, `pnpm pipeline:check` y `pnpm db:reset`.
+Comandos de verificación: `pnpm app:format`, `pnpm app:format:check`, `pnpm app:analyze`, `pnpm app:test`, `pnpm pipeline:check` y `pnpm db:reset`.
 
 Trabaja en ramas cortas desde `main`, abre un PR y actualiza el roadmap e Issue correspondiente. No se despliega automáticamente. Consulta [la arquitectura](docs/architecture.md) y [el roadmap](docs/roadmap.md).
