@@ -8,6 +8,8 @@
     "db:start": "pnpm exec supabase start",
     "db:stop": "pnpm exec supabase stop",
     "db:reset": "pnpm exec supabase db reset",
+    "db:lint": "pnpm exec supabase db lint --local",
+    "db:test": "pnpm exec supabase test db",
     "app:run": "./scripts/run-app.sh",
     "app:format": "cd app && fvm dart format lib test",
     "app:format:check": "cd app && fvm dart format --output=none --set-exit-if-changed lib test",

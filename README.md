@@ -17,6 +17,6 @@ pnpm app:run
 
 Tras `pnpm db:start`, copia la clave `anon`/publishable mostrada por Supabase a `SUPABASE_PUBLISHABLE_KEY` en `.env`. Nunca añadas una Service Role Key a `.env` de la app ni a Flutter. `.env` está ignorado por Git; `pnpm db:reset` reconstruye la base exclusivamente desde migraciones y `supabase/seed.sql`. La cuenta administrativa local es `admin@example.test` / `ChangeMe123!`.
 
-Comandos de verificación: `pnpm app:format`, `pnpm app:format:check`, `pnpm app:analyze`, `pnpm app:test`, `pnpm pipeline:check` y `pnpm db:reset`.
+Comandos de verificación: `pnpm app:format`, `pnpm app:format:check`, `pnpm app:analyze`, `pnpm app:test`, `pnpm pipeline:check`, `pnpm db:reset`, `pnpm db:lint` y `pnpm db:test`. Las pruebas de base de datos cubren los permisos RLS permitidos y denegados.
 
 Trabaja en ramas cortas desde `main`, abre un PR y actualiza el roadmap e Issue correspondiente. No se despliega automáticamente. Consulta [la arquitectura](docs/architecture.md) y [el roadmap](docs/roadmap.md).

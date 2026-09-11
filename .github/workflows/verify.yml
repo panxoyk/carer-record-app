@@ -13,10 +13,13 @@ jobs:
       - uses: pnpm/action-setup@v4
         with: { version: 10.17.0 }
       - run: pnpm install --frozen-lockfile
+      - run: pnpm db:start
+      - run: pnpm db:reset
+      - run: pnpm db:lint
+      - run: pnpm db:test
       - uses: kuhnroyal/flutter-fvm-config-action@v2
       - run: cd app && fvm install
       - run: pnpm app:format:check
       - run: pnpm app:analyze
       - run: pnpm app:test
       - run: pnpm pipeline:check
-      - run: pnpm exec supabase db lint --local

@@ -35,7 +35,8 @@ pnpm app:analyze
 pnpm app:test
 pnpm pipeline:check
 pnpm db:reset
-pnpm exec supabase db lint --local
+pnpm db:lint
+pnpm db:test
 ```
 
 Para iniciar la app local: copiar `.env.example` a `.env`, levantar `pnpm db:start`, completar los valores mostrados por Supabase y ejecutar `pnpm app:run`.
