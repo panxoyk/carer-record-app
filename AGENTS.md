@@ -1,5 +1,7 @@
 # Instrucciones para agentes
 
+Lee primero `docs/handoff.md`: resume el estado, convenciones y siguiente entrega recomendada.
+
 - No edites migraciones existentes; añade migraciones aditivas y conserva Supabase como IaC.
 - JSONB debe tiparse y validarse como objeto en base de datos y modelos.
 - No expongas claves privilegiadas en Flutter ni en documentación versionada.
