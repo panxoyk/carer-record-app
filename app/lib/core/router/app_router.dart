@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../domains/auth/presentation/auth_providers.dart';
 import '../../domains/auth/presentation/auth_screens.dart';
+import '../../domains/patient/presentation/patient_screens.dart';
 import '../../domains/users/presentation/users_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -30,7 +31,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (publicPaths.contains(location) || location == '/suspended') {
         return '/';
       }
+      if (location == '/' && !practitioner.isAdministrator) {
+        return '/patients';
+      }
       if (location == '/users' && !practitioner.isAdministrator) {
+        return '/';
+      }
+      if (state.uri.path.startsWith('/patients') &&
+          practitioner.isAdministrator) {
         return '/';
       }
       return null;
@@ -48,6 +56,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/suspended', builder: (_, __) => const SuspendedScreen()),
       GoRoute(path: '/users', builder: (_, __) => const UsersScreen()),
+      GoRoute(path: '/patients', builder: (_, __) => const PatientsScreen()),
+      GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+      GoRoute(
+        path: '/patients/:id',
+        builder:
+            (_, state) =>
+                PatientDetailScreen(patientId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/patients/:id/details',
+        builder:
+            (_, state) => PatientInformationScreen(
+              patientId: state.pathParameters['id']!,
+            ),
+      ),
     ],
   );
 });
@@ -69,9 +92,12 @@ class ProtectedShell extends ConsumerWidget {
                 children: [
                   Text('Sesión activa: ${p?.displayName ?? ''}'),
                   const SizedBox(height: 8),
-                  const Text(
-                    'La información clínica estará disponible en una próxima entrega.',
-                  ),
+                  const Text('Consulta pacientes autorizados desde tu cuenta.'),
+                  if (p != null && !p.isAdministrator)
+                    TextButton(
+                      onPressed: () => context.go('/patients'),
+                      child: const Text('Ver pacientes'),
+                    ),
                   if (p?.isAdministrator ?? false)
                     TextButton(
                       onPressed: () => context.go('/users'),

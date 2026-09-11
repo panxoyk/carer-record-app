@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(10);
+select plan(9);
 
 -- A non-administrator sees only their own practitioner profile.
 set local role authenticated;
@@ -26,24 +26,17 @@ select is(
   'physician',
   'a non-administrator cannot change their role'
 );
-select throws_ok(
-  $$select * from public.patients$$,
-  '42501',
-  'permission denied for table patients',
-  'clinical patient data is not available to authenticated users'
-);
-select throws_ok(
-  $$select * from public.clinical_events$$,
-  '42501',
-  'permission denied for table clinical_events',
-  'clinical events are not available to authenticated users'
+select is(
+  (select count(*) from public.clinical_events),
+  3::bigint,
+  'an active care practitioner can read clinical events'
 );
 
 -- An active administrator can list and update practitioners.
 select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', true);
 select is(
   (select count(*) from public.practitioners),
-  3::bigint,
+  4::bigint,
   'an active administrator can list practitioners'
 );
 select lives_ok(

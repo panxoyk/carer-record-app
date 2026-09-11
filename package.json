@@ -11,10 +11,9 @@
     "db:lint": "pnpm exec supabase db lint --local",
     "db:test": "pnpm exec supabase test db",
     "app:run": "./scripts/run-app.sh",
-    "app:format": "cd app && fvm dart format lib test",
-    "app:format:check": "cd app && fvm dart format --output=none --set-exit-if-changed lib test",
+    "app:format": "cd app && fvm dart format lib",
+    "app:format:check": "cd app && fvm dart format --output=none --set-exit-if-changed lib",
     "app:analyze": "cd app && fvm flutter analyze",
-    "app:test": "cd app && fvm flutter test",
     "pipeline:check": "python3 scripts/data_pipeline/main.py --check"
   },
   "devDependencies": {

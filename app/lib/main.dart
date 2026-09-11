@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/design_system/clinical_design_system.dart';
 import 'core/network/supabase_client.dart';
 import 'core/router/app_router.dart';
 
@@ -19,7 +20,7 @@ class CarerRecordApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
     title: 'Carer Record',
-    theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
+    theme: ClinicalTheme.build(),
     routerConfig: ref.watch(appRouterProvider),
   );
 }

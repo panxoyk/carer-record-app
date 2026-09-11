@@ -4,12 +4,20 @@ class ClinicalEvent {
     required this.patientId,
     required this.kind,
     required this.occurredAt,
-    required this.payload,
+    required this.details,
   });
 
   final String id;
   final String patientId;
   final String kind;
   final DateTime occurredAt;
-  final Map<String, dynamic> payload;
+  final ClinicalEventDetails details;
+
+  String get summary => details.summary;
+}
+
+class ClinicalEventDetails {
+  const ClinicalEventDetails({required this.summary});
+
+  final String summary;
 }

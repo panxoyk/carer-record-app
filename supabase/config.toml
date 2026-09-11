@@ -23,7 +23,9 @@ jwt_expiry = 3600
 enable_signup = false
 
 [auth.email]
-enable_signup = false
+# Keep the email/password provider available for existing accounts. Global
+# auth.enable_signup above still prevents public account creation.
+enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 

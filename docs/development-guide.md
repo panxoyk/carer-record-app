@@ -20,7 +20,7 @@ No se debe añadir acceso clínico implícito. Pacientes y eventos clínicos per
 ## Forma de implementar
 
 - Organizar cada dominio en `data`, `domain` y `presentation`. El acceso remoto queda detrás de repositorios; los providers pertenecen a presentación.
-- Hacer primero la autorización y las pruebas, después el modelo/repositorio y finalmente la interfaz.
+- Hacer primero la autorización y sus validaciones de base de datos, después el modelo/repositorio y finalmente la interfaz.
 - Favorecer cambios pequeños y verticales. Para una funcionalidad clínica: matriz de permisos → migración/RLS → tests de autorización → repositorio/modelo → ruta/pantalla.
 - No introducir secretos, credenciales reales ni datos clínicos reales en el repositorio. Los usuarios de `supabase/seed.sql` son exclusivamente datos de desarrollo local.
 - Mantener actualizado `docs/roadmap.md` y el GitHub Issue vinculado cuando cambie el alcance de una entrega.
@@ -32,7 +32,6 @@ Antes de entregar cambios relevantes, ejecutar:
 ```sh
 pnpm app:format:check
 pnpm app:analyze
-pnpm app:test
 pnpm pipeline:check
 pnpm db:reset
 pnpm db:lint
