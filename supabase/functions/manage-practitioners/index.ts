@@ -1,0 +1,13 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const roles = ['administrator', 'physician', 'nurse', 'technician'];
+Deno.serve(async (request) => {
+  const authorization = request.headers.get('Authorization'); if (!authorization) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  const client = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { global: { headers: { Authorization: authorization } } });
+  const { data: { user } } = await client.auth.getUser(); if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  const { data: caller } = await client.from('practitioners').select('role,status').eq('id', user.id).maybeSingle(); if (caller?.role !== 'administrator' || caller.status !== 'active') return Response.json({ error: 'Forbidden' }, { status: 403 });
+  const body = await request.json();
+  if (body.action === 'list') { const { data, error } = await client.from('practitioners').select('id,display_name,role,status,license_number').order('display_name'); return error ? Response.json({ error: error.message }, { status: 400 }) : Response.json(data); }
+  if (body.action === 'create') { const { email, password, displayName, role, licenseNumber } = body; if (!email || !password || !displayName || !roles.includes(role)) return Response.json({ error: 'Invalid user payload' }, { status: 400 }); const { data, error: authError } = await client.auth.admin.createUser({ email, password, email_confirm: true }); if (authError || !data.user) return Response.json({ error: authError?.message }, { status: 400 }); const { error } = await client.from('practitioners').insert({ id: data.user.id, display_name: displayName, role, license_number: licenseNumber || null, status: 'active' }); if (error) { await client.auth.admin.deleteUser(data.user.id); return Response.json({ error: error.message }, { status: 400 }); } return Response.json({ id: data.user.id }, { status: 201 }); }
+  if (body.action === 'update') { const { id, role, status } = body; if (!id || (role && !roles.includes(role)) || (status && !['active', 'suspended'].includes(status))) return Response.json({ error: 'Invalid update payload' }, { status: 400 }); const changes: Record<string, string> = {}; if (role) changes.role = role; if (status) changes.status = status; const { error } = await client.from('practitioners').update(changes).eq('id', id); return error ? Response.json({ error: error.message }, { status: 400 }) : Response.json({ ok: true }); }
+  return Response.json({ error: 'Unknown action' }, { status: 400 });
+});

@@ -1,0 +1,20 @@
+{
+  "name": "carer-record-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.17.0",
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --names supabase,flutter --prefix-colors blue,magenta \"pnpm db:start\" \"pnpm app:run\"",
+    "db:start": "pnpm exec supabase start",
+    "db:stop": "pnpm exec supabase stop",
+    "db:reset": "pnpm exec supabase db reset",
+    "app:run": "cd app && fvm flutter run",
+    "app:analyze": "cd app && fvm flutter analyze",
+    "app:test": "cd app && fvm flutter test",
+    "pipeline:check": "python3 scripts/data_pipeline/main.py --check"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "supabase": "^2.39.2"
+  }
+}
