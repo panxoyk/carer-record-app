@@ -1,6 +1,6 @@
 # Instrucciones para agentes
 
-Lee primero `docs/handoff.md`: resume el estado, convenciones y siguiente entrega recomendada.
+Lee primero `docs/development-guide.md`: contiene las decisiones de arquitectura y acuerdos de trabajo del repositorio.
 
 - No edites migraciones existentes; añade migraciones aditivas y conserva Supabase como IaC.
 - JSONB debe tiparse y validarse como objeto en base de datos y modelos.
