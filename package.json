@@ -8,7 +8,7 @@
     "db:start": "pnpm exec supabase start",
     "db:stop": "pnpm exec supabase stop",
     "db:reset": "pnpm exec supabase db reset",
-    "app:run": "cd app && fvm flutter run",
+    "app:run": "./scripts/run-app.sh",
     "app:format": "cd app && fvm dart format lib test",
     "app:format:check": "cd app && fvm dart format --output=none --set-exit-if-changed lib test",
     "app:analyze": "cd app && fvm flutter analyze",

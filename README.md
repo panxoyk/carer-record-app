@@ -9,12 +9,13 @@ Requiere Node 22+, pnpm 10.17+, Docker Desktop, FVM y la versión indicada en `a
 ```sh
 pnpm install
 cd app && fvm install && cd ..
+cp .env.example .env
 pnpm db:start
 pnpm db:reset
-pnpm app:run -- --dart-define=SUPABASE_URL=http://127.0.0.1:54321 --dart-define=SUPABASE_PUBLISHABLE_KEY=<local-anon-key>
+pnpm app:run
 ```
 
-La clave publicable local aparece al ejecutar `pnpm db:start`; nunca se debe añadir una Service Role Key a Flutter. `pnpm db:reset` reconstruye la base exclusivamente desde migraciones y `supabase/seed.sql`. La cuenta administrativa local es `admin@example.test` / `ChangeMe123!`.
+Tras `pnpm db:start`, copia la clave `anon`/publishable mostrada por Supabase a `SUPABASE_PUBLISHABLE_KEY` en `.env`. Nunca añadas una Service Role Key a `.env` de la app ni a Flutter. `.env` está ignorado por Git; `pnpm db:reset` reconstruye la base exclusivamente desde migraciones y `supabase/seed.sql`. La cuenta administrativa local es `admin@example.test` / `ChangeMe123!`.
 
 Comandos de verificación: `pnpm app:format`, `pnpm app:format:check`, `pnpm app:analyze`, `pnpm app:test`, `pnpm pipeline:check` y `pnpm db:reset`.
 
