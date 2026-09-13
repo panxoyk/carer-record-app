@@ -23,6 +23,7 @@ No se debe añadir acceso clínico implícito. La matriz vigente está en `docs/
 - Hacer primero la autorización y sus validaciones de base de datos, después el modelo/repositorio y finalmente la interfaz.
 - Favorecer cambios pequeños y verticales. Para una funcionalidad clínica: matriz de permisos → migración/RLS → tests de autorización → repositorio/modelo → ruta/pantalla.
 - No introducir secretos, credenciales reales ni datos clínicos reales en el repositorio. Los usuarios de `supabase/seed.sql` son exclusivamente datos de desarrollo local.
+- Usar únicamente datos sintéticos en la base, dispositivos, logs y exportaciones de desarrollo. No exponer Supabase local mediante túneles o redes compartidas no confiables.
 - Trabajar directamente sobre `main` con commits pequeños e independientes. Cada commit debe representar un cambio lógico completo e incluir sus pruebas y documentación cuando correspondan.
 - Mantener actualizados `docs/roadmap.md` y `docs/todo.md` cuando cambie el alcance de una entrega. Actualizar `docs/architecture.md` cuando cambien límites o decisiones técnicas.
 
@@ -30,12 +31,22 @@ No se debe añadir acceso clínico implícito. La matriz vigente está en `docs/
 
 No se ejecuta la suite completa después de cada edición. Durante la implementación se usan validaciones dirigidas cuando aportan feedback y, antes de entregar, se ejecutan una vez las verificaciones correspondientes a las capas modificadas:
 
-- Documentación: `git diff --check` y revisión de enlaces y consistencia.
+- Documentación y JSON: `pnpm docs:format:check`, `pnpm docs:lint`, `git diff --check` y revisión de enlaces y consistencia.
 - Flutter: `pnpm app:format:check`, `pnpm app:analyze` y las pruebas Dart relacionadas cuando cambie comportamiento.
 - Pipeline: `pnpm pipeline:check` y sus pruebas relacionadas.
 - Edge Functions: formato, lint, comprobación de tipos y pruebas Deno relacionadas.
 - Base de datos, migraciones o RLS: `pnpm db:reset`, `pnpm db:lint` y `pnpm db:test`.
 
 La suite completa se reserva para cambios transversales o cuando se solicite explícitamente. `db:reset` no se ejecuta para cambios que no afecten la base de datos. Si una verificación no puede ejecutarse, debe indicarse al entregar.
+
+`pnpm format` aplica los formatters de Dart, Deno y Prettier. `pnpm check` reúne las verificaciones de formato, lint, tipos y pipeline que no necesitan servicios locales. Lefthook ejecuta este último comando antes de cada commit y CI lo repite para que el control no dependa del hook local.
+
+## Limpieza de datos locales
+
+- `pnpm db:stop` detiene Supabase y conserva el volumen local.
+- `pnpm db:reset` reconstruye la base desde migraciones y vuelve a cargar el seed.
+- `pnpm db:purge` detiene Supabase y elimina definitivamente sus volúmenes; es destructivo y no debe ejecutarse como parte de una validación automatizada.
+
+Si aparecen datos reales por error, ejecutar `pnpm db:purge`, eliminar cualquier exportación o log local que los contenga y revisar si se expuso alguna credencial no local que deba rotarse. No continuar el desarrollo hasta completar la limpieza.
 
 Para iniciar la app local: copiar `.env.example` a `.env`, levantar `pnpm db:start`, completar los valores mostrados por Supabase y ejecutar `pnpm app:run`.
