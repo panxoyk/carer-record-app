@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../auth/presentation/auth_providers.dart';
+import '../../../core/network/supabase_client.dart';
 import '../data/patient_repository.dart';
 import '../domain/entities/patient.dart';
 

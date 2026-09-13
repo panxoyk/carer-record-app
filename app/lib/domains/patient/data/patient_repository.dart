@@ -7,11 +7,13 @@ class PatientRepository {
   PatientRepository(this._client);
 
   final SupabaseClient _client;
+  static const _columns =
+      'id,external_reference,rut,given_name,family_name,birth_date,care_unit,bed_label';
 
   Future<List<PatientModel>> list({String query = ''}) async {
     final normalizedQuery = query.trim();
     final normalizedRut = Patient.normalizeRut(normalizedQuery);
-    final request = _client.from('patients').select();
+    final request = _client.from('patients').select(_columns);
     if (normalizedQuery.isNotEmpty) {
       request.or(
         'given_name.ilike.%$normalizedQuery%,'
@@ -28,7 +30,11 @@ class PatientRepository {
 
   Future<PatientModel?> findById(String id) async {
     final row =
-        await _client.from('patients').select().eq('id', id).maybeSingle();
+        await _client
+            .from('patients')
+            .select(_columns)
+            .eq('id', id)
+            .maybeSingle();
     return row == null ? null : PatientModel.fromJson(row);
   }
 }

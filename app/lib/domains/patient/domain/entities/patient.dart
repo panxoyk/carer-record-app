@@ -8,7 +8,6 @@ class Patient {
     required this.birthDate,
     required this.careUnit,
     required this.bedLabel,
-    required this.payload,
   });
 
   final String id;
@@ -19,9 +18,18 @@ class Patient {
   final DateTime? birthDate;
   final String? careUnit;
   final String? bedLabel;
-  final Map<String, dynamic> payload;
 
   String get fullName => '$givenName $familyName';
+
+  String? get maskedRut {
+    final value = rut;
+    if (value == null) return null;
+    final match = RegExp(r'^([0-9]{7,8})-([0-9K])$').firstMatch(value);
+    if (match == null) return '****';
+    final digits = match.group(1)!;
+    final hidden = List.filled(digits.length - 3, '*').join();
+    return '$hidden${digits.substring(digits.length - 3)}-${match.group(2)}';
+  }
 
   String get locationLabel {
     final location = <String>[

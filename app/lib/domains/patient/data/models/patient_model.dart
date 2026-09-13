@@ -10,7 +10,6 @@ class PatientModel extends Patient {
     required super.birthDate,
     required super.careUnit,
     required super.bedLabel,
-    required super.payload,
   });
 
   factory PatientModel.fromJson(Map<String, dynamic> json) => PatientModel(
@@ -25,6 +24,5 @@ class PatientModel extends Patient {
             : DateTime.parse(json['birth_date'] as String),
     careUnit: json['care_unit'] as String?,
     bedLabel: json['bed_label'] as String?,
-    payload: Map<String, dynamic>.from(json['payload'] as Map),
   );
 }
