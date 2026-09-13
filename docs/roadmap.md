@@ -2,11 +2,13 @@
 
 | Estado | Entrega | Seguimiento |
 | --- | --- | --- |
-| done | Infraestructura inicial, datos seed y pipeline | [Issues](https://github.com/panxoyk/carer-record-app/issues) |
-| in-progress | Acceso, recuperación y administración de usuarios | [Issues](https://github.com/panxoyk/carer-record-app/issues) |
-| done | Listado clínico y timeline de pacientes de solo lectura | [Issue #1](https://github.com/panxoyk/carer-record-app/issues/1) |
+| done | Infraestructura local inicial y datos seed | - |
+| in-progress | Acceso, recuperación y administración de usuarios | [Pendientes](todo.md) |
+| done | Listado clínico y timeline de pacientes de solo lectura | - |
+| planned | Pipeline de ingesta FHIR | [Pendientes](todo.md) |
 
-Todo cambio funcional debe estar vinculado a un GitHub Issue y actualizar esta tabla cuando cambie de estado.
+Todo cambio funcional debe implementarse en un commit independiente y actualizar
+esta tabla cuando cambie el estado de una entrega.
 
 ## Matriz de permisos clínicos
 

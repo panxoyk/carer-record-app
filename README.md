@@ -20,7 +20,9 @@ Tras `pnpm db:start`, copia la clave `anon`/publishable mostrada por Supabase a 
 Comandos de verificación: `pnpm app:format`, `pnpm app:format:check`, `pnpm app:analyze`, `pnpm pipeline:check`, `pnpm db:reset`, `pnpm db:lint` y `pnpm db:test`. Las pruebas de base de datos cubren los permisos RLS permitidos y denegados.
 
 Los practitioners activos `physician`, `nurse` y `technician` pueden consultar
-el listado y ficha de pacientes en modo solo lectura. La matriz completa está en
-[`docs/roadmap.md`](docs/roadmap.md); los eventos clínicos aún no están habilitados.
+el listado, ficha y timeline de pacientes en modo solo lectura. La matriz completa
+está en [`docs/roadmap.md`](docs/roadmap.md).
 
-Trabaja en ramas cortas desde `main`, abre un PR y actualiza el roadmap e Issue correspondiente. No se despliega automáticamente. Consulta [la arquitectura](docs/architecture.md) y [el roadmap](docs/roadmap.md).
+Trabaja directamente sobre `main` con commits pequeños e independientes, y
+actualiza el roadmap, los pendientes y las pruebas que correspondan en el mismo
+commit. Consulta [la arquitectura](docs/architecture.md), [el roadmap](docs/roadmap.md), [los pendientes](docs/todo.md) y [la estrategia de pruebas](docs/testing-strategy.md).

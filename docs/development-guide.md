@@ -4,9 +4,9 @@ Este documento registra decisiones de arquitectura y acuerdos de trabajo estable
 
 ## Límites actuales del producto
 
-Esta etapa cubre acceso por email/contraseña, recuperación de contraseña y administración de usuarios. Los roles válidos son `administrator`, `physician`, `nurse` y `technician`; una cuenta puede estar `active` o `suspended`.
+Esta etapa cubre acceso por email/contraseña, recuperación de contraseña, administración de usuarios y consulta clínica de solo lectura. Los roles válidos son `administrator`, `physician`, `nurse` y `technician`; una cuenta puede estar `active` o `suspended`.
 
-No se debe añadir acceso clínico implícito. Pacientes y eventos clínicos permanecen sin permisos RLS, rutas ni pantallas hasta que exista una matriz de permisos explícita por rol.
+No se debe añadir acceso clínico implícito. La matriz vigente está en `docs/roadmap.md`: los roles asistenciales activos pueden leer pacientes y eventos, mientras administradores y cuentas suspendidas no tienen acceso clínico. No se permite escritura clínica hasta definir y documentar una matriz explícita para esas operaciones.
 
 ## Decisiones de arquitectura
 
@@ -23,7 +23,8 @@ No se debe añadir acceso clínico implícito. Pacientes y eventos clínicos per
 - Hacer primero la autorización y sus validaciones de base de datos, después el modelo/repositorio y finalmente la interfaz.
 - Favorecer cambios pequeños y verticales. Para una funcionalidad clínica: matriz de permisos → migración/RLS → tests de autorización → repositorio/modelo → ruta/pantalla.
 - No introducir secretos, credenciales reales ni datos clínicos reales en el repositorio. Los usuarios de `supabase/seed.sql` son exclusivamente datos de desarrollo local.
-- Mantener actualizado `docs/roadmap.md` y el GitHub Issue vinculado cuando cambie el alcance de una entrega.
+- Trabajar directamente sobre `main` con commits pequeños e independientes. Cada commit debe representar un cambio lógico completo e incluir sus pruebas y documentación cuando correspondan.
+- Mantener actualizados `docs/roadmap.md` y `docs/todo.md` cuando cambie el alcance de una entrega. Actualizar `docs/architecture.md` cuando cambien límites o decisiones técnicas.
 
 ## Calidad requerida
 
