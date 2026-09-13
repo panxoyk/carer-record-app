@@ -28,15 +28,14 @@ No se debe añadir acceso clínico implícito. La matriz vigente está en `docs/
 
 ## Calidad requerida
 
-Antes de entregar cambios relevantes, ejecutar:
+No se ejecuta la suite completa después de cada edición. Durante la implementación se usan validaciones dirigidas cuando aportan feedback y, antes de entregar, se ejecutan una vez las verificaciones correspondientes a las capas modificadas:
 
-```sh
-pnpm app:format:check
-pnpm app:analyze
-pnpm pipeline:check
-pnpm db:reset
-pnpm db:lint
-pnpm db:test
-```
+- Documentación: `git diff --check` y revisión de enlaces y consistencia.
+- Flutter: `pnpm app:format:check`, `pnpm app:analyze` y las pruebas Dart relacionadas cuando cambie comportamiento.
+- Pipeline: `pnpm pipeline:check` y sus pruebas relacionadas.
+- Edge Functions: formato, lint, comprobación de tipos y pruebas Deno relacionadas.
+- Base de datos, migraciones o RLS: `pnpm db:reset`, `pnpm db:lint` y `pnpm db:test`.
+
+La suite completa se reserva para cambios transversales o cuando se solicite explícitamente. `db:reset` no se ejecuta para cambios que no afecten la base de datos. Si una verificación no puede ejecutarse, debe indicarse al entregar.
 
 Para iniciar la app local: copiar `.env.example` a `.env`, levantar `pnpm db:start`, completar los valores mostrados por Supabase y ejecutar `pnpm app:run`.
