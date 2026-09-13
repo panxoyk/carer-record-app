@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../domains/auth/presentation/auth_providers.dart';
 import '../../domains/auth/presentation/auth_screens.dart';
 import '../../domains/patient/presentation/patient_screens.dart';
+import '../../domains/practitioner/presentation/practitioner_providers.dart';
 import '../../domains/users/presentation/users_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {

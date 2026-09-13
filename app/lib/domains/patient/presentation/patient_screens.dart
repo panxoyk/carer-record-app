@@ -6,6 +6,8 @@ import '../../../core/design_system/clinical_design_system.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../clinical_event/domain/entities/clinical_event.dart';
 import '../../clinical_event/presentation/clinical_event_providers.dart';
+import '../../practitioner/domain/entities/practitioner.dart';
+import '../../practitioner/presentation/practitioner_providers.dart';
 import '../domain/entities/patient.dart';
 import 'patient_providers.dart';
 
@@ -254,7 +256,7 @@ class _PatientCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  'RUT: ${patient.rut ?? 'No registrado'}',
+                  'RUT: ${patient.maskedRut ?? 'No registrado'}',
                   style: const TextStyle(fontSize: 12, color: _secondary),
                 ),
               ],
@@ -379,7 +381,7 @@ class _PatientTimeline extends ConsumerWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${patient.locationLabel} · RUT ${patient.rut ?? 'sin registro'}',
+                            '${patient.locationLabel} · RUT ${patient.maskedRut ?? 'sin registro'}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -1102,10 +1104,9 @@ String _eventKindLabel(String kind) => switch (kind) {
   _ => kind,
 };
 
-String _roleLabel(String role) => switch (role) {
-  'physician' => 'Médico/a',
-  'nurse' => 'Enfermero/a',
-  'technician' => 'Técnico/a',
-  'administrator' => 'Administrador/a',
-  _ => role,
+String _roleLabel(PractitionerRole role) => switch (role) {
+  PractitionerRole.physician => 'Médico/a',
+  PractitionerRole.nurse => 'Enfermero/a',
+  PractitionerRole.technician => 'Técnico/a',
+  PractitionerRole.administrator => 'Administrador/a',
 };

@@ -1,16 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../auth/presentation/auth_providers.dart';
+import '../../practitioner/domain/entities/practitioner.dart';
+import '../../practitioner/presentation/practitioner_providers.dart';
 
-final practitionersProvider = FutureProvider<List<Map<String, dynamic>>>((
-  ref,
-) async {
-  final response = await ref
-      .watch(supabaseClientProvider)
-      .functions
-      .invoke('manage-practitioners', body: {'action': 'list'});
-  return List<Map<String, dynamic>>.from(response.data as List);
-});
+typedef PractitionerUpdate =
+    ({PractitionerRole? role, PractitionerStatus? status});
 
 class UsersScreen extends ConsumerWidget {
   const UsersScreen({super.key});
@@ -18,17 +12,10 @@ class UsersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final practitioners = ref.watch(practitionersProvider);
-    Future<void> update(
-      Map<String, dynamic> user,
-      Map<String, String> changes,
-    ) async {
+    Future<void> update(Practitioner user, PractitionerUpdate changes) async {
       await ref
-          .read(supabaseClientProvider)
-          .functions
-          .invoke(
-            'manage-practitioners',
-            body: {'action': 'update', 'id': user['id'], ...changes},
-          );
+          .read(practitionerRepositoryProvider)
+          .update(id: user.id, role: changes.role, status: changes.status);
       ref.invalidate(practitionersProvider);
     }
 
@@ -50,35 +37,30 @@ class UsersScreen extends ConsumerWidget {
               children: [
                 for (final user in users)
                   ListTile(
-                    title: Text(user['display_name'] as String),
-                    subtitle: Text('${user['role']} · ${user['status']}'),
-                    trailing: PopupMenuButton<String>(
-                      onSelected:
-                          (value) => update(
-                            user,
-                            value.startsWith('role:')
-                                ? {'role': value.substring(5)}
-                                : {'status': value},
-                          ),
+                    title: Text(user.displayName),
+                    subtitle: Text('${user.role.name} · ${user.status.name}'),
+                    trailing: PopupMenuButton<PractitionerUpdate>(
+                      onSelected: (value) => update(user, value),
                       itemBuilder:
                           (_) => [
                             const PopupMenuItem(
-                              value: 'active',
+                              value: (
+                                role: null,
+                                status: PractitionerStatus.active,
+                              ),
                               child: Text('Activar'),
                             ),
                             const PopupMenuItem(
-                              value: 'suspended',
+                              value: (
+                                role: null,
+                                status: PractitionerStatus.suspended,
+                              ),
                               child: Text('Suspender'),
                             ),
-                            for (final role in [
-                              'administrator',
-                              'physician',
-                              'nurse',
-                              'technician',
-                            ])
+                            for (final role in PractitionerRole.values)
                               PopupMenuItem(
-                                value: 'role:$role',
-                                child: Text('Rol: $role'),
+                                value: (role: role, status: null),
+                                child: Text('Rol: ${role.name}'),
                               ),
                           ],
                     ),
@@ -94,7 +76,7 @@ Future<void> _showCreateDialog(BuildContext context, WidgetRef ref) async {
   final email = TextEditingController();
   final password = TextEditingController();
   final name = TextEditingController();
-  var role = 'technician';
+  var role = PractitionerRole.technician;
   await showDialog<void>(
     context: context,
     builder:
@@ -123,16 +105,14 @@ Future<void> _showCreateDialog(BuildContext context, WidgetRef ref) async {
                           labelText: 'Contraseña inicial',
                         ),
                       ),
-                      DropdownButtonFormField<String>(
+                      DropdownButtonFormField<PractitionerRole>(
                         value: role,
                         items: [
-                          for (final item in [
-                            'administrator',
-                            'physician',
-                            'nurse',
-                            'technician',
-                          ])
-                            DropdownMenuItem(value: item, child: Text(item)),
+                          for (final item in PractitionerRole.values)
+                            DropdownMenuItem(
+                              value: item,
+                              child: Text(item.name),
+                            ),
                         ],
                         onChanged: (value) => setState(() => role = value!),
                         decoration: const InputDecoration(labelText: 'Rol'),
@@ -148,17 +128,12 @@ Future<void> _showCreateDialog(BuildContext context, WidgetRef ref) async {
                   FilledButton(
                     onPressed: () async {
                       await ref
-                          .read(supabaseClientProvider)
-                          .functions
-                          .invoke(
-                            'manage-practitioners',
-                            body: {
-                              'action': 'create',
-                              'email': email.text,
-                              'password': password.text,
-                              'displayName': name.text,
-                              'role': role,
-                            },
+                          .read(practitionerRepositoryProvider)
+                          .create(
+                            email: email.text,
+                            password: password.text,
+                            displayName: name.text,
+                            role: role,
                           );
                       ref.invalidate(practitionersProvider);
                       if (dialogContext.mounted) Navigator.pop(dialogContext);

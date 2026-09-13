@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Initializes the single Supabase client before repositories are constructed.
@@ -14,3 +15,5 @@ Future<void> initializeSupabase({
 }
 
 SupabaseClient get supabaseClient => Supabase.instance.client;
+
+final supabaseClientProvider = Provider<SupabaseClient>((_) => supabaseClient);

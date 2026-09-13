@@ -1,3 +1,7 @@
+enum PractitionerRole { administrator, physician, nurse, technician }
+
+enum PractitionerStatus { active, suspended }
+
 class Practitioner {
   const Practitioner({
     required this.id,
@@ -8,9 +12,9 @@ class Practitioner {
 
   final String id;
   final String displayName;
-  final String role;
-  final String status;
+  final PractitionerRole role;
+  final PractitionerStatus status;
 
-  bool get isAdministrator => role == 'administrator';
-  bool get isActive => status == 'active';
+  bool get isAdministrator => role == PractitionerRole.administrator;
+  bool get isActive => status == PractitionerStatus.active;
 }

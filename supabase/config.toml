@@ -18,7 +18,7 @@ port = 54323
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
-additional_redirect_urls = ["io.carerrecord.app://login-callback"]
+additional_redirect_urls = ["io.carerrecord.app://login-callback", "io.carerrecord.app://login-callback/recover"]
 jwt_expiry = 3600
 enable_signup = false
 
@@ -36,7 +36,7 @@ policy = "per_worker"
 [functions.clinical-summary]
 verify_jwt = true
 
-[functions.manage-practitioners]
+[functions.create-practitioner]
 verify_jwt = true
 
 [analytics]

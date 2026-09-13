@@ -12,7 +12,9 @@ class PractitionerModel extends Practitioner {
       PractitionerModel(
         id: json['id'] as String,
         displayName: json['display_name'] as String,
-        role: json['role'] as String,
-        status: json['status'] as String? ?? 'active',
+        role: PractitionerRole.values.byName(json['role'] as String),
+        status: PractitionerStatus.values.byName(
+          json['status'] as String? ?? 'active',
+        ),
       );
 }
