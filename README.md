@@ -1,30 +1,70 @@
 # Carer Record
 
-Aplicación móvil para el registro clínico, en una primera etapa enfocada en acceso y administración de usuarios.
+Aplicación móvil para el registro clínico. La primera etapa cubre acceso y administración de usuarios, además de consulta clínica de solo lectura.
 
 ## Desarrollo local
 
-Requiere Node 22+, pnpm 10.17+, Deno 2.9.6, Docker Desktop, FVM y la versión indicada en `app/.fvmrc`.
+### 1. Instala los requisitos
 
-```sh
+- Node 22 o superior
+- pnpm 10.17 o superior
+- Deno 2.9.6
+- Docker Desktop
+- FVM
+- La versión de Flutter indicada en `app/.fvmrc`
+
+### 2. Instala dependencias y Flutter
+
+Desde la raíz del repositorio ejecuta:
+
+```bash
 pnpm install --frozen-lockfile
-cd app && fvm install && cd ..
+cd app
+fvm install
+cd ..
+```
+
+La instalación configura un hook de pre-commit con Lefthook que ejecuta `pnpm check`.
+
+### 3. Crea la configuración local
+
+```bash
 cp .env.example .env
+```
+
+No agregues una Service Role Key en `.env` ni en Flutter. La Service Role Key solo se utiliza en el servidor. El archivo `.env` está ignorado por Git.
+
+### 4. Inicia Supabase local
+
+```bash
 pnpm db:start
+```
+
+Supabase mostrará una clave `anon` o publishable. Cópiala en `SUPABASE_PUBLISHABLE_KEY` dentro de `.env`.
+
+### 5. Reconstruye los datos locales
+
+```bash
 pnpm db:reset
+```
+
+Este comando reconstruye la base desde las migraciones y `supabase/seed.sql`.
+
+### 6. Ejecuta la aplicación
+
+```bash
 pnpm app:run
 ```
 
-Tras `pnpm db:start`, copia la clave `anon`/publishable mostrada por Supabase a `SUPABASE_PUBLISHABLE_KEY` en `.env`. Nunca añadas una Service Role Key a `.env` de la app ni a Flutter. `.env` está ignorado por Git; `pnpm db:reset` reconstruye la base exclusivamente desde migraciones y `supabase/seed.sql`. La cuenta administrativa local es `admin@example.test` / `ChangeMe123!`.
+## Datos de demostración
 
-El entorno local admite exclusivamente datos sintéticos. `pnpm db:stop` detiene Supabase y conserva su volumen, `pnpm db:reset` reconstruye la base y vuelve a cargar el seed, y `pnpm db:purge` detiene Supabase y elimina definitivamente sus volúmenes. Este último comando es destructivo y nunca forma parte de los checks. Supabase local puede escuchar en todas las interfaces de red: no lo expongas por túneles ni lo ejecutes conectado a una red compartida no confiable.
+El reinicio de la base carga 8 pacientes sintéticos y 18 eventos. Incluye todas las categorías del timeline, varias unidades, campos demográficos ausentes, textos largos y un paciente sin eventos.
 
-Si se introducen datos reales accidentalmente, detén el entorno con `pnpm db:purge`, elimina exportaciones y logs locales que los contengan y revisa
-si alguna credencial no local debe rotarse antes de continuar.
+Todas las cuentas locales usan esta contraseña:
 
-### Datos de demostración
-
-`pnpm db:reset` carga 8 pacientes sintéticos y 18 eventos que cubren todas las categorías del timeline, varias unidades, campos demográficos ausentes, textos largos y un paciente sin eventos. Las cuentas locales comparten la contraseña `ChangeMe123!`:
+```text
+ChangeMe123!
+```
 
 | Email                       | Rol           | Estado     |
 | --------------------------- | ------------- | ---------- |
@@ -34,11 +74,83 @@ si alguna credencial no local debe rotarse antes de continuar.
 | `admin@example.test`        | Administrador | Activa     |
 | `camila.vera@example.test`  | Médico        | Suspendida |
 
-Usa `pnpm format` para formatear Dart, TypeScript, Markdown y JSON, y `pnpm check` para comprobar formato, lint, tipos y el pipeline. `pnpm install --frozen-lockfile` instala mediante Lefthook un hook de pre-commit que ejecuta `pnpm check`; CI repite el mismo comando, por lo que no depende de que el hook local se ejecute. Para cambios de base de datos usa además `pnpm db:reset`, `pnpm db:lint` y `pnpm db:test`. Las pruebas de base de datos cubren los permisos RLS permitidos y denegados.
+## Administración de Supabase local
 
-Para las Edge Functions, usa `pnpm functions:test` con Supabase local iniciado. Cuando cambien migraciones, regenera sus tipos TypeScript con `pnpm functions:types:generate` e incluye `supabase/functions/database.types.ts` en el cambio.
+Detén Supabase y conserva los datos locales:
 
-Los practitioners activos `physician`, `nurse` y `technician` pueden consultar el listado, ficha y timeline de pacientes en modo solo lectura. La matriz completa está en [`docs/roadmap.md`](docs/roadmap.md).
+```bash
+pnpm db:stop
+```
 
-Trabaja directamente sobre `main` con commits pequeños e independientes, y actualiza el roadmap, los pendientes y las pruebas que correspondan en el mismo
-commit. Consulta [la arquitectura](docs/architecture.md), [el roadmap](docs/roadmap.md), [los pendientes](docs/todo.md) y [la estrategia de pruebas](docs/testing-strategy.md).
+Reconstruye la base y vuelve a cargar los datos de demostración:
+
+```bash
+pnpm db:reset
+```
+
+Elimina Supabase y todos sus volúmenes locales de forma permanente:
+
+```bash
+pnpm db:purge
+```
+
+`pnpm db:purge` es destructivo y no forma parte de los checks. El entorno local admite exclusivamente datos sintéticos. No expongas Supabase local mediante túneles ni lo ejecutes conectado a una red compartida no confiable.
+
+Si se introducen datos reales por error, detén y elimina el entorno local:
+
+```bash
+pnpm db:purge
+```
+
+Después elimina cualquier exportación o log local que contenga esos datos y revisa si alguna credencial no local debe rotarse antes de continuar.
+
+## Verificaciones
+
+Formatea Dart, TypeScript, Markdown y JSON:
+
+```bash
+pnpm format
+```
+
+Comprueba formato, lint, tipos y el pipeline:
+
+```bash
+pnpm check
+```
+
+CI ejecuta también `pnpm check`, por lo que la validación no depende del hook local.
+
+Para cambios de base de datos, ejecuta estas verificaciones adicionales. Las pruebas cubren permisos RLS permitidos y denegados:
+
+```bash
+pnpm db:reset
+pnpm db:lint
+pnpm db:test
+```
+
+Para cambios en Edge Functions, con Supabase local iniciado:
+
+```bash
+pnpm functions:test
+```
+
+Si cambian las migraciones, regenera los tipos TypeScript e incluye `supabase/functions/database.types.ts` en el cambio:
+
+```bash
+pnpm functions:types:generate
+```
+
+## Permisos clínicos
+
+Los practitioners activos con rol `physician`, `nurse` o `technician` pueden consultar el listado, la ficha y el timeline de pacientes en modo solo lectura. La matriz completa está en [`docs/roadmap.md`](docs/roadmap.md).
+
+## Contribución
+
+Trabaja directamente sobre `main` con commits pequeños e independientes. Actualiza el roadmap, los pendientes y las pruebas correspondientes en el mismo cambio.
+
+Consulta estos documentos antes de implementar cambios relevantes:
+
+- [Arquitectura](docs/architecture.md)
+- [Roadmap](docs/roadmap.md)
+- [Pendientes](docs/todo.md)
+- [Estrategia de pruebas](docs/testing-strategy.md)
