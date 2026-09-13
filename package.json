@@ -4,20 +4,45 @@
   "private": true,
   "packageManager": "pnpm@10.17.0",
   "scripts": {
+    "prepare": "lefthook install",
     "dev": "concurrently --kill-others-on-fail --names supabase,flutter --prefix-colors blue,magenta \"pnpm db:start\" \"pnpm app:run\"",
     "db:start": "pnpm exec supabase start",
     "db:stop": "pnpm exec supabase stop",
+    "db:purge": "pnpm exec supabase stop --no-backup",
     "db:reset": "pnpm exec supabase db reset",
     "db:lint": "pnpm exec supabase db lint --local",
     "db:test": "pnpm exec supabase test db",
     "app:run": "./scripts/run-app.sh",
-    "app:format": "cd app && fvm dart format lib",
-    "app:format:check": "cd app && fvm dart format --output=none --set-exit-if-changed lib",
+    "app:format": "cd app && fvm dart format lib test",
+    "app:format:check": "cd app && fvm dart format --output=none --set-exit-if-changed lib test",
     "app:analyze": "cd app && fvm flutter analyze",
-    "pipeline:check": "python3 scripts/data_pipeline/main.py --check"
+    "app:test": "cd app && fvm flutter test",
+    "pipeline:check": "python3 scripts/data_pipeline/main.py --check",
+    "functions:format": "deno fmt --config supabase/functions/deno.json supabase/functions",
+    "functions:format:check": "deno fmt --check --config supabase/functions/deno.json supabase/functions",
+    "functions:lint": "deno lint --config supabase/functions/deno.json supabase/functions",
+    "functions:types:generate": "pnpm exec supabase gen types typescript --local --schema public > supabase/functions/database.types.ts",
+    "functions:typecheck": "deno check --config supabase/functions/deno.json --lock=supabase/functions/deno.lock --frozen supabase/functions/clinical-summary/index.ts supabase/functions/create-practitioner/index.ts",
+    "functions:test": "sh scripts/test-functions.sh",
+    "functions:check": "pnpm functions:format:check && pnpm functions:lint && pnpm functions:typecheck",
+    "docs:format": "prettier --write \"**/*.{md,json,jsonc}\"",
+    "docs:format:check": "prettier --check \"**/*.{md,json,jsonc}\"",
+    "docs:lint": "markdownlint-cli2 \"**/*.md\"",
+    "format": "pnpm app:format && pnpm functions:format && pnpm docs:format",
+    "format:check": "pnpm app:format:check && pnpm functions:format:check && pnpm docs:format:check",
+    "lint": "pnpm app:analyze && pnpm functions:lint && pnpm docs:lint",
+    "check": "pnpm format:check && pnpm lint && pnpm functions:typecheck && pnpm pipeline:check"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
+    "lefthook": "^2.1.12",
+    "markdownlint-cli2": "^0.23.2",
+    "prettier": "^3.9.6",
     "supabase": "^2.39.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "lefthook"
+    ]
   }
 }

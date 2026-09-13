@@ -1,0 +1,16 @@
+.code-review-graph/
+.idea/
+node_modules/
+
+app/.dart_tool/
+app/.fvm/
+app/build/
+app/android/.gradle/
+app/android/app/.cxx/
+app/android/app/build/
+app/ios/Pods/
+app/ios/Runner/Assets.xcassets/
+
+supabase/.branches/
+supabase/.temp/
+supabase/functions/

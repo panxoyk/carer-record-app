@@ -3,22 +3,35 @@ on:
   pull_request:
   push:
     branches: [main]
+permissions:
+  contents: read
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with: { version: 10.17.0 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      - uses: denoland/setup-deno@e95548e56dfa95d4e1a28d6f422fafe75c4c26fb # v2.0.3
+        with:
+          deno-version: v2.9.6
+          cache: true
       - run: pnpm db:start
       - run: pnpm db:reset
       - run: pnpm db:lint
       - run: pnpm db:test
-      - uses: kuhnroyal/flutter-fvm-config-action@v2
+      - run: pnpm exec supabase status -o env > .env
+      - uses: kuhnroyal/flutter-fvm-config-action/setup@c378498f1d1962d33039c3989411093ef8a17b2c # v3
+        with:
+          path: app/.fvmrc
+      - run: dart pub global activate fvm 4.3.1
+      - run: echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
       - run: cd app && fvm install
-      - run: pnpm app:format:check
-      - run: pnpm app:analyze
-      - run: pnpm pipeline:check
+      - run: pnpm check
+      - run: pnpm app:test
+      - run: pnpm functions:test
