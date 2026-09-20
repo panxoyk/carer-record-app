@@ -15,6 +15,7 @@
     "app/android/app/.cxx/**",
     "app/android/app/build/**",
     "app/ios/Pods/**",
+    "app/ios/.symlinks/**",
     "app/ios/Runner/Assets.xcassets/**",
     "supabase/.branches/**",
     "supabase/.temp/**",
