@@ -12,9 +12,7 @@ final authRepositoryProvider = Provider<AuthRepository>(
 );
 
 final authGateProvider = ChangeNotifierProvider<AuthGate>((ref) {
-  final gate = AuthGate(ref.watch(authRepositoryProvider));
-  ref.onDispose(gate.dispose);
-  return gate;
+  return AuthGate(ref.watch(authRepositoryProvider));
 });
 
 final sessionProvider = Provider<Session?>(
@@ -28,6 +26,11 @@ class AuthGate extends ChangeNotifier {
       recoveringPassword = event.event == AuthChangeEvent.passwordRecovery;
       notifyListeners();
     });
+  }
+
+  @visibleForTesting
+  AuthGate.forTesting() : session = null {
+    _subscription = const Stream<AuthState>.empty().listen((_) {});
   }
 
   late final StreamSubscription<AuthState> _subscription;

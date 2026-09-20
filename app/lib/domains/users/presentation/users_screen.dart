@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../practitioner/domain/entities/practitioner.dart';
 import '../../practitioner/presentation/practitioner_providers.dart';
 
@@ -20,7 +21,14 @@ class UsersScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Gestión de usuarios')),
+      appBar: AppBar(
+        title: const Text('Gestión de usuarios'),
+        leading: IconButton(
+          tooltip: 'Volver',
+          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+          icon: const Icon(Icons.arrow_back),
+        ),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateDialog(context, ref),
         icon: const Icon(Icons.person_add),

@@ -9,8 +9,8 @@ import '../../domains/practitioner/presentation/practitioner_providers.dart';
 import '../../domains/users/presentation/users_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final gate = ref.watch(authGateProvider);
-  return GoRouter(
+  final gate = ref.read(authGateProvider);
+  final router = GoRouter(
     initialLocation: '/',
     refreshListenable: gate,
     redirect: (context, state) async {
@@ -74,6 +74,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  ref.onDispose(router.dispose);
+  return router;
 });
 
 class ProtectedShell extends ConsumerWidget {
