@@ -13,7 +13,12 @@ set +a
 : "${SUPABASE_URL:?SUPABASE_URL is required in .env}"
 : "${SUPABASE_PUBLISHABLE_KEY:?SUPABASE_PUBLISHABLE_KEY is required in .env}"
 
+if [ "${1:-}" = "--" ]; then
+  shift
+fi
+
 cd app
 exec fvm flutter run \
   --dart-define="SUPABASE_URL=$SUPABASE_URL" \
-  --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+  --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" \
+  "$@"
