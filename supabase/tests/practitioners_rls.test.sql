@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(9);
+select plan(12);
 
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -26,7 +26,23 @@ insert into public.clinical_events (id, patient_id, recorded_by, kind, occurred_
 
 -- A non-administrator sees only their own practitioner profile.
 set local role authenticated;
+select set_config('request.jwt.claim.sub', '91000000-0000-0000-0000-000000000099', true);
+select is(
+  (select count(*) from public.practitioners),
+  0::bigint,
+  'an authenticated user without a profile cannot list practitioners'
+);
+select lives_ok(
+  $$update public.practitioners set role = 'administrator' where id = '91000000-0000-0000-0000-000000000001'$$,
+  'a user without a profile cannot change practitioner roles'
+);
 select set_config('request.jwt.claim.sub', '91000000-0000-0000-0000-000000000001', true);
+select is(
+  (select role::text from public.practitioners where id = '91000000-0000-0000-0000-000000000001'),
+  'physician',
+  'a denied role change leaves the practitioner unchanged'
+);
+
 select is(
   (select count(*) from public.practitioners),
   1::bigint,
