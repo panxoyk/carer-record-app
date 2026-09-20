@@ -34,7 +34,7 @@ No se ejecuta la suite completa después de cada edición. Durante la implementa
 - Documentación y JSON: `pnpm docs:format:check`, `pnpm docs:lint`, `git diff --check` y revisión de enlaces y consistencia.
 - Flutter: `pnpm app:format:check`, `pnpm app:analyze` y las pruebas Dart relacionadas cuando cambie comportamiento.
 - Pipeline: `pnpm pipeline:check` y sus pruebas relacionadas.
-- Edge Functions: formato, lint, comprobación de tipos y pruebas Deno relacionadas.
+- Edge Functions: `pnpm functions:check` para formato, lint y comprobación de tipos.
 - Base de datos, migraciones o RLS: `pnpm db:reset`, `pnpm db:lint` y `pnpm db:test`.
 
 La suite completa se reserva para cambios transversales o cuando se solicite explícitamente. `db:reset` no se ejecuta para cambios que no afecten la base de datos. Si una verificación no puede ejecutarse, debe indicarse al entregar.

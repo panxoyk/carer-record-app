@@ -77,17 +77,17 @@ Deno.serve(async (request) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
-  const { data: created, error: createError } = await adminClient.auth.admin
+  const { data: authResult, error: createError } = await adminClient.auth.admin
     .createUser({
       email: email.trim(),
       password,
       email_confirm: true,
     });
-  if (createError || !created.user) return response("creation_failed", 400);
+  if (createError || !authResult.user) return response("creation_failed", 400);
 
   const { error: profileError } = await adminClient.from("practitioners")
     .insert({
-      id: created.user.id,
+      id: authResult.user.id,
       display_name: displayName.trim(),
       role,
       license_number: licenseNumber?.trim() || null,
@@ -95,11 +95,11 @@ Deno.serve(async (request) => {
     });
   if (profileError) {
     const { error: rollbackError } = await adminClient.auth.admin.deleteUser(
-      created.user.id,
+      authResult.user.id,
     );
     if (rollbackError) console.error("practitioner_create_rollback_failed");
     return response("creation_failed", 500);
   }
 
-  return Response.json({ id: created.user.id }, { status: 201 });
+  return Response.json({ id: authResult.user.id }, { status: 201 });
 });

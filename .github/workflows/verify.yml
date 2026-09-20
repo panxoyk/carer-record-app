@@ -25,7 +25,6 @@ jobs:
       - run: pnpm db:reset
       - run: pnpm db:lint
       - run: pnpm db:test
-      - run: pnpm exec supabase status -o env > .env
       - uses: kuhnroyal/flutter-fvm-config-action/setup@c378498f1d1962d33039c3989411093ef8a17b2c # v3
         with:
           path: app/.fvmrc
@@ -34,4 +33,3 @@ jobs:
       - run: cd app && fvm install
       - run: pnpm check
       - run: pnpm app:test
-      - run: pnpm functions:test

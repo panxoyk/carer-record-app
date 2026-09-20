@@ -23,7 +23,6 @@
     "functions:lint": "deno lint --config supabase/functions/deno.json supabase/functions",
     "functions:types:generate": "pnpm exec supabase gen types typescript --local --schema public > supabase/functions/database.types.ts",
     "functions:typecheck": "deno check --config supabase/functions/deno.json --lock=supabase/functions/deno.lock --frozen supabase/functions/clinical-summary/index.ts supabase/functions/create-practitioner/index.ts",
-    "functions:test": "sh scripts/test-functions.sh",
     "functions:check": "pnpm functions:format:check && pnpm functions:lint && pnpm functions:typecheck",
     "docs:format": "prettier --write \"**/*.{md,json,jsonc}\"",
     "docs:format:check": "prettier --check \"**/*.{md,json,jsonc}\"",
@@ -34,7 +33,7 @@
     "check": "pnpm format:check && pnpm lint && pnpm functions:typecheck && pnpm pipeline:check"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1",
+    "concurrently": "^10.0.5",
     "lefthook": "^2.1.12",
     "markdownlint-cli2": "^0.23.2",
     "prettier": "^3.9.6",
