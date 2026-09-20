@@ -8,8 +8,8 @@ final patientRepositoryProvider = Provider<PatientRepository>(
   (ref) => PatientRepository(ref.watch(supabaseClientProvider)),
 );
 
-final patientsProvider = FutureProvider.family<List<Patient>, String>(
-  (ref, query) => ref.watch(patientRepositoryProvider).list(query: query),
+final patientsProvider = FutureProvider<List<Patient>>(
+  (ref) => ref.watch(patientRepositoryProvider).list(),
 );
 
 final patientProvider = FutureProvider.family<Patient?, String>(

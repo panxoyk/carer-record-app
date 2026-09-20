@@ -2,30 +2,48 @@ import 'package:carer_record_app/domains/patient/domain/entities/patient.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Patient patientWithRut(String? rut) => Patient(
-    id: 'patient-id',
-    externalReference: null,
-    rut: rut,
-    givenName: 'Ana',
-    familyName: 'Prueba',
-    birthDate: null,
-    careUnit: null,
-    bedLabel: null,
-  );
+  group('Patient.maskedRut', () {
+    Patient patientWithRut(String? rut) => Patient(
+      id: 'patient-id',
+      externalReference: null,
+      rut: rut,
+      givenName: 'Ana',
+      familyName: 'Prueba',
+      birthDate: null,
+      careUnit: null,
+      bedLabel: null,
+    );
 
-  test('masks an eight-digit RUT except for its last three digits', () {
-    expect(patientWithRut('12345678-9').maskedRut, '*****678-9');
+    test('reveals only its last three digits for a valid RUT', () {
+      expect(patientWithRut('12345678-9').maskedRut, '*****678-9');
+      expect(patientWithRut('1234567-K').maskedRut, '****567-K');
+    });
+
+    test('returns null when the RUT is absent', () {
+      expect(patientWithRut(null).maskedRut, isNull);
+    });
+
+    test('does not expose a malformed RUT', () {
+      expect(patientWithRut('abcd-1').maskedRut, '****');
+    });
   });
 
-  test('masks a seven-digit RUT except for its last three digits', () {
-    expect(patientWithRut('1234567-K').maskedRut, '****567-K');
-  });
+  group('Patient.matchesSearch', () {
+    const patient = Patient(
+      id: 'patient-id',
+      externalReference: null,
+      rut: '12.345.678-9',
+      givenName: 'Ana',
+      familyName: 'Pérez',
+      birthDate: null,
+      careUnit: null,
+      bedLabel: null,
+    );
 
-  test('keeps an absent RUT absent', () {
-    expect(patientWithRut(null).maskedRut, isNull);
-  });
-
-  test('does not expose an unexpected RUT representation', () {
-    expect(patientWithRut('abcd-1').maskedRut, '****');
+    test('matches name terms and a formatted or unformatted RUT', () {
+      expect(patient.matchesSearch('ana perez'), isTrue);
+      expect(patient.matchesSearch('12345678-9'), isTrue);
+      expect(patient.matchesSearch('12.345.678-9'), isTrue);
+    });
   });
 }

@@ -33,7 +33,7 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final patients = ref.watch(patientsProvider(_query));
+    final patients = ref.watch(patientsProvider);
     return Scaffold(
       backgroundColor: _canvas,
       bottomNavigationBar: const ClinicalBottomNavigation(selectedIndex: 0),
@@ -63,7 +63,11 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: TextField(
-                onChanged: (value) => setState(() => _query = value),
+                onChanged:
+                    (value) => setState(() {
+                      _query = value;
+                      _activeUnit = 'Todos';
+                    }),
                 decoration: InputDecoration(
                   hintText: 'Buscar paciente...',
                   hintStyle: const TextStyle(color: _tertiary),
@@ -97,13 +101,14 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
                         .whereType<String>(),
                   };
                   final visible =
-                      _activeUnit == 'Todos'
-                          ? items
-                          : items
-                              .where(
-                                (patient) => patient.careUnit == _activeUnit,
-                              )
-                              .toList();
+                      items
+                          .where(
+                            (patient) =>
+                                patient.matchesSearch(_query) &&
+                                (_activeUnit == 'Todos' ||
+                                    patient.careUnit == _activeUnit),
+                          )
+                          .toList();
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

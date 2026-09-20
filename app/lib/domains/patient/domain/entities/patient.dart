@@ -21,6 +21,23 @@ class Patient {
 
   String get fullName => '$givenName $familyName';
 
+  bool matchesSearch(String query) {
+    final normalizedNameQuery = normalizeSearchText(query);
+    if (normalizedNameQuery.isEmpty) return true;
+
+    final normalizedName = normalizeSearchText(fullName);
+    final nameMatches = normalizedNameQuery
+        .split(' ')
+        .every(normalizedName.contains);
+    final value = rut;
+    if (value == null) return nameMatches;
+
+    final normalizedRutQuery = normalizeRut(query);
+    return nameMatches ||
+        (normalizedRutQuery.isNotEmpty &&
+            normalizeRut(value).contains(normalizedRutQuery));
+  }
+
   String? get maskedRut {
     final value = rut;
     if (value == null) return null;
@@ -40,5 +57,16 @@ class Patient {
   }
 
   static String normalizeRut(String value) =>
-      value.replaceAll(RegExp(r'[.\s]'), '').toUpperCase();
+      value.replaceAll(RegExp(r'[.\s-]'), '').toUpperCase();
+
+  static String normalizeSearchText(String value) => value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[áàäâ]'), 'a')
+      .replaceAll(RegExp(r'[éèëê]'), 'e')
+      .replaceAll(RegExp(r'[íìïî]'), 'i')
+      .replaceAll(RegExp(r'[óòöô]'), 'o')
+      .replaceAll(RegExp(r'[úùüû]'), 'u')
+      .replaceAll('ñ', 'n')
+      .replaceAll(RegExp(r'\s+'), ' ');
 }
