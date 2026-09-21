@@ -5,7 +5,7 @@
 | done        | Infraestructura local inicial y datos seed              | -                     |
 | in-progress | Acceso, recuperación y administración de usuarios       | [Pendientes](todo.md) |
 | done        | Listado clínico y timeline de pacientes de solo lectura | -                     |
-| planned     | Pipeline de ingesta FHIR                                | [Pendientes](todo.md) |
+| planned     | Pipeline de ingesta FHIR                                | -                     |
 
 Todo cambio funcional debe implementarse en un commit independiente y actualizar esta tabla cuando cambie el estado de una entrega.
 
