@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../auth/presentation/auth_providers.dart';
 import '../../practitioner/domain/entities/practitioner.dart';
 import '../../practitioner/presentation/practitioner_providers.dart';
 
@@ -13,6 +14,7 @@ class UsersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final practitioners = ref.watch(practitionersProvider);
+    final currentUserId = ref.watch(sessionProvider)?.user.id;
     Future<void> update(Practitioner user, PractitionerUpdate changes) async {
       await ref
           .read(practitionerRepositoryProvider)
@@ -43,7 +45,9 @@ class UsersScreen extends ConsumerWidget {
         data:
             (users) => ListView(
               children: [
-                for (final user in users)
+                for (final user in users.where(
+                  (user) => user.id != currentUserId,
+                ))
                   ListTile(
                     title: Text(user.displayName),
                     subtitle: Text('${user.role.name} · ${user.status.name}'),
