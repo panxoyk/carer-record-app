@@ -1,6 +1,6 @@
 # Carer Record
 
-Aplicación móvil para el registro clínico. El alcance actual incluye acceso, recuperación de contraseña, administración de usuarios y consulta clínica de solo lectura.
+Prototipo móvil de contexto clínico e integración para hospitalización. La visión, el alcance académico y los límites están definidos en [foundation](docs/foundation/README.md).
 
 ## Inicio rápido
 
@@ -130,7 +130,7 @@ cd ../..
 - Edge Functions: `pnpm functions:check`.
 - Migraciones, RLS o funciones SQL: `pnpm db:reset`, `pnpm db:lint` y `pnpm db:test`.
 
-CI ejecuta `pnpm check` y las pruebas de Flutter. La estrategia completa está en [docs/testing-strategy.md](docs/testing-strategy.md).
+CI ejecuta `pnpm check` y las pruebas de Flutter. La estrategia completa está en [testing y validación](docs/foundation/11-testing-validation.md).
 
 ## Reglas del repositorio
 
@@ -139,14 +139,13 @@ CI ejecuta `pnpm check` y las pruebas de Flutter. La estrategia completa está e
 - RLS es la autoridad de autorización. La UI no agrega permisos clínicos.
 - No edites migraciones aplicadas: crea una migración aditiva.
 - No versiones secretos, credenciales, firmas ni datos clínicos reales.
-- Actualiza roadmap, pendientes, pruebas y documentación cuando cambie el alcance o un contrato.
+- Cuando cambie una decisión, alcance o contrato, actualiza las ADR y secciones de foundation afectadas.
 
-Los roles clínicos activos (`physician`, `nurse` y `technician`) pueden leer pacientes y eventos. Los administradores gestionan usuarios, pero no obtienen acceso clínico implícito. La matriz completa está en [docs/roadmap.md](docs/roadmap.md).
+El contrato de autorización objetivo está en [control de acceso](docs/foundation/05-access-control.md). Para conocer el comportamiento implementado, revisa directamente las políticas, migraciones y pruebas RLS.
 
 ## Referencias
 
-- [Guía de desarrollo](docs/development-guide.md)
-- [Arquitectura](docs/architecture.md)
-- [Roadmap y permisos](docs/roadmap.md)
-- [Pendientes](docs/todo.md)
-- [Estrategia de pruebas](docs/testing-strategy.md)
+- [Fundamentos de producto y arquitectura](docs/foundation/README.md)
+- [Arquitectura objetivo](docs/foundation/04-target-architecture.md)
+- [Roadmap de entrega](docs/foundation/12-delivery-roadmap.md)
+- [Estrategia de pruebas](docs/foundation/11-testing-validation.md)

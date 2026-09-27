@@ -1,0 +1,48 @@
+# Registro de riesgos
+
+## Escala
+
+- Probabilidad: Baja, Media, Alta.
+- Impacto: Moderado, Alto, Crítico.
+- Prioridad P0: bloquea el corte o uso de datos; P1: debe mitigarse antes de cerrar el corte; P2: seguimiento.
+- El responsable indicado es un rol propuesto, no una asignación confirmada.
+
+## Riesgos activos
+
+| ID     | Riesgo                                                                     | Prob. | Impacto  | Prioridad | Mitigación/contención                                               | Señal y evidencia de cierre                         | Responsable         |
+| ------ | -------------------------------------------------------------------------- | ----- | -------- | --------- | ------------------------------------------------------------------- | --------------------------------------------------- | ------------------- |
+| RK-001 | Se interpreta el prototipo como sistema productivo o clínicamente validado | Media | Crítico  | P0        | ADR-002, avisos y lenguaje acotado                                  | Revisión de release/demo sin afirmaciones excedidas | Sponsor             |
+| RK-002 | Ingreso accidental de PHI/IPS real en seed, logs, dispositivos o fixtures  | Media | Crítico  | P0        | Solo sintéticos, hooks/scan, runbook de purga                       | Escaneo + revisión; incidente ejercitado            | Seguridad           |
+| RK-003 | Nueva tabla/bucket/RPC queda sin RLS o grants mínimos                      | Media | Crítico  | P0        | Checklist de migración y pgTAP negativo                             | Tests anon/sin permiso/suspendido pasan             | Backend             |
+| RK-004 | Service Role se filtra al cliente, CI o logs                               | Baja  | Crítico  | P0        | Solo Edge secret, separación de clientes, secret scanning           | Build inspeccionado y test de ausencia              | Backend/seguridad   |
+| RK-005 | Permisos configurables permiten autoelevación o grant excesivo             | Media | Crítico  | P0        | Catálogo cerrado, admin explícito, constraints y auditoría          | pgTAP combinatorio y threat review                  | Seguridad           |
+| RK-006 | Audio persiste tras cancelación, crash o expiración                        | Alta  | Crítico  | P0        | Storage privado, TTL, barrido y borrado idempotente                 | Fault injection deja cero artefactos observables    | Móvil               |
+| RK-007 | ASR cambia significado y el texto se trata como definitivo                 | Alta  | Alto     | P1        | Borrador, incertidumbre, revisión humana y benchmark                | UI/test + métricas SP-01 documentadas               | Investigación/UX    |
+| RK-008 | NER omite identificadores y se afirma anonimización                        | Alta  | Crítico  | P0        | Clasificar salida sensible, corpus adversarial y lenguaje explícito | Recall por clase + revisión documental              | Privacidad          |
+| RK-009 | Mapa reversible se expone junto al texto/token                             | Media | Crítico  | P0        | Separación, cifrado, autorización y exclusión de logs               | Tests de acceso y análisis de logs                  | Seguridad           |
+| RK-010 | Contenido real o de procedencia desconocida llega al proveedor cloud       | Media | Crítico  | P0        | Restricción sintética y guard técnico fail-closed                   | Tests de rechazo + inspección sandbox               | Backend/seguridad   |
+| RK-011 | Proveedor conserva o usa fixtures fuera del propósito esperado             | Baja  | Alto     | P1        | Sandbox, términos revisados, sintéticos y minimización              | Ficha de proveedor documentada                      | Legal/investigación |
+| RK-012 | Mapping FHIR pierde semántica o duplica pacientes/eventos                  | Alta  | Alto     | P0        | Perfiles explícitos, matriz, cuarentena e idempotencia              | Contract/replay tests y revisión clínica            | Interoperabilidad   |
+| RK-013 | Zona horaria/precisión asigna eventos a ventana incorrecta                 | Media | Alto     | P1        | Offset fuente, timezone explícita, intervalo semiabierto            | Tests de DST/bordes y decisión Q-DATA-03            | Datos               |
+| RK-014 | Cache entrega resumen obsoleto o de otro paciente                          | Media | Crítico  | P0        | Clave completa, RLS, invalidación y TTL                             | Tests de aislamiento/mutación/concurrencia          | Backend             |
+| RK-015 | Resumen se interpreta como fuente o recomendación clínica                  | Media | Crítico  | P0        | Procedencia visible, etiqueta derivada y acceso a fuentes           | Revisión UX y aceptación académica                  | Clínica/UX          |
+| RK-016 | Reintentos duplican ingesta, síntesis o auditoría                          | Alta  | Alto     | P1        | Idempotency keys, constraints y outbox                              | Tests secuenciales/concurrentes/crash               | Backend             |
+| RK-017 | Outbox/dead-letter copia contenido clínico o crece sin límite              | Media | Alto     | P1        | Referencias mínimas, TTL, permisos y alertas                        | Schema review + prueba de poison message            | Backend/seguridad   |
+| RK-018 | Logs/stack traces filtran JWT, prompts, tokens o PHI                       | Media | Crítico  | P0        | Allowlist estructurada, redacción en origen y tests                 | Muestras y tests de ausencia                        | Todos               |
+| RK-019 | Dependencia/modelo tiene licencia o telemetría incompatible                | Media | Alto     | P1        | Inventario, revisión de licencia y egress test                      | SBOM/licencia/checksum documentados                 | Investigación/legal |
+| RK-020 | Benchmarks sintéticos se extrapolan a población clínica                    | Alta  | Alto     | P1        | Declarar corpus/hardware y amenazas a validez                       | Informe limita conclusiones                         | Investigación       |
+| RK-021 | Configuración remota diverge de migraciones canónicas                      | Media | Alto     | P1        | Deploy desde repo y detección de drift                              | Comparación de esquema/config                       | Backend             |
+| RK-022 | Alcance de turnos reaparece implícitamente en permisos/resúmenes           | Media | Moderado | P2        | ADR-012 y revisión terminológica                                    | Esquema/backlog sin entidad de turno                | Producto            |
+| RK-023 | Compromiso de cadena de suministro en CI/dependencias                      | Baja  | Crítico  | P1        | Acciones por SHA, permisos mínimos, lockfiles, SBOM                 | Workflow y dependencias revisados                   | Seguridad           |
+| RK-024 | Rollback parcial crea `auth.users` sin perfil o inconsistencia             | Media | Alto     | P1        | Idempotencia, reconciliación y alarma/outbox                        | Test de fallo parcial y reconciliación              | Backend             |
+
+## Riesgos aceptados temporalmente en el baseline
+
+- La matriz de permisos es estática. Se acepta solo para datos sintéticos y lectura actual, respaldada por pgTAP (`supabase/tests/patients_rls.test.sql:56-130`).
+- La función de resumen devuelve 501 (`supabase/functions/clinical-summary/index.ts:17-18`); no se considera una degradación silenciosa porque la capacidad no está entregada.
+- Los tests Edge son estáticos (`package.json:21-26`). Se acepta mientras no existan nuevos flujos privilegiados; V2/V5/V6 requieren tests HTTP.
+- El RUT completo llega al cliente autorizado y solo se enmascara en presentación (`app/lib/domains/patient/domain/entities/patient.dart:41-49`). Esto no es minimización suficiente para un entorno productivo.
+
+## Revisión
+
+Revisar el registro al iniciar/cerrar cada corte, cambiar proveedor/modelo, introducir una categoría de datos, modificar permisos o descubrir un incidente. Cerrar un riesgo requiere evidencia, no solo completar una tarea. Los riesgos residuales permanecen visibles y se aceptan por un responsable identificado; en este prototipo, la ausencia de ese responsable bloquea datos reales.
