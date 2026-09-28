@@ -65,7 +65,7 @@ sequenceDiagram
 - Sin resultados: se muestra un estado vacío sin inferir si existen pacientes fuera del alcance.
 - UUID inexistente o fila oculta por RLS: se presenta “Paciente no encontrado” sin distinguir ambas causas.
 - Sesión expirada o cuenta suspendida: se retira el contenido visible y se dirige al flujo de autenticación o suspensión.
-- Error de red/servidor: se conserva una pantalla segura, se permite reintentar y no se presenta información parcial como vigente.
+- Error de red/servidor: se conserva una pantalla segura con un mensaje neutro; no se presenta información parcial como vigente ni se promete que una actualización resolverá el fallo.
 - Error al cargar eventos con ficha visible: la ficha puede mostrarse con un estado de error independiente para la timeline, sin fabricar eventos.
 - RUT ausente o inválido: se muestra “No registrado” o una máscara segura; no se reconstruye.
 - Dataset mayor al límite de PostgREST: la futura paginación debe mantener RLS y búsqueda del lado servidor. El baseline no paginaba y su configuración local limitaba respuestas a 1000 filas.
@@ -74,14 +74,14 @@ sequenceDiagram
 
 ## Estados
 
-| Estado           | Descripción                         | Transición                                |
-| ---------------- | ----------------------------------- | ----------------------------------------- |
-| `loading`        | Se solicita lista, ficha o timeline | `ready`, `empty`, `not_found` o `error`   |
-| `ready`          | Datos autorizados visibles          | Filtrar, abrir detalle, refrescar o salir |
-| `empty`          | Consulta autorizada sin filas       | Cambiar filtro o refrescar                |
-| `not_found`      | UUID inexistente o no visible       | Volver al listado                         |
-| `error`          | Fallo de red, Auth o servidor       | Reintentar o cerrar sesión                |
-| `access_revoked` | Rol/estado ya no permite acceso     | Retirar datos y redirigir                 |
+| Estado           | Descripción                         | Transición                                          |
+| ---------------- | ----------------------------------- | --------------------------------------------------- |
+| `loading`        | Se solicita lista, ficha o timeline | `ready`, `empty`, `not_found` o `error`             |
+| `ready`          | Datos autorizados visibles          | Filtrar, abrir detalle, refrescar o salir           |
+| `empty`          | Consulta autorizada sin filas       | Cambiar filtro o refrescar                          |
+| `not_found`      | UUID inexistente o no visible       | Volver al listado                                   |
+| `error`          | Fallo de red, Auth o servidor       | Nueva consulta posterior, cambio de sesión o salida |
+| `access_revoked` | Rol/estado ya no permite acceso     | Retirar datos y redirigir                           |
 
 Los estados pertenecen a la presentación; no se persisten como estado clínico.
 
@@ -119,7 +119,7 @@ La auditoría de lectura clínica no está implementada en el repositorio. Antes
 - pgTAP: baseline por rol y objetivo por tenant, membresía, permiso, vigencia, unidad/hospitalización cubierta y ajena.
 - pgTAP: insert, update y delete denegados y filas sin cambios después del intento.
 - Unit test de dominio: búsqueda por nombre/RUT y enmascaramiento de RUT, por ser reglas de privacidad observables.
-- Manual: estados loading, vacío, no encontrado, error de red, sesión expirada y suspensión durante una sesión.
+- Manual: estados loading, vacío, no encontrado, error de red, sesión expirada y suspensión durante una sesión; la actualización por gesto se verifica como consulta de lectura y no como solución garantizada de un error.
 - Flutter: conversión UTC a `America/Santiago`, borde de fecha, DST, fecha sin hora y textos neutros de consulta.
 - Manual: orden y filtros de timeline, campos de ficha y navegación directa con UUID sintético no visible.
 - Escala: comprobar límite y paginación antes de usar datasets que puedan superar `max_rows`.
@@ -129,8 +129,10 @@ La auditoría de lectura clínica no está implementada en el repositorio. Antes
 
 - [`PatientRepository`](../../../app/lib/domains/patient/data/patient_repository.dart#L9-L29) selecciona columnas y consulta lista/detalle.
 - [`Patient`](../../../app/lib/domains/patient/domain/entities/patient.dart#L22-L71) implementa búsqueda normalizada, máscara de RUT y ubicación.
-- [`PatientsScreen`](../../../app/lib/domains/patient/presentation/patient_screens.dart#L23-L186) filtra localmente el conjunto y presenta estados; la timeline se encuentra en el mismo archivo.
+- [`PatientsScreen`](../../../app/lib/domains/patient/presentation/patient_screens.dart) filtra localmente el conjunto, presenta estados y permite actualizar consultas por gesto; la ficha y timeline se encuentran en el mismo archivo.
 - [`ClinicalEventRepository`](../../../app/lib/domains/clinical_event/data/clinical_event_repository.dart#L10-L17) consulta por paciente y ordena por fecha descendente.
+- Los providers clínicos dependen de la sesión actual, para no reutilizar resultados al perderla (`patient_providers.dart` y `clinical_event_providers.dart`).
+- [`patient_screens_test.dart`](../../../app/test/domains/patient/presentation/patient_screens_test.dart) cubre estados de vista y actualización por gesto.
 - [`patient_read_access.sql`](../../../supabase/migrations/20260910100000_patient_read_access.sql#L3-L23) y [`clinical_timeline.sql`](../../../supabase/migrations/20260910110000_clinical_timeline.sql#L53-L68) definen la lectura clínica por RLS.
 - [`patients_rls.test.sql`](../../../supabase/tests/patients_rls.test.sql#L29-L169) cubre casos permitidos, denegados y solo lectura.
 - [Arquitectura objetivo](../04-target-architecture.md#consulta-de-pacientes-hospitalizados) define la consulta centrada en hospitalización y el timeline como read model.

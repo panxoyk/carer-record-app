@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:carer_record_app/domains/clinical_event/domain/entities/clinical_event.dart';
 import 'package:carer_record_app/domains/clinical_event/presentation/clinical_event_providers.dart';
 import 'package:carer_record_app/domains/patient/domain/entities/patient.dart';
@@ -79,5 +81,127 @@ void main() {
 
     expect(find.text('Hospitalización activa'), findsNothing);
     expect(find.text('Activo'), findsNothing);
+  });
+
+  testWidgets(
+    'shows an empty state when the authorized patient list is empty',
+    (tester) async {
+      await tester.pumpWidget(
+        buildScreen(const PatientsScreen(), [
+          patientsProvider.overrideWith((ref) async => []),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('No hay pacientes disponibles para tu acceso.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('shows a terminal patient-list error without a retry button', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildScreen(const PatientsScreen(), [
+        patientsProvider.overrideWith((ref) async => throw StateError('fallo')),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No fue posible cargar los pacientes.'), findsOneWidget);
+    expect(find.text('Reintentar'), findsNothing);
+  });
+
+  testWidgets('shows not found when the requested patient is unavailable', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildScreen(const PatientDetailScreen(patientId: 'unknown'), [
+        patientProvider('unknown').overrideWith((ref) async => null),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Paciente no encontrado.'), findsOneWidget);
+  });
+
+  testWidgets('keeps the patient visible when only the timeline fails', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildScreen(PatientDetailScreen(patientId: _patient.id), [
+        patientProvider(_patient.id).overrideWith((ref) async => _patient),
+        patientClinicalEventsProvider(
+          _patient.id,
+        ).overrideWith((ref) async => throw StateError('fallo')),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(_patient.fullName), findsOneWidget);
+    expect(find.text('No fue posible cargar los eventos.'), findsOneWidget);
+    expect(find.text('Reintentar'), findsNothing);
+  });
+
+  testWidgets(
+    'refreshing the patient list starts a new query without old cards',
+    (tester) async {
+      final secondResult = Completer<List<Patient>>();
+      var calls = 0;
+      await tester.pumpWidget(
+        buildScreen(const PatientsScreen(), [
+          patientsProvider.overrideWith((ref) {
+            calls += 1;
+            return calls == 1 ? Future.value([_patient]) : secondResult.future;
+          }),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      final list = find.descendant(
+        of: find.byType(RefreshIndicator),
+        matching: find.byType(Scrollable),
+      );
+      await tester.fling(list, const Offset(0, 300), 1000);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(calls, 2);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text(_patient.fullName), findsNothing);
+
+      secondResult.complete([_patient]);
+      await tester.pumpAndSettle();
+
+      expect(find.text(_patient.fullName), findsOneWidget);
+    },
+  );
+
+  testWidgets('refreshing the timeline reloads its patient and events', (
+    tester,
+  ) async {
+    var patientCalls = 0;
+    var eventCalls = 0;
+    await tester.pumpWidget(
+      buildScreen(PatientDetailScreen(patientId: _patient.id), [
+        patientProvider(_patient.id).overrideWith((ref) async {
+          patientCalls += 1;
+          return _patient;
+        }),
+        patientClinicalEventsProvider(_patient.id).overrideWith((ref) async {
+          eventCalls += 1;
+          return const <ClinicalEvent>[];
+        }),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 300));
+    await tester.pumpAndSettle();
+
+    expect(patientCalls, 2);
+    expect(eventCalls, 2);
   });
 }

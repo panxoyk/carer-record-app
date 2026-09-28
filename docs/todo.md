@@ -14,9 +14,9 @@ Este archivo organiza tareas secuenciales de implementación. El alcance, las de
 
 ### 2. Estados de las vistas clínicas
 
-- [ ] Definir estados consistentes de carga, vacío, no encontrado y error.
-- [ ] Añadir una acción de reintento segura para listado, detalle y timeline.
-- [ ] Evitar presentar datos parciales como vigentes después de un error.
+- [x] Definir estados consistentes de carga, vacío, no encontrado y error.
+- [x] Añadir una acción de reintento segura para listado, detalle y timeline.
+- [x] Evitar presentar datos parciales como vigentes después de un error.
 - [ ] Validar manualmente los estados de consulta sin resultados, error de red y sesión expirada.
 
 ### 3. Recuperación y roles

@@ -89,6 +89,8 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
             ),
             Expanded(
               child: patients.when(
+                skipLoadingOnRefresh: false,
+                skipError: false,
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error:
                     (_, __) => const Center(
@@ -157,22 +159,50 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
                       Expanded(
                         child:
                             visible.isEmpty
-                                ? const Center(
-                                  child: Text('No se encontraron pacientes.'),
-                                )
-                                : ListView.separated(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    0,
-                                    16,
-                                    24,
+                                ? RefreshIndicator(
+                                  onRefresh:
+                                      () => ref
+                                          .refresh(patientsProvider.future)
+                                          .then<void>((_) {}),
+                                  child: ListView(
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    children: [
+                                      SizedBox(
+                                        height: 160,
+                                        child: Center(
+                                          child: Text(
+                                            items.isEmpty
+                                                ? 'No hay pacientes disponibles para tu acceso.'
+                                                : 'No se encontraron pacientes con estos filtros.',
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  itemCount: visible.length,
-                                  separatorBuilder:
-                                      (_, __) => const SizedBox(height: 12),
-                                  itemBuilder:
-                                      (_, index) =>
-                                          _PatientCard(patient: visible[index]),
+                                )
+                                : RefreshIndicator(
+                                  onRefresh:
+                                      () => ref
+                                          .refresh(patientsProvider.future)
+                                          .then<void>((_) {}),
+                                  child: ListView.separated(
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      0,
+                                      16,
+                                      24,
+                                    ),
+                                    itemCount: visible.length,
+                                    separatorBuilder:
+                                        (_, __) => const SizedBox(height: 12),
+                                    itemBuilder:
+                                        (_, index) => _PatientCard(
+                                          patient: visible[index],
+                                        ),
+                                  ),
                                 ),
                       ),
                     ],
@@ -288,6 +318,8 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
       appBar: clinicalBackAppBar(context, title: ''),
       bottomNavigationBar: const ClinicalBottomNavigation(selectedIndex: 0),
       body: patient.when(
+        skipLoadingOnRefresh: false,
+        skipError: false,
         loading: () => const Center(child: CircularProgressIndicator()),
         error:
             (_, __) => const Center(
@@ -302,6 +334,14 @@ class _PatientDetailScreenState extends ConsumerState<PatientDetailScreen> {
                       activeFilter: _activeFilter,
                       onFilterChanged:
                           (value) => setState(() => _activeFilter = value),
+                      onRefresh: () async {
+                        await Future.wait([
+                          ref.refresh(patientProvider(widget.patientId).future),
+                          ref.refresh(
+                            patientClinicalEventsProvider(item.id).future,
+                          ),
+                        ]);
+                      },
                     ),
       ),
     );
@@ -313,190 +353,204 @@ class _PatientTimeline extends ConsumerWidget {
     required this.patient,
     required this.activeFilter,
     required this.onFilterChanged,
+    required this.onRefresh,
   });
 
   final Patient patient;
   final String activeFilter;
   final ValueChanged<String> onFilterChanged;
+  final RefreshCallback onRefresh;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final events = ref.watch(patientClinicalEventsProvider(patient.id));
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-            child: Text(
-              'Bitácora',
-              style: const TextStyle(
-                fontSize: 28,
-                letterSpacing: -.6,
-                fontWeight: FontWeight.w700,
-                color: _ink,
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+              child: Text(
+                'Bitácora',
+                style: const TextStyle(
+                  fontSize: 28,
+                  letterSpacing: -.6,
+                  fontWeight: FontWeight.w700,
+                  color: _ink,
+                ),
               ),
             ),
           ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => context.go('/patients/${patient.id}/details'),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _softMint,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0x404eddb3)),
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 17,
-                      backgroundColor: _mint,
-                      foregroundColor: _ink,
-                      child: Text(
-                        _initials(patient.fullName),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => context.go('/patients/${patient.id}/details'),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _softMint,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0x404eddb3)),
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 17,
+                        backgroundColor: _mint,
+                        foregroundColor: _ink,
+                        child: Text(
+                          _initials(patient.fullName),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            patient.fullName,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: _mintDark,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              patient.fullName,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: _mintDark,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${patient.locationLabel} · RUT ${patient.maskedRut ?? 'sin registro'}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: _mintDark,
+                            const SizedBox(height: 2),
+                            Text(
+                              '${patient.locationLabel} · RUT ${patient.maskedRut ?? 'sin registro'}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: _mintDark,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const Icon(Icons.chevron_right_rounded, color: _mintDark),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
-            child: Row(
-              children: [
-                Icon(Icons.circle, size: 7, color: _mint),
-                SizedBox(width: 7),
-                Text(
-                  'EVENTOS CLÍNICOS',
-                  style: TextStyle(fontSize: 12, color: _secondary),
-                ),
-              ],
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: SizedBox(
-            height: 45,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-              itemCount: _timelineFilters.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final filter = _timelineFilters[index];
-                final selected = filter == activeFilter;
-                return ChoiceChip(
-                  label: Text(filter),
-                  selected: selected,
-                  showCheckmark: false,
-                  onSelected: (_) => onFilterChanged(filter),
-                  labelStyle: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: selected ? Colors.white : _secondary,
+                      const Icon(Icons.chevron_right_rounded, color: _mintDark),
+                    ],
                   ),
-                  selectedColor: _ink,
-                  backgroundColor: const Color(0x1f767680),
-                  side: BorderSide.none,
-                  shape: const StadiumBorder(),
-                );
-              },
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-            child: Text(
-              'Eventos clínicos',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: _ink,
-              ),
-            ),
-          ),
-        ),
-        events.when(
-          loading:
-              () => const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
-              ),
-          error:
-              (_, __) => const SliverFillRemaining(
-                child: Center(
-                  child: Text('No fue posible cargar los eventos.'),
                 ),
               ),
-          data: (items) {
-            final visible =
-                activeFilter == 'Todos'
-                    ? items
-                    : items
-                        .where(
-                          (event) => _eventFilter(event.kind) == activeFilter,
-                        )
-                        .toList();
-            if (visible.isEmpty) {
-              return const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(child: Text('No hay eventos en esta categoría.')),
-              );
-            }
-            return SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              sliver: SliverList.separated(
-                itemCount: visible.length,
-                itemBuilder:
-                    (_, index) => _TimelineEvent(
-                      event: visible[index],
-                      isLast: index == visible.length - 1,
-                    ),
-                separatorBuilder: (_, __) => const SizedBox(height: 2),
+            ),
+          ),
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
+              child: Row(
+                children: [
+                  Icon(Icons.circle, size: 7, color: _mint),
+                  SizedBox(width: 7),
+                  Text(
+                    'EVENTOS CLÍNICOS',
+                    style: TextStyle(fontSize: 12, color: _secondary),
+                  ),
+                ],
               ),
-            );
-          },
-        ),
-      ],
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 45,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+                itemCount: _timelineFilters.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final filter = _timelineFilters[index];
+                  final selected = filter == activeFilter;
+                  return ChoiceChip(
+                    label: Text(filter),
+                    selected: selected,
+                    showCheckmark: false,
+                    onSelected: (_) => onFilterChanged(filter),
+                    labelStyle: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? Colors.white : _secondary,
+                    ),
+                    selectedColor: _ink,
+                    backgroundColor: const Color(0x1f767680),
+                    side: BorderSide.none,
+                    shape: const StadiumBorder(),
+                  );
+                },
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+              child: Text(
+                'Eventos clínicos',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _ink,
+                ),
+              ),
+            ),
+          ),
+          events.when(
+            skipLoadingOnRefresh: false,
+            skipError: false,
+            loading:
+                () => const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+            error:
+                (_, __) => const SliverFillRemaining(
+                  child: Center(
+                    child: Text('No fue posible cargar los eventos.'),
+                  ),
+                ),
+            data: (items) {
+              final visible =
+                  activeFilter == 'Todos'
+                      ? items
+                      : items
+                          .where(
+                            (event) => _eventFilter(event.kind) == activeFilter,
+                          )
+                          .toList();
+              if (visible.isEmpty) {
+                return SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Text(
+                      items.isEmpty
+                          ? 'No hay eventos clínicos disponibles.'
+                          : 'No hay eventos en esta categoría.',
+                    ),
+                  ),
+                );
+              }
+              return SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                sliver: SliverList.separated(
+                  itemCount: visible.length,
+                  itemBuilder:
+                      (_, index) => _TimelineEvent(
+                        event: visible[index],
+                        isLast: index == visible.length - 1,
+                      ),
+                  separatorBuilder: (_, __) => const SizedBox(height: 2),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -662,6 +716,8 @@ class PatientInformationScreen extends ConsumerWidget {
       appBar: clinicalBackAppBar(context, title: 'Información del paciente'),
       bottomNavigationBar: const ClinicalBottomNavigation(selectedIndex: 0),
       body: patient.when(
+        skipLoadingOnRefresh: false,
+        skipError: false,
         loading: () => const Center(child: CircularProgressIndicator()),
         error:
             (_, __) => const Center(
@@ -671,7 +727,13 @@ class PatientInformationScreen extends ConsumerWidget {
             (item) =>
                 item == null
                     ? const Center(child: Text('Paciente no encontrado.'))
-                    : _PatientInformation(patient: item),
+                    : RefreshIndicator(
+                      onRefresh:
+                          () => ref
+                              .refresh(patientProvider(patientId).future)
+                              .then<void>((_) {}),
+                      child: _PatientInformation(patient: item),
+                    ),
       ),
     );
   }
@@ -684,6 +746,7 @@ class _PatientInformation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
+    physics: const AlwaysScrollableScrollPhysics(),
     padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
     children: [
       Material(

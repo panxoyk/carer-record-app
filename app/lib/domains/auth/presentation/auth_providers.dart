@@ -25,7 +25,7 @@ class AuthGate extends ChangeNotifier {
       session = event.session;
       recoveringPassword = event.event == AuthChangeEvent.passwordRecovery;
       notifyListeners();
-    });
+    }, onError: (_, __) {});
   }
 
   @visibleForTesting
