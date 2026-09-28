@@ -21,11 +21,10 @@ final sessionProvider = Provider<Session?>(
 
 class AuthGate extends ChangeNotifier {
   AuthGate(AuthRepository repository) : session = repository.session {
-    _subscription = repository.changes.listen((event) {
-      session = event.session;
-      recoveringPassword = event.event == AuthChangeEvent.passwordRecovery;
-      notifyListeners();
-    }, onError: (_, __) {});
+    _subscription = repository.changes.listen(
+      handleAuthState,
+      onError: (_, __) {},
+    );
   }
 
   @visibleForTesting
@@ -36,6 +35,17 @@ class AuthGate extends ChangeNotifier {
   late final StreamSubscription<AuthState> _subscription;
   Session? session;
   bool recoveringPassword = false;
+
+  @visibleForTesting
+  void handleAuthState(AuthState event) {
+    session = event.session;
+    if (event.event == AuthChangeEvent.passwordRecovery) {
+      recoveringPassword = true;
+    } else if (event.event == AuthChangeEvent.signedOut) {
+      recoveringPassword = false;
+    }
+    notifyListeners();
+  }
 
   void finishPasswordRecovery() {
     recoveringPassword = false;

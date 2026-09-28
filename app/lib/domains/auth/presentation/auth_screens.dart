@@ -93,6 +93,8 @@ class RecoverPasswordScreen extends ConsumerStatefulWidget {
 
 class _RecoverPasswordScreenState extends ConsumerState<RecoverPasswordScreen> {
   final _email = TextEditingController();
+  bool _busy = false;
+  String? _error;
   String? _message;
   @override
   void dispose() {
@@ -112,20 +114,47 @@ class _RecoverPasswordScreenState extends ConsumerState<RecoverPasswordScreen> {
         ),
         const SizedBox(height: 20),
         FilledButton(
-          onPressed: () async {
-            await ref
-                .read(authRepositoryProvider)
-                .sendPasswordRecovery(_email.text);
-            if (mounted) {
-              setState(
-                () =>
-                    _message =
-                        'Si el correo existe, recibirás las instrucciones de recuperación.',
-              );
-            }
-          },
-          child: const Text('Enviar instrucciones'),
+          onPressed:
+              _busy
+                  ? null
+                  : () async {
+                    setState(() {
+                      _busy = true;
+                      _error = null;
+                    });
+                    try {
+                      await ref
+                          .read(authRepositoryProvider)
+                          .sendPasswordRecovery(_email.text);
+                      if (mounted) {
+                        setState(
+                          () =>
+                              _message =
+                                  'Si el correo existe, recibirás las instrucciones de recuperación.',
+                        );
+                      }
+                    } catch (_) {
+                      if (mounted) {
+                        setState(
+                          () =>
+                              _error =
+                                  'No fue posible enviar las instrucciones. Inténtalo nuevamente.',
+                        );
+                      }
+                    } finally {
+                      if (mounted) setState(() => _busy = false);
+                    }
+                  },
+          child: Text(_busy ? 'Enviando…' : 'Enviar instrucciones'),
         ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
         if (_message != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
