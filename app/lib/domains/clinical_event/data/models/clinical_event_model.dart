@@ -14,7 +14,7 @@ class ClinicalEventModel extends ClinicalEvent {
         id: json['id'] as String,
         patientId: json['patient_id'] as String,
         kind: json['kind'] as String,
-        occurredAt: DateTime.parse(json['occurred_at'] as String),
+        occurredAt: DateTime.parse(json['occurred_at'] as String).toUtc(),
         details: ClinicalEventDetails(
           summary: (json['payload'] as Map)['summary'] as String,
         ),

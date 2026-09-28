@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/design_system/clinical_design_system.dart';
+import '../../../core/time/clinical_time.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../clinical_event/domain/entities/clinical_event.dart';
 import '../../clinical_event/presentation/clinical_event_providers.dart';
@@ -44,7 +45,7 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 20, 20, 2),
               child: Text(
-                'Casos activos',
+                'Pacientes',
                 style: TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.w700,
@@ -56,7 +57,7 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 0, 20, 18),
               child: Text(
-                'Pacientes hospitalizados bajo tu atención',
+                'Consulta de pacientes',
                 style: TextStyle(fontSize: 15, color: _secondary),
               ),
             ),
@@ -253,15 +254,8 @@ class _PatientCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.circle, size: 8, color: _mint),
-                const SizedBox(width: 6),
-                const Text(
-                  'Ficha activa',
-                  style: TextStyle(fontSize: 12, color: _secondary),
-                ),
-                const Spacer(),
                 Text(
-                  'RUT: ${patient.maskedRut ?? 'No registrado'}',
+                  'Ficha del paciente · RUT: ${patient.maskedRut ?? 'No registrado'}',
                   style: const TextStyle(fontSize: 12, color: _secondary),
                 ),
               ],
@@ -412,7 +406,7 @@ class _PatientTimeline extends ConsumerWidget {
                 Icon(Icons.circle, size: 7, color: _mint),
                 SizedBox(width: 7),
                 Text(
-                  'HOY · REGISTRO CLÍNICO',
+                  'EVENTOS CLÍNICOS',
                   style: TextStyle(fontSize: 12, color: _secondary),
                 ),
               ],
@@ -453,7 +447,7 @@ class _PatientTimeline extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
             child: Text(
-              'Eventos recientes',
+              'Eventos clínicos',
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -553,7 +547,7 @@ class _TimelineEvent extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          _formatDateTime(event.occurredAt),
+                          formatClinicalDateTime(event.occurredAt),
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -731,31 +725,13 @@ class _PatientInformation extends StatelessWidget {
                         Text(
                           patient.birthDate == null
                               ? 'Ficha clínica'
-                              : 'Nacimiento: ${_formatDate(patient.birthDate)}',
+                              : 'Nacimiento: ${formatClinicalDate(patient.birthDate)}',
                           style: const TextStyle(
                             fontSize: 13,
                             color: _secondary,
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _softMint,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'Activo',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: _mintDark,
-                      ),
                     ),
                   ),
                 ],
@@ -779,7 +755,7 @@ class _PatientInformation extends StatelessWidget {
                   _PatientInfoRow(
                     icon: Icons.calendar_today_outlined,
                     label: 'Nacimiento',
-                    value: _formatDate(patient.birthDate),
+                    value: formatClinicalDate(patient.birthDate),
                   ),
                 ],
               ),
@@ -801,29 +777,6 @@ class _PatientInformation extends StatelessWidget {
                     'Cama',
                     patient.bedLabel ?? 'No registrada',
                     isLast: true,
-                  ),
-                ],
-              ),
-            ),
-            const Divider(
-              height: 1,
-              indent: 16,
-              endIndent: 16,
-              color: _separator,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-              child: Row(
-                children: [
-                  const Icon(Icons.circle, size: 8, color: _mint),
-                  const SizedBox(width: 7),
-                  const Text(
-                    'Hospitalización activa',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: _ink,
-                    ),
                   ),
                 ],
               ),
@@ -1091,14 +1044,6 @@ String _initials(String fullName) =>
         .take(2)
         .map((part) => part[0])
         .join();
-
-String _formatDate(DateTime? value) {
-  if (value == null) return 'No registrada';
-  return '${value.day.toString().padLeft(2, '0')}-${value.month.toString().padLeft(2, '0')}-${value.year}';
-}
-
-String _formatDateTime(DateTime value) =>
-    '${_formatDate(value)} · ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
 
 String _eventKindLabel(String kind) => switch (kind) {
   'observation' => 'Observación',

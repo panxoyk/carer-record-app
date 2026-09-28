@@ -19,6 +19,7 @@ Las referencias `ruta:líneas` describen el estado observado el 2026-09-27 y pue
 | EV-004 | La app separa repositorios de entidades           | `app/lib/domains/patient/data/patient_repository.dart:1-30` | Implementado               | Cobertura limitada a dominios actuales    |
 | EV-005 | FHIR está diferido                                | `scripts/data_pipeline/main.py:1-15`                        | Implementado como scaffold | No hay parser ni mapping                  |
 | EV-006 | Resumen está diferido                             | `supabase/functions/clinical-summary/index.ts:3-19`         | Implementado como stub     | Devuelve 501                              |
+| EV-007 | La demo presenta instantes en `America/Santiago`  | `app/lib/core/time/clinical_time.dart:4-24`                 | Implementado y probado     | La zona aún no se obtiene de organización |
 
 ## Seguridad y privacidad
 
@@ -39,14 +40,15 @@ Las referencias `ruta:líneas` describen el estado observado el 2026-09-27 y pue
 
 ## Calidad y entrega
 
-| ID         | Afirmación acotada                           | Fuente                                                            | Fuerza       | Limitación                               |
-| ---------- | -------------------------------------------- | ----------------------------------------------------------------- | ------------ | ---------------------------------------- |
-| EV-TST-001 | CI ejecuta base, checks y Flutter tests      | `.github/workflows/verify.yml:19-35`                              | Implementado | No contiene E2E nuevos                   |
-| EV-TST-002 | Hay scripts para pgTAP                       | `package.json:9-14`                                               | Implementado | Requiere runtime local/Docker            |
-| EV-TST-003 | Edge solo tiene checks estáticos por defecto | `package.json:21-26`                                              | Implementado | Sin tests HTTP                           |
-| EV-TST-004 | pgTAP cubre privilegios de helpers           | `supabase/tests/function_privileges.test.sql:1-47`                | Probado      | Solo funciones existentes                |
-| EV-TST-005 | Flutter cubre enmascaramiento y búsqueda     | `app/test/domains/patient/domain/entities/patient_test.dart:1-49` | Probado      | No hay widget/integration tests          |
-| EV-TST-006 | La suite del baseline es mínima              | `baseline/carer-record-app.md:165-189`                            | Observado    | Debe ampliarse por cortes de alto riesgo |
+| ID         | Afirmación acotada                            | Fuente                                                                                                                     | Fuerza       | Limitación                               |
+| ---------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------ | ---------------------------------------- |
+| EV-TST-001 | CI ejecuta base, checks y Flutter tests       | `.github/workflows/verify.yml:19-35`                                                                                       | Implementado | No contiene E2E nuevos                   |
+| EV-TST-002 | Hay scripts para pgTAP                        | `package.json:9-14`                                                                                                        | Implementado | Requiere runtime local/Docker            |
+| EV-TST-003 | Edge solo tiene checks estáticos por defecto  | `package.json:21-26`                                                                                                       | Implementado | Sin tests HTTP                           |
+| EV-TST-004 | pgTAP cubre privilegios de helpers            | `supabase/tests/function_privileges.test.sql:1-47`                                                                         | Probado      | Solo funciones existentes                |
+| EV-TST-005 | Flutter cubre enmascaramiento y búsqueda      | `app/test/domains/patient/domain/entities/patient_test.dart:1-49`                                                          | Probado      | No hay widget/integration tests          |
+| EV-TST-006 | La suite del baseline es mínima               | `baseline/carer-record-app.md:165-189`                                                                                     | Observado    | Debe ampliarse por cortes de alto riesgo |
+| EV-TST-007 | Flutter cubre fechas institucionales y textos | `app/test/core/time/clinical_time_test.dart:5-32`; `app/test/domains/patient/presentation/patient_screens_test.dart:25-81` | Probado      | Sin validación E2E                       |
 
 ## Evidencia pendiente por decisión
 

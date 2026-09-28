@@ -29,7 +29,7 @@ El baseline cargaba el listado permitido y filtraba nombre, RUT y unidad en Flut
 - El paciente y sus eventos fueron ingeridos por un proceso autorizado; la app no los crea.
 - RLS está habilitado en todas las tablas expuestas; el objetivo deriva acceso al paciente y recursos desde una hospitalización autorizada, no desde `patient_id` aislado.
 - El identificador de paciente proviene de una fila visible o se trata como entrada no confiable.
-- La zona horaria de presentación debe implementar la decisión UTC + zona IANA antes de considerar finalizada la experiencia; el baseline no lo hacía.
+- La demo presenta instantes UTC en `America/Santiago`; las fechas sin hora se muestran como fecha y no se convierten a medianoche.
 
 ## Flujo principal
 
@@ -69,7 +69,7 @@ sequenceDiagram
 - Error al cargar eventos con ficha visible: la ficha puede mostrarse con un estado de error independiente para la timeline, sin fabricar eventos.
 - RUT ausente o inválido: se muestra “No registrado” o una máscara segura; no se reconstruye.
 - Dataset mayor al límite de PostgREST: la futura paginación debe mantener RLS y búsqueda del lado servidor. El baseline no paginaba y su configuración local limitaba respuestas a 1000 filas.
-- Filtro temporal o zona horaria: hasta definir conversión, no se deben usar rótulos relativos como evidencia clínica exacta.
+- Filtro temporal o zona horaria: la interfaz presenta fecha y hora absolutas en la zona institucional; no usa rótulos relativos como evidencia clínica exacta.
 - Sin conexión: no se promete consulta offline. Solo podría mostrarse un caché clínico si una política futura define cifrado, expiración, invalidación y cierre de sesión.
 
 ## Estados
@@ -120,6 +120,7 @@ La auditoría de lectura clínica no está implementada en el repositorio. Antes
 - pgTAP: insert, update y delete denegados y filas sin cambios después del intento.
 - Unit test de dominio: búsqueda por nombre/RUT y enmascaramiento de RUT, por ser reglas de privacidad observables.
 - Manual: estados loading, vacío, no encontrado, error de red, sesión expirada y suspensión durante una sesión.
+- Flutter: conversión UTC a `America/Santiago`, borde de fecha, DST, fecha sin hora y textos neutros de consulta.
 - Manual: orden y filtros de timeline, campos de ficha y navegación directa con UUID sintético no visible.
 - Escala: comprobar límite y paginación antes de usar datasets que puedan superar `max_rows`.
 - Privacidad: inspeccionar logs y errores para confirmar ausencia de RUT completo y `payload.summary`.
