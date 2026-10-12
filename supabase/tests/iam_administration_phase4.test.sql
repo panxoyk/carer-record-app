@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap;
-select plan(58);
+select plan(72);
 select public.bootstrap_synthetic_hospitalization_fixtures();
 update public.permission_catalog set status='deprecated',deprecated_at=now() where code='clinical.timeline.read';
 
@@ -43,6 +43,23 @@ select is((select result_code from public.replace_iam_role_permissions(public.ph
 select is((select result_code from public.replace_iam_role_permissions(public.phase4_org(),(select id from public.roles where name='Synthetic observer'),null,'b9100000-0000-0000-0000-000000000024')),'permission_not_delegable','null permission set is invalid');
 select is((select result_code from public.replace_iam_role_permissions(public.phase4_org(),(select id from public.roles where name='Synthetic observer'),array[]::text[],'b9100000-0000-0000-0000-000000000024')),'idempotency_conflict','null and empty permission sets have distinct replay signatures');
 select is((select result_code from public.replace_iam_role_permissions(public.phase4_org(),(select id from public.roles where protected_kind='demo_administrator'),array['clinical.census.read'],'b9100000-0000-0000-0000-000000000005')),'protected_or_missing','ordinary operation cannot edit protected role');
+
+-- The clinician role is tenant configuration: is_system=false after the demotion.
+-- Composition, rename and deactivation are all permitted; the reserved permission is not.
+select ok((select not is_system and protected_kind is null from public.roles where name='Personal clínico'),'seeded clinician role is demoted to a tenant role');
+select ok((select is_system and protected_kind='demo_administrator' from public.roles where protected_kind='demo_administrator'),'demo administrator keeps is_system and protected_kind');
+select is((select result_code from public.replace_iam_role_permissions(public.phase4_org(),public.phase4_role('Personal clínico'),array['clinical.assigned.read','clinical.census.read','clinical.patient.read'],'b9100000-0000-4000-8000-000000000040')),'permissions_replaced','clinician role composition is permitted for possessed ordinary permissions');
+select ok((select count(*)=3 from public.role_permissions rp join public.roles r on r.id=rp.role_id where r.name='Personal clínico'),'clinician role composition persists the requested set');
+select is((select result_code from public.replace_iam_role_permissions(public.phase4_org(),public.phase4_role('Personal clínico'),array['clinical.organization.read'],'b9100000-0000-4000-8000-000000000041')),'permission_not_delegable','reserved system_only permission still refused on the clinician role');
+select is((select result_code from public.update_iam_role(public.phase4_org(),public.phase4_role('Personal clínico'),'Personal clínico actualizado','Descripcion actualizada','b9100000-0000-4000-8000-000000000042')),'updated','tenant clinician role is renameable');
+select ok((select name='Personal clínico actualizado' and description='Descripcion actualizada' from public.roles where name='Personal clínico actualizado'),'rename persists during onboarding');
+select is((select result_code from public.update_iam_role(public.phase4_org(),public.phase4_role('Personal clínico actualizado'),'Personal clínico','Rol seed para personal clínico sujeto a asignaciones asistenciales futuras.','b9100000-0000-4000-8000-000000000043')),'updated','clinician role name restored for later name-based lookups');
+select is((select result_code from public.replace_iam_role_permissions(public.phase4_org(),(select id from public.roles where protected_kind='demo_administrator'),array['clinical.census.read'],'b9100000-0000-4000-8000-000000000044')),'protected_or_missing','protected administrator composition still refused');
+select is((select result_code from public.create_iam_role(public.phase4_org(),'Discardable role','Deactivation fixture','b9100000-0000-4000-8000-000000000046')),'created','discardable role created for deactivation');
+select is((select result_code from public.deactivate_iam_role(public.phase4_org(),public.phase4_role('Discardable role'),'b9100000-0000-4000-8000-000000000047')),'deactivated','tenant role deactivation is permitted');
+select ok((select status='inactive' from public.roles where name='Discardable role'),'deactivated tenant role leaves the active directory');
+select is((select count(*)::int from iam_role_directory where role_name='Discardable role'),0,'deactivated role is not offered for new assignments');
+select is((select result_code from public.replace_iam_role_permissions(public.phase4_org(),public.phase4_role('Personal clínico'),array['clinical.assigned.read','clinical.census.read','clinical.patient.read'],'b9100000-0000-4000-8000-000000000045')),'permissions_replaced','clinician role composition restored for later assertions');
 select is((select result_code from public.grant_iam_role(public.phase4_org(),public.phase4_member('22222222-2222-2222-2222-222222222222'),(select id from public.roles where name='Synthetic observer'),now(),null,'b9100000-0000-0000-0000-000000000006')),'granted','role grant succeeds');
 select ok((select target_id is not null from public.grant_iam_role(public.phase4_org(),public.phase4_member('22222222-2222-2222-2222-222222222222'),(select id from public.roles where name='Synthetic observer'),now(),null,'b9100000-0000-0000-0000-000000000006')),'role grant returns stable assignment ID');
 select is((select result_code from public.grant_iam_role(public.phase4_org(),public.phase4_member('33333333-3333-3333-3333-333333333333'),(select id from public.roles where name='Synthetic observer'),now(),null,'b9100000-0000-0000-0000-000000000007')),'invalid_request','self role assignment denied');
