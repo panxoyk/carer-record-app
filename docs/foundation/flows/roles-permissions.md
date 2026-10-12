@@ -4,6 +4,8 @@
 
 El objetivo es convertir identidad, perfil, membresía, permiso, asignación asistencial, autoría y operación en una decisión consistente en Postgres y Edge Functions. La matriz global de lectura por enum está implementada; ADR-013 la sustituye para Personal clínico por un catálogo fijo, roles configurables y asignación vigente a hospitalización. Requiere migraciones aditivas y pruebas antes de habilitar notas o resúmenes.
 
+La sección "Administración institucional" de `/settings` ofrece enlaces independientes a roles/permisos, usuarios y asignaciones asistenciales según permisos efectivos. Estos enlaces no conceden autoridad: las rutas y operaciones requieren autorización propia en sus fronteras servidor/RLS.
+
 Solo se usan datos sintéticos para desarrollar y verificar este contrato.
 
 La evidencia HTTP de cierre usa el actor Administrador existente y verifica denegación al caller clínico y al JWT Service Role. El reset de integración se limita al Supabase local desechable; no crea permisos nuevos ni demuestra concurrencia de dos sesiones.
@@ -27,7 +29,7 @@ La matriz objetivo no concede capacidades por nombre de rol:
 | ------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------- |
 | Leer membresías                       | `iam.membership.read`                           | Misma organización                                              |
 | Gestionar membresías                  | `iam.membership.manage`                         | Autoridad delegable; sin autoelevación                          |
-| Componer roles                        | `iam.role.manage`                               | Catálogo fijo de permisos                                       |
+| Componer roles                        | `iam.role.manage`                               | Catálogo fijo; solo roles no protegidos                         |
 | Asignar roles y alcances              | `iam.role.assign`                               | Rol/unidad de la misma organización                             |
 | Gestionar asignaciones asistenciales  | `clinical.assignment.manage`                    | Permiso efectivo delegable, elegibilidad y tenant según ADR-014 |
 | Consultar censo, paciente y timeline  | `clinical.assigned.read` y permisos concretos   | Personal clínico: asignación vigente a la hospitalización       |
@@ -124,7 +126,7 @@ La auditoría registra tanto permitidos como denegados de alto riesgo: administr
 
 ## Pruebas
 
-- pgTAP del baseline por rol/estado y del objetivo por organización, membresía, permiso reservado no delegable, asignación asistencial vigente/revocada, alta/cancelación/corrección, traslado, múltiples episodios y tenant, con casos permitidos y denegados.
+- pgTAP del baseline por rol/estado y del objetivo por organización, membresía, permiso reservado no delegable, asignación asistencial vigente/revocada, alta/cancelación/corrección, traslado, múltiples episodios y tenant, con casos permitidos y denegados. El contrato de lectura administrativo conserva nombre y estado de membresía del asignado histórico para el gestor autorizado; una membresía suspendida queda inelegible para nuevas concesiones y sin acceso clínico, sin cerrar ni alterar el intervalo de su care assignment.
 - pgTAP de autoría: autor permitido; otro practitioner y administrador denegados; autor suspendido denegado.
 - pgTAP de privilegios: helpers solo para `authenticated`; triggers y normalizadores no invocables como RPC.
 - Edge Function: JWT ausente/inválido, perfil ausente, rol no permitido, suspensión y fuentes parcialmente ocultas.
@@ -136,13 +138,21 @@ La auditoría registra tanto permitidos como denegados de alto riesgo: administr
 
 ### Composición implementada en Flutter
 
-La ruta `/roles` y `RolesPermissionsScreen` ofrecen exclusivamente composición de roles ordinarios activos ya existentes. El acceso se presenta solo cuando el contexto efectivo de la organización incluye `iam.role.read` e `iam.role.manage`; un rol futuro con ambos permisos también accede. La pantalla agrupa los permisos por familia, muestra solo catálogo activo/delegable y oculta los roles protegidos. El directorio de roles y la lectura mínima tenant-scoped de `role_permissions` están sujetos a la política RLS de `iam.role.read`; el repositorio solo mezcla códigos de roles ordinarios activos del directorio. La composición completa preserva permisos deprecated, system-only o que el actor no posee, pero estos no aparecen como editables en el catálogo. Un permiso existente que ya no está disponible bloquea guardar: no se elimina silenciosamente.
+La ruta `/roles` y `RolesPermissionsScreen` ofrecen exclusivamente composición de roles activos no protegidos ya existentes. El acceso se presenta solo cuando el contexto efectivo de la organización incluye `iam.role.read` e `iam.role.manage`; un rol futuro con ambos permisos también accede. La pantalla agrupa los permisos por familia, muestra solo catálogo activo/delegable y oculta los roles protegidos. El directorio de roles y la lectura mínima tenant-scoped de `role_permissions` están sujetos a la política RLS de `iam.role.read`; `iam_role_directory` solo expone roles activos con `protected_kind` nulo y el repositorio solo mezcla sus códigos. La composición completa preserva permisos deprecated, system-only o que el actor no posee, pero estos no aparecen como editables en el catálogo. Un permiso existente que ya no está disponible bloquea guardar: no se elimina silenciosamente.
 
-La UI nunca es frontera de autorización. `replace_iam_role_permissions` revalida en PostgreSQL el tenant, el rol ordinario, los permisos activos ordinarios y que el actor pueda delegar cada permiso; el reemplazo completo es idempotente y conserva la auditoría del servidor. Confirmación explícita precede todo reemplazo, incluido el conjunto vacío. Un error de transporte permite reintentar el snapshot exacto con su misma clave; una nueva acción crea otra clave. Al éxito se invalidan autoridad y datos y se vuelve a consultar, sin conservar la composición anterior durante carga/error. No incluye CRUD de roles, cambios a roles protegidos ni asignaciones.
+La UI nunca es frontera de autorización. `replace_iam_role_permissions` revalida en PostgreSQL el tenant, el rol no protegido, los permisos activos ordinarios y que el actor pueda delegar cada permiso; el reemplazo completo es idempotente y conserva la auditoría del servidor. Confirmación explícita precede todo reemplazo, incluido el conjunto vacío. Un error de transporte permite reintentar el snapshot exacto con su misma clave; una nueva acción crea otra clave. Al éxito se invalidan autoridad y datos y se vuelve a consultar, sin conservar la composición anterior durante carga/error.
+
+### Mutabilidad de roles en el servidor
+
+La autorización administrativa separa dos marcas que antes estaban confundidas. `protected_kind` bloquea cualquier acción, incluida la composición, y es lo que protege al Administrador de demo. `is_system` registra procedencia —un rol entregado por CRA— y bloquea renombrar y desactivar, pero admite `iam.role.permissions.replace`. Ninguna de las dos se relaja para el permiso reservado `clinical.organization.read`: lo rechaza `delegation_policy = system_only` dentro de la propia función y, de forma independiente, el trigger `enforce_system_permission_composition` sobre `role_permissions`.
+
+Como el rol seed `Personal clínico` solo estaba marcado `is_system` por haber sido sembrado, `20261011400000_demote_clinician_role.sql` lo degrada a configuración del tenant: componerlo, renombrarlo y desactivarlo durante el onboarding deja de depender de una marca que solo refleja su origen. El Administrador de demo conserva `is_system = true` y `protected_kind = demo_administrator`. Flutter sigue sin exponer alta, renombrado ni desactivación de roles; la activación de un rol desactivado queda registrada como trabajo pendiente en `docs/todo.md`.
 
 ### UI de asignaciones asistenciales
 
-La UI admite varios profesionales asociados a una misma hospitalización. El UUID del episodio siempre está visible y es copiable; el nombre del paciente solo se muestra con `clinical.census.read` y `clinical.patient.read` efectivos, y si RLS autoriza la fila. La vista administrativa puede mostrar identificador, estado y fecha del episodio con `clinical.assignment.manage`, pero eso no concede censo clínico general, demografía ni recursos clínicos.
+La UI admite varios profesionales asociados a una misma hospitalización. El UUID del episodio siempre está visible y es copiable; el nombre del paciente solo se muestra con `clinical.census.read` y `clinical.patient.read` efectivos, y si RLS autoriza la fila. La vista administrativa puede mostrar identificador, estado y fecha del episodio con `clinical.assignment.manage`, pero eso no concede censo clínico general, demografía ni recursos clínicos. Para gestores autorizados, el historial conserva el nombre del asignado aunque su membresía esté suspendida; “Sin acceso · Membresía suspendida” indica la revocación de acceso de forma independiente y no cierra el período de la asignación. La elegibilidad para nuevas asignaciones continúa siendo exclusivamente de membresías activas.
+
+La tarjeta del episodio muestra el nombre autorizado del paciente o “Hospitalización”, sin anteponer un título duplicado “Ingreso”; su subtítulo conserva UUID, estado y fecha de ingreso. Puede filtrarse localmente por el nombre del paciente ya autorizado o por el UUID del episodio, sin consultas ni acceso clínico adicionales. Los tiempos se presentan en la zona IANA institucional y sin segundos: una asignación actual dice `Asignado el DD-MM-YYYY · HH:mm`; una revocada o finalizada muestra su intervalo de inicio a término con el mismo formato.
 
 - [`patients_rls.test.sql`](../../../supabase/tests/patients_rls.test.sql#L56-L169) separa administración de lectura clínica y niega todo acceso a suspendidos en el baseline.
 - [Control de acceso objetivo](../05-access-control.md) define catálogo fijo, roles organizacionales configurables, membresías y alcances.

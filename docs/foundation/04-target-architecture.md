@@ -48,7 +48,7 @@ La autorización del baseline permite lectura global de pacientes y eventos a cu
 
 ## Vista de contexto
 
-La vista Flutter de composición está disponible en `/roles`. La navegación exige los permisos efectivos `iam.role.read` e `iam.role.manage`; no depende del nombre o ID del rol. Presenta solo roles ordinarios existentes y permisos ordinarios activos que el actor puede delegar. La pantalla no es autoridad: la RPC transaccional `replace_iam_role_permissions` vuelve a validar actor, tenant, rol ordinario, catálogo delegable y permisos poseídos, y aplica el reemplazo completo con idempotencia.
+La vista Flutter de composición está disponible en `/roles`, alcanzable desde la sección de administración institucional de `/settings`. La navegación exige los permisos efectivos `iam.role.read` e `iam.role.manage`; no depende del nombre o ID del rol. Presenta solo roles activos no protegidos y permisos ordinarios activos que el actor puede delegar. La pantalla no es autoridad: la RPC transaccional `replace_iam_role_permissions` vuelve a validar actor, tenant, rol no protegido, catálogo delegable y permisos poseídos, y aplica el reemplazo completo con idempotencia.
 
 ```mermaid
 flowchart LR

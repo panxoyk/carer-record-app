@@ -12,7 +12,7 @@ Este archivo organiza tareas secuenciales de implementación. El alcance, las de
 
 ## Cierre de brechas MVP
 
-- [x] Cerrar la vista Flutter de composición de permisos: `/roles`, roles ordinarios existentes, acceso por `iam.role.read` + `iam.role.manage`, reemplazo completo confirmado y gate UI pre-PR documentado. No incluye CRUD ni roles protegidos.
+- [x] Cerrar la vista Flutter de composición de permisos: `/roles`, roles activos no protegidos existentes, acceso por `iam.role.read` + `iam.role.manage`, reemplazo completo confirmado y gate UI pre-PR documentado. No incluye CRUD de roles ni cambios a roles protegidos.
 
 ### 1. Textos clínicos y fechas
 
@@ -35,6 +35,8 @@ Este archivo organiza tareas secuenciales de implementación. El alcance, las de
 - [ ] Validar recuperación de contraseña con la aplicación cerrada.
 - [ ] Verificar los recorridos de UI para roles clínicos, administrador y cuenta suspendida.
 - [ ] Registrar evidencia manual reproducible de los recorridos validados.
+- [ ] Exponer en Flutter la gestión de roles que el servidor ya soporta. Hoy `create_iam_role`, `update_iam_role` y `deactivate_iam_role` existen como RPC públicas auditadas, y `deactivate_iam_role` ya está probada en pgTAP desde la degradación del rol seed, pero ninguna tiene pantalla: la composición de `/roles` no las invoca. `activate_iam_role` no existe, de modo que un rol desactivado queda inerte sin una migración. Nota: los roles del seed son de prueba y el hospital los reemplaza durante el onboarding, así que la reactivación no es urgente, pero sin ella el deactivate es irreversible desde la app.
+- [ ] Evaluar el borrado duro de roles. Hoy solo existe desactivación (soft delete, `status = 'inactive'`) porque todas las FK a `roles` son `on delete restrict` y la auditoría es append-only.
 
 ### 4. Pruebas y guardrails
 

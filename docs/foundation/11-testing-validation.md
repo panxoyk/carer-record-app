@@ -62,6 +62,8 @@ Los tests actuales proporcionan ejemplos: casos anónimo y sin perfil (`supabase
 
 Al implementar ADR-005 y ADR-013, pgTAP debe probar concesión, revocación, vigencia temporal, conflicto entre grants, suspensión y ausencia de fila. Debe demostrar que `clinical.organization.read` solo puede estar en el rol protegido, no se copia ni delega a roles clínicos ordinarios y RLS no decide por nombre/ID. También debe probar Personal clínico asignado/no asignado, alta con lectura histórica, cancelación/invalidación, corrección sin herencia, traslado, bootstrap/último Administrador y revocación efectiva en una sesión ya iniciada.
 
+La mutabilidad de roles se verifica por separado de la composición. Un rol de configuración del tenant admite composición, renombrado y desactivación; el rol con `protected_kind` rechaza las tres; un rol marcado `is_system` pero no protegido admitiría composición y rechazaría renombrado y desactivación. En todos los casos el permiso reservado se rechaza y la composición persistida coincide con la solicitada.
+
 ### Caché y outbox
 
 Probar restricciones únicas para claves de idempotencia, aislamiento por paciente, transición válida de estados, reclamación concurrente por un solo worker, reintento con backoff, dead-letter y ausencia de payload clínico no autorizado. Para caché, probar hit exacto, miss por versión/modelo, invalidación por cambio de fuente, expiración y RLS.
@@ -70,9 +72,11 @@ Probar restricciones únicas para claves de idempotencia, aislamiento por pacien
 
 ### Pruebas unitarias
 
-Cubrir reglas públicas y estables: contratos tipados por hospitalización, búsqueda de censo solo por nombre, ubicación sin UUID, summary tipado, invalidación y estados que retiran contenido previo. Las antiguas pruebas de enmascaramiento/búsqueda de RUT ya no representan el producto y fueron sustituidas por reglas de minimización.
+Cubrir reglas públicas y estables: contratos tipados por hospitalización, búsqueda de censo solo por nombre, ubicación sin UUID, summary tipado, invalidación y estados que retiran contenido previo. Para la gestión de asignaciones, cubrir el contrato histórico de nombre/estado de membresía del asignado, elegibilidad activa para nuevas concesiones, filtro local por nombre de paciente autorizado o UUID de episodio y presentación institucional sin segundos de asignaciones actuales e históricas. Las antiguas pruebas de enmascaramiento/búsqueda de RUT ya no representan el producto y fueron sustituidas por reglas de minimización.
 
 Nombrar cada test por su resultado observable y condición, mantener una regla por test y usar fixtures locales válidos que sobrescriban solo el dato relevante. Evitar mocks, setup y helpers compartidos cuando un fixture local resulte más claro.
+
+La navegación debe verificar que `/` dirige a `/patients` a los usuarios con permisos clínicos efectivos y a `/settings` cuando no los tienen. Verificar también que las entradas de administración institucional en ajustes son independientes, aparecen según permisos efectivos, se ocultan cuando el usuario no tiene ninguno, y que la sección no concede autoridad.
 
 ### Pruebas de widget e integración selectivas
 
@@ -206,4 +210,8 @@ Phase 4.2 adds PostgreSQL preflight/registration tests for normalized Auth-email
 
 ### Gate UI pre-PR: composición de permisos
 
-La evidencia dirigida de Flutter cubre autorización por ambos permisos efectivos, rechazo y no consulta de catálogo/roles sin acceso, carga/error/reintento, roles ordinarios únicamente, protección ante permisos ocultos, composición completa y vacía confirmada, cambios de rol/organización sin contenido anterior, sanitización de denegaciones, retry con snapshot/clave idénticos y clave nueva para gesto nuevo, e invalidación tras éxito. El gate pre-PR ejecuta una vez `pnpm app:format:check`, `pnpm app:analyze`, `pnpm app:test`, `pnpm docs:format:check`, `pnpm docs:lint` y `git diff --check`. No se ejecutan reset, tests/upgrade de DB, Edge, integración ni pipeline cuando esas capas no cambian.
+La evidencia dirigida de Flutter cubre autorización por ambos permisos efectivos, rechazo y no consulta de catálogo/roles sin acceso, carga/error/reintento, roles activos no protegidos únicamente, protección ante permisos ocultos, composición completa y vacía confirmada, cambios de rol/organización sin contenido anterior, sanitización de denegaciones, retry con snapshot/clave idénticos y clave nueva para gesto nuevo, e invalidación tras éxito. Para care assignments, cubre el nombre histórico del asignado suspendido, su indicador independiente de falta de acceso, filtro local por paciente autorizado o UUID de episodio, tarjeta sin título “Ingreso” duplicado y fechas institucionales sin segundos con intervalos para revocadas/finalizadas. El gate pre-PR ejecuta una vez `pnpm app:format:check`, `pnpm app:analyze`, `pnpm app:test`, `pnpm docs:format:check`, `pnpm docs:lint` y `git diff --check`. No se ejecutan reset, tests/upgrade de DB, Edge, integración ni pipeline cuando esas capas no cambian.
+
+### Registro de ejecución: historial asistencial y mutabilidad de roles (2026-10-12)
+
+Rama `main`, HEAD `3d58988ea294269d525868ecfcc067bb0a1a4b50`, working tree modificado sin commit. `pnpm db:reset` aplicó `20261011380000`, `20261011390000` y `20261011400000`; `pnpm db:lint` sin errores de esquema; `pnpm db:test` 405/405 en 10 archivos, con los 14 asserts nuevos de mutabilidad de rol dentro de `iam_administration_phase4.test.sql`; `pnpm db:upgrade:test` aprobó el upgrade aislado baseline→fase 4.3, confirmando que degradar el rol seed no rompe `bootstrap_legacy_practitioner_iam`, que se ejecuta en una migración anterior. `pnpm app:analyze` sin issues y `pnpm app:test` 103/103. `pnpm app:format:check` detectó tres archivos sin formatear y se corrigieron solo con `dart format`, sin cambio semántico; luego 42 archivos, 0 cambios. `pnpm docs:format:check`, `pnpm docs:lint` (53 archivos, 0 issues) y `git diff --check` pasaron. No se ejecutaron Edge, integración local, pipeline ni `security:evidence:phase51`: las capas que cambiaron son migración, Flutter y documentación. La carrera concurrente del último Administrador entre dos sesiones sigue sin verificarse.

@@ -146,6 +146,7 @@ Reglas de administración:
 
 - Un nombre de rol es único dentro de la organización, no global.
 - El rol seed Administrador es protegido: no se elimina, desactiva, clona ni modifica por la administración ordinaria. Su permiso `clinical.organization.read` solo puede pertenecer a ese rol y no es delegable ni copiable a un rol clínico ordinario.
+- `protected_kind` e `is_system` tienen efectos distintos y no intercambiables. `protected_kind` bloquea toda acción administrativa ordinaria, incluida la composición. `is_system` marca solo la procedencia —un rol entregado por CRA— y bloquea renombrar y desactivar, pero admite reemplazo de composición. Por eso el rol seed `Personal clínico` se degrada a configuración del tenant en `20261011400000_demote_clinician_role.sql`: componer, renombrar y desactivar quedan disponibles durante el onboarding sin tocar la marca que protege al Administrador de demo.
 - Un rol desactivado no puede recibir nuevas asignaciones y sus asignaciones vigentes dejan de conceder permisos.
 - Nadie puede asignar un permiso que su propia autoridad administrativa no le permita gestionar. Como mínimo, la operación exige `iam.role.assign`; para evitar autoelevación, la función compara el conjunto solicitado con el conjunto delegable definido por política de plataforma. La asignación del rol Administrador protegido es una operación separada, solo ejecutable por otro Administrador efectivo sobre una membresía activa de la misma organización.
 - Cambiar la composición de un rol tiene efecto inmediato en RLS y genera auditoría.
