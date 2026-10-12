@@ -2,16 +2,18 @@
 
 ## Estado y objetivo
 
-El objetivo es convertir identidad, perfil, membresía, permiso, alcance, autoría y operación en una decisión consistente en Postgres y Edge Functions. La matriz global de lectura por enum está implementada; el contrato objetivo la sustituye por un catálogo fijo de permisos combinado en roles configurables por organización y requiere migraciones aditivas y pruebas antes de habilitar notas o resúmenes.
+El objetivo es convertir identidad, perfil, membresía, permiso, asignación asistencial, autoría y operación en una decisión consistente en Postgres y Edge Functions. La matriz global de lectura por enum está implementada; ADR-013 la sustituye para Personal clínico por un catálogo fijo, roles configurables y asignación vigente a hospitalización. Requiere migraciones aditivas y pruebas antes de habilitar notas o resúmenes.
 
 Solo se usan datos sintéticos para desarrollar y verificar este contrato.
+
+La evidencia HTTP de cierre usa el actor Administrador existente y verifica denegación al caller clínico y al JWT Service Role. El reset de integración se limita al Supabase local desechable; no crea permisos nuevos ni demuestra concurrencia de dos sesiones.
 
 ## Actores
 
 - Persona anónima.
 - Cuenta autenticada sin perfil.
 - Perfil y membresía en estado activo o suspendido.
-- Roles configurables, asignaciones vigentes y alcances de organización o unidad.
+- Roles configurables, asignaciones vigentes a hospitalización y alcances de organización o unidad que no sustituyen esa asignación para Personal clínico.
 - Autor de una nota y otros practitioners.
 - Postgres con RLS y Edge Functions autenticadas.
 
@@ -21,24 +23,26 @@ El baseline demuestra que `physician`, `nurse` y `technician` activos leen pacie
 
 La matriz objetivo no concede capacidades por nombre de rol:
 
-| Operación                             | Permiso objetivo                                        | Restricción adicional                                       |
-| ------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------- |
-| Leer membresías                       | `iam.membership.read`                                   | Misma organización                                          |
-| Gestionar membresías                  | `iam.membership.manage`                                 | Autoridad delegable; sin autoelevación                      |
-| Componer roles                        | `iam.role.manage`                                       | Catálogo fijo de permisos                                   |
-| Asignar roles y alcances              | `iam.role.assign`                                       | Rol/unidad de la misma organización                         |
-| Consultar censo, paciente y timeline  | `clinical.census.read`, `clinical.patient.read` y otros | Hospitalización dentro del alcance                          |
-| Crear nota textual o de audio         | `context.note.create`                                   | Hospitalización accesible                                   |
-| Confirmar nota                        | `context.note.confirm`                                  | Mismo autor; borrador vigente                               |
-| Leer nota confirmada                  | `context.note.read`                                     | Hospitalización dentro del alcance                          |
-| Generar resumen temporal              | Permisos de lectura de cada fuente                      | Todas las fuentes y hospitalizaciones deben estar cubiertas |
-| Publicar resumen de periodo como nota | Ninguno                                                 | Operación prohibida                                         |
+| Operación                             | Permiso objetivo                                | Restricción adicional                                           |
+| ------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------- |
+| Leer membresías                       | `iam.membership.read`                           | Misma organización                                              |
+| Gestionar membresías                  | `iam.membership.manage`                         | Autoridad delegable; sin autoelevación                          |
+| Componer roles                        | `iam.role.manage`                               | Catálogo fijo de permisos                                       |
+| Asignar roles y alcances              | `iam.role.assign`                               | Rol/unidad de la misma organización                             |
+| Gestionar asignaciones asistenciales  | `clinical.assignment.manage`                    | Permiso efectivo delegable, elegibilidad y tenant según ADR-014 |
+| Consultar censo, paciente y timeline  | `clinical.assigned.read` y permisos concretos   | Personal clínico: asignación vigente a la hospitalización       |
+| Consulta clínica organizacional demo  | `clinical.organization.read` y permiso concreto | Solo rol seed protegido; no delegable ni copiable               |
+| Crear nota textual o de audio         | `context.note.create`                           | Hospitalización accesible                                       |
+| Confirmar nota                        | `context.note.confirm`                          | Mismo autor; borrador vigente                                   |
+| Leer nota confirmada                  | `context.note.read`                             | Hospitalización dentro del alcance                              |
+| Generar resumen temporal              | Permisos de lectura de cada fuente              | Todas las fuentes y hospitalizaciones deben estar cubiertas     |
+| Publicar resumen de periodo como nota | Ninguno                                         | Operación prohibida                                             |
 
 ## Precondiciones
 
 - La solicitud tiene JWT válido cuando no es pública.
 - Existe un perfil activo vinculado a `auth.uid()` y una membresía activa en la organización del recurso.
-- La asignación de rol está activa y vigente, contiene el permiso requerido y su alcance cubre la unidad/hospitalización.
+- La asignación de rol está activa y vigente y contiene el permiso requerido. Para Personal clínico también existe una asignación asistencial vigente a la hospitalización; el alcance de rol no la reemplaza.
 - La operación, organización, hospitalización y recurso están identificados; no se autoriza solo por ocultar una ruta ni por `patient_id` aislado.
 - Para confirmar o descartar, `author_id = auth.uid()` y la operación sigue en un estado local confirmable.
 - Para resúmenes, todas las fuentes solicitadas son visibles para el llamador bajo RLS.
@@ -49,10 +53,10 @@ La matriz objetivo no concede capacidades por nombre de rol:
 1. El cliente autentica al usuario y envía el JWT.
 2. Postgres o la Edge Function valida el JWT y resuelve `auth.uid()`.
 3. Se cargan perfil, membresía, asignaciones, composición del rol y vigencia desde la base; no se confía en rol, organización o alcance enviados por Flutter.
-4. Se evalúan operación, permiso, organización, alcance de unidad/hospitalización y, cuando corresponde, autoría.
+4. Se evalúan operación, permiso y organización. Para Personal clínico se exige asignación asistencial vigente a la hospitalización; para Administración demo se exige `clinical.organization.read` reservado y alcance organizacional; cuando corresponde también se evalúa autoría.
 5. RLS filtra filas y `with check` valida cualquier fila nueva o modificada.
-6. La operación se ejecuta con el contexto del llamador.
-7. Se registra una decisión de auditoría sin contenido clínico ni credenciales.
+6. La concesión/revocación asistencial invoca su RPC tipada PostgreSQL; actor, permiso efectivo, tenant, elegibilidad del target, intervalo e idempotencia se verifican en la transacción. El actor procede solo de `auth.uid()` y no puede autoasignarse.
+7. Se registra una decisión permitida o denegada atribuible sin contenido clínico ni credenciales. El subset de auditoría de asignaciones es append-only y se lee con `audit.read` bajo RLS.
 8. La respuesta contiene solo recursos permitidos; una denegación no revela existencia de filas ocultas.
 
 ```mermaid
@@ -78,7 +82,7 @@ flowchart TD
 - Perfil ausente, suspendido o rol no permitido: `403` sin revelar el recurso clínico.
 - Composición, asignación o alcance cambiados durante una sesión: la siguiente consulta usa el valor vigente de base de datos; el JWT no es fuente de permisos.
 - Suspensión del perfil o membresía durante una operación: la mutación debe reevaluar estado en la misma transacción; no basta un chequeo previo en UI.
-- Intento administrativo sobre datos clínicos: se deniega aunque el administrador tenga Service Role disponible en otra función.
+- Intento administrativo sobre datos clínicos: se deniega sin `clinical.organization.read` reservado y permiso concreto; el Administrador de demo sigue sujeto a RLS y tenant aunque tenga una operación servidor disponible.
 - Intento de confirmar por otra persona: se deniega; no se crea `awaiting_review` ni reasignación.
 - Fuente parcialmente no autorizada en un resumen: se rechaza la solicitud completa en vez de producir una salida ambigua.
 - Función helper invocada por `anon`: privilegio de ejecución denegado.
@@ -93,7 +97,7 @@ No existe `awaiting_review`. `ready_to_confirm` es un estado local accesible exc
 
 - Identidad de seguridad: `auth.uid()` derivada del JWT.
 - Baseline: `practitioners.id`, `role`, `status`.
-- Objetivo: perfil, `organization_membership`, rol, catálogo/composición, asignación, vigencia y alcance.
+- Objetivo: perfil, `organization_membership`, rol, catálogo/composición, asignación de rol, `care_assignment`, vigencia y alcance.
 - Contexto de recurso: `organization_id`, `hospitalization_id`, operación, `author_id` y estado persistido cuando corresponda.
 - Contexto de síntesis: idempotency key, versión de pipeline y fuentes autorizadas; nunca un rol declarado por cliente.
 - Auditoría: actor, rol observado, acción, recurso, decisión, política/versión y timestamp, sin cuerpo clínico.
@@ -108,9 +112,10 @@ La auditoría registra tanto permitidos como denegados de alto riesgo: administr
 
 ## Criterios de aceptación
 
-- La matriz del baseline permanece como evidencia histórica; el objetivo decide por catálogo, membresía y alcance en API directa, no por nombre de rol ni navegación.
-- Una autoridad IAM gestiona acceso pero no lee ni escribe información clínica sin permisos clínicos deliberados.
-- Perfil/membresía suspendidos, asignación vencida, permiso ausente o alcance ajeno deniegan.
+- La matriz del baseline permanece como evidencia histórica; el objetivo decide por catálogo, membresía, alcance y asignación en API directa, no por nombre/ID de rol ni navegación.
+- Una autoridad IAM gestiona acceso pero no lee ni escribe información clínica sin permisos clínicos deliberados; el Administrador de demo los recibe mediante `clinical.organization.read` reservado y no por su nombre/ID.
+- Perfil/membresía suspendidos, asignación asistencial vencida o ausente, permiso ausente o tenant ajeno deniegan a Personal clínico; cancelación/invalidación deniega y un traslado no modifica una asignación del mismo episodio.
+- `clinical.organization.read` no puede agregarse, copiarse ni delegarse a roles ordinarios; solo la operación protegida puede asignar el rol Administrador y nunca deja a la organización sin uno efectivo.
 - Solo el mismo autor activo confirma o descarta una nota en curso.
 - Ningún rol publica un resumen temporal como nota.
 - Cambios de rol o estado afectan la siguiente operación y no requieren reinstalar la app.
@@ -119,7 +124,7 @@ La auditoría registra tanto permitidos como denegados de alto riesgo: administr
 
 ## Pruebas
 
-- pgTAP del baseline por rol/estado y del objetivo por organización, membresía, permiso, vigencia y alcance, con casos permitidos y denegados.
+- pgTAP del baseline por rol/estado y del objetivo por organización, membresía, permiso reservado no delegable, asignación asistencial vigente/revocada, alta/cancelación/corrección, traslado, múltiples episodios y tenant, con casos permitidos y denegados.
 - pgTAP de autoría: autor permitido; otro practitioner y administrador denegados; autor suspendido denegado.
 - pgTAP de privilegios: helpers solo para `authenticated`; triggers y normalizadores no invocables como RPC.
 - Edge Function: JWT ausente/inválido, perfil ausente, rol no permitido, suspensión y fuentes parcialmente ocultas.
@@ -129,9 +134,19 @@ La auditoría registra tanto permitidos como denegados de alto riesgo: administr
 
 ## Evidencia y referencias
 
+### Composición implementada en Flutter
+
+La ruta `/roles` y `RolesPermissionsScreen` ofrecen exclusivamente composición de roles ordinarios activos ya existentes. El acceso se presenta solo cuando el contexto efectivo de la organización incluye `iam.role.read` e `iam.role.manage`; un rol futuro con ambos permisos también accede. La pantalla agrupa los permisos por familia, muestra solo catálogo activo/delegable y oculta los roles protegidos. El directorio de roles y la lectura mínima tenant-scoped de `role_permissions` están sujetos a la política RLS de `iam.role.read`; el repositorio solo mezcla códigos de roles ordinarios activos del directorio. La composición completa preserva permisos deprecated, system-only o que el actor no posee, pero estos no aparecen como editables en el catálogo. Un permiso existente que ya no está disponible bloquea guardar: no se elimina silenciosamente.
+
+La UI nunca es frontera de autorización. `replace_iam_role_permissions` revalida en PostgreSQL el tenant, el rol ordinario, los permisos activos ordinarios y que el actor pueda delegar cada permiso; el reemplazo completo es idempotente y conserva la auditoría del servidor. Confirmación explícita precede todo reemplazo, incluido el conjunto vacío. Un error de transporte permite reintentar el snapshot exacto con su misma clave; una nueva acción crea otra clave. Al éxito se invalidan autoridad y datos y se vuelve a consultar, sin conservar la composición anterior durante carga/error. No incluye CRUD de roles, cambios a roles protegidos ni asignaciones.
+
+### UI de asignaciones asistenciales
+
+La UI admite varios profesionales asociados a una misma hospitalización. El UUID del episodio siempre está visible y es copiable; el nombre del paciente solo se muestra con `clinical.census.read` y `clinical.patient.read` efectivos, y si RLS autoriza la fila. La vista administrativa puede mostrar identificador, estado y fecha del episodio con `clinical.assignment.manage`, pero eso no concede censo clínico general, demografía ni recursos clínicos.
+
 - [`patients_rls.test.sql`](../../../supabase/tests/patients_rls.test.sql#L56-L169) separa administración de lectura clínica y niega todo acceso a suspendidos en el baseline.
 - [Control de acceso objetivo](../05-access-control.md) define catálogo fijo, roles organizacionales configurables, membresías y alcances.
-- [ADR-005](../decisions/adr-005-permisos-configurables.md) registra la transición desde roles hard-coded a permisos configurables aplicados por RLS.
+- [ADR-005](../decisions/adr-005-permisos-configurables.md) y [ADR-013](../decisions/adr-013-acceso-clinico-por-asignacion.md) registran la transición desde roles hard-coded a permisos configurables y asignación asistencial aplicados por RLS.
 - [`patient_read_access.sql`](../../../supabase/migrations/20260910100000_patient_read_access.sql#L3-L23) autoriza lectura a los tres roles asistenciales activos.
 - [`clinical_timeline.sql`](../../../supabase/migrations/20260910110000_clinical_timeline.sql#L53-L68) aplica la misma matriz a eventos.
 - [`harden_function_privileges.sql`](../../../supabase/migrations/20260912000000_harden_function_privileges.sql#L3-L56) fija `search_path` y revoca ejecución innecesaria.

@@ -4,7 +4,7 @@
 
 La validación debe producir evidencia proporcionada al riesgo del prototipo, especialmente en autorización, privacidad, transformación clínica e idempotencia. No demuestra seguridad o eficacia clínica productiva. Una prueba automatizada confirma un contrato bajo condiciones conocidas; no reemplaza revisión jurídica, clínica, de usabilidad o seguridad independiente.
 
-La suite capturada en el baseline protege RLS, privilegios SQL y enmascaramiento de RUT. El workflow observado levanta Supabase, reconstruye la base, ejecuta lint y pgTAP y luego valida Flutter (`.github/workflows/verify.yml:19-35`). La fotografía no contiene implementación ni evidencia para audio, FHIR, ASR, NER, síntesis, caché, outbox o E2E.
+La suite histórica del baseline protegía RLS, privilegios SQL y enmascaramiento de RUT; la consulta actual no transporta identificadores completos. El workflow observado levanta Supabase, reconstruye la base, ejecuta lint y pgTAP y luego valida Flutter (`.github/workflows/verify.yml:19-35`). La fotografía no contiene implementación ni evidencia para audio, FHIR, ASR, NER, síntesis, caché, outbox o E2E.
 
 ## Principios
 
@@ -39,6 +39,10 @@ El baseline fechado en esta fundación constata que todavía no existen tests HT
 
 Cada migración que cambie autorización, entidad sensible, outbox o caché debe incluir pruebas dentro de una transacción con rollback. La prueba debe ejecutar como `anon`, `authenticated` u otro rol real, fijando claims explícitos.
 
+Las migraciones de backfill IAM se validan además con `pnpm db:upgrade:test`: un proyecto Supabase desechable aplica la cadena baseline, inserta practitioners exclusivamente sintéticos antes de fase 1, aplica las migraciones IAM y verifica el backfill y su idempotencia. Este escenario es independiente de `pnpm db:reset` y no utiliza la base local habitual.
+
+El harness aplica fases 2.1, 2.2, 3.1 y 3.2 después de IAM. `supabase/tests/clinical_rls_phase3.test.sql` verifica desaparición de helpers/policies legacy, grants sensibles, ausencia de INSERT/UPDATE/DELETE/TRUNCATE para `authenticated` y `service_role`, bridge propietario controlado, contratos exactos de vistas, permiso acumulativo para demografía, tenant, asignación por episodio, estados futuro/vencido/revocado, suspensión, episodios múltiples y revocación en sesión; `patients_rls.test.sql` trata las filas sin enlace como ocultas. La migración `20261011280000_harden_clinical_runtime_writes_and_views.sql` añade esas defensas y completa censo/timeline. La subtarea Flutter 4.4 consume los contratos; la integración 4.5 fue revisada y el gate 5.2 la cerró para demo sintética/local. La concurrencia de dos sesiones permanece sin probar.
+
 ### Matriz mínima por recurso sensible
 
 - anónimo: no puede leer ni mutar;
@@ -46,7 +50,7 @@ Cada migración que cambie autorización, entidad sensible, outbox o caché debe
 - practitioner activo con permiso: solo ejecuta la operación concedida;
 - practitioner activo sin permiso: denegado aunque conozca el ID;
 - cuenta suspendida: denegada inmediatamente;
-- administrador: no hereda acceso clínico;
+- administrador sin `clinical.organization.read`: no hereda acceso clínico; Administrador de demo con permiso reservado y permisos concretos: solo su tenant;
 - Service Role: se usa solo en test servidor explícito, nunca como sustituto de casos RLS;
 - pertenencia: un sujeto autorizado para A no observa B cuando exista segmentación;
 - mutación: `insert`, `update` y `delete` se prueban por separado;
@@ -56,7 +60,7 @@ Los tests actuales proporcionan ejemplos: casos anónimo y sin perfil (`supabase
 
 ### Permisos configurables
 
-Al implementar ADR-005, pgTAP debe probar concesión, revocación, vigencia temporal si existe, conflicto entre grants, suspensión y ausencia de fila. Debe demostrar que cambiar configuración modifica la decisión sin editar SQL y que una revocación invalida acceso en una sesión ya iniciada según el contrato definido.
+Al implementar ADR-005 y ADR-013, pgTAP debe probar concesión, revocación, vigencia temporal, conflicto entre grants, suspensión y ausencia de fila. Debe demostrar que `clinical.organization.read` solo puede estar en el rol protegido, no se copia ni delega a roles clínicos ordinarios y RLS no decide por nombre/ID. También debe probar Personal clínico asignado/no asignado, alta con lectura histórica, cancelación/invalidación, corrección sin herencia, traslado, bootstrap/último Administrador y revocación efectiva en una sesión ya iniciada.
 
 ### Caché y outbox
 
@@ -66,7 +70,7 @@ Probar restricciones únicas para claves de idempotencia, aislamiento por pacien
 
 ### Pruebas unitarias
 
-Cubrir reglas públicas y estables: clasificación de estado, tokenización/reversión, generación de claves, invalidación de caché y presentación que evita exposición. El ejemplo vigente valida que un RUT válido revela solo tres dígitos y que uno malformado no se expone (`app/test/domains/patient/domain/entities/patient_test.dart:5-28`). Ese test protege presentación; no autoriza cargar el RUT ni anonimiza el registro.
+Cubrir reglas públicas y estables: contratos tipados por hospitalización, búsqueda de censo solo por nombre, ubicación sin UUID, summary tipado, invalidación y estados que retiran contenido previo. Las antiguas pruebas de enmascaramiento/búsqueda de RUT ya no representan el producto y fueron sustituidas por reglas de minimización.
 
 Nombrar cada test por su resultado observable y condición, mantener una regla por test y usar fixtures locales válidos que sobrescriban solo el dato relevante. Evitar mocks, setup y helpers compartidos cuando un fixture local resulte más claro.
 
@@ -176,10 +180,30 @@ Los resultados negativos son válidos. No se convierten en afirmaciones clínica
 
 ## Comandos y evidencia actual
 
-- Base: `pnpm db:reset`, `pnpm db:lint`, `pnpm db:test` (`package.json:12-14`).
+- Base: `pnpm db:reset`, `pnpm db:lint`, `pnpm db:test` y `pnpm db:upgrade:test` para validar upgrades con datos sintéticos previos (`package.json:12-15`).
 - Flutter: `pnpm app:format:check`, `pnpm app:analyze`, `pnpm app:test` (`package.json:16-19`).
 - Edge: `pnpm functions:check` (`package.json:21-26`).
+- Integración local fases 3+4: `pnpm integration:local` hace reset al inicio y en `finally` al terminar, autentica actores seed, llama RPC/PostgREST y Edge local, y restablece el baseline sintético. Es destructivo exclusivamente para Supabase local desechable; nunca borrar historia/auditoría manualmente ni usar con proyecto remoto. No imprime tokens, contraseñas, correos ni cuerpos de respuesta.
 - Pipeline: `pnpm pipeline:check`, que en el baseline solo validaba el scaffold (`package.json:20`).
 - Documentación: `pnpm docs:format:check` y `pnpm docs:lint` (`package.json:27-29`).
 
 La trazabilidad objetivo está en [requirements-traceability.md](appendices/requirements-traceability.md) y las brechas vigentes en [evidence-index.md](appendices/evidence-index.md).
+
+### Evidencia dirigida fase 5.1 (2026-10-11)
+
+`pnpm security:evidence:phase51` inspecciona el esquema local resetado, grants/runtime DML, `proconfig` de funciones `SECURITY DEFINER`, policies/helper clínicos legacy, opciones de vistas, presencia de índices y literales de claves/JWT en archivos del working tree; además imprime `EXPLAIN` estimado para organización+hospitalización, membership, role assignment y care assignment. EXPLAIN solo muestra planificación/indexabilidad sobre el seed pequeño: no prueba ejecución de RLS ni comportamiento runtime. No se exige que el planner elija un índice con el seed pequeño ni se agregan índices para alterar ese plan. No usa `ANALYZE` ni datos reales.
+
+`care_assignment_operations_phase2.test.sql` comprueba adicionalmente que metadata de auditoría no contiene campos de email, credenciales, RUT, nombres ni contenido/payload clínico. Las pruebas existentes comprueban denegaciones atribuibles, vistas invoker/barrier, technician sin asignación/acceso clínico y filas sin vínculo inequívoco ocultas. `integration:local` verifica censo, `clinical_patient_demographics_by_hospitalization` y timeline permitidos/manipulados/revocados con el mismo JWT clínico; también prueba Edge 403/400, alta 201, replay 200, conflicto 409 y denegación del caller clínico/Service Role. La identidad sintética única se mantiene en memoria; reset antes/después limpia exclusivamente el proyecto local desechable e incluye auditoría append-only.
+
+La evidencia es local y acotada; no constituye autorización para producción ni garantía de seguridad. La carrera concurrente del último Administrador entre dos sesiones sigue siendo un límite: pgTAP valida contrato/invariantes sin concurrencia real y no se agregó una prueba determinista de bloqueo entre dos procesos.
+
+Registro de ejecución: 2026-10-11, rama `main`, HEAD `4e04ae7ca4e3bfa498d872d0d3fd2a1ed3be7c43`; working tree ya estaba y continúa modificado por trabajo previo sin commit. `pnpm db:reset` se ejecutó dos veces para restaurar fixtures tras la integración local; `pnpm security:evidence:phase51` pasó; `pnpm integration:local` pasó; `pnpm db:lint` pasó; `pnpm db:test` pasó con 391 tests/10 archivos; `pnpm docs:format:check`, `pnpm docs:lint` y `git diff --check` pasaron. El primer DB test se ejecutó después de integración y mostró filas/auditoría persistentes de esa ejecución; el reset aisló ambos recorridos y el DB test limpio pasó. Upgrade, gates completos de app/Edge y gate final 5.2 omitidos deliberadamente.
+
+### Gate final fase 5.2 (2026-10-11)
+
+Ejecución final completada en macOS 27.0.1 arm64, rama `main`, HEAD `4e04ae7ca4e3bfa498d872d0d3fd2a1ed3be7c43`; working tree preexistente modificado, sin commit. Secuencia: `pnpm db:reset`; `pnpm db:lint`; `pnpm db:test` (391/391, 10 archivos); `pnpm db:upgrade:test` (upgrade aislado baseline→fase 4.3 aprobado); `pnpm functions:check` (14/14 tests Deno); `pnpm integration:local` (Edge real aprobado); `pnpm security:evidence:phase51` (10 checks PASS, sin candidatos JWT/Service Role versionados); `pnpm app:format:check` (37 archivos, 0 cambios); `pnpm app:analyze` (sin issues); `pnpm app:test` (58 tests); `pnpm pipeline:check`; `pnpm docs:format:check`; `pnpm docs:lint` (52 archivos, 0 issues); `git diff --check` (limpio). La integración verificó alta Edge 201, replay idéntico 200, conflicto 409, exactamente un Auth user/perfil/membresía/grant, caller clínico 403 y Service Role no autorizada como actor (denegación 401/403). Utilizó identidad sintética única en memoria y reset antes/después; inspección posterior del baseline: 0 eventos de auditoría de integración, 5 Auth users seed y 9 asignaciones asistenciales seed. La primera ejecución se detuvo por puerto 54324 del harness upgrade; se corrigió `inbucket`→`mailpit` en exclusiones. Una ejecución posterior detectó claves entrecomilladas en `supabase status -o env` y el mensaje de éxito prematuro en `finally`; el parser y reporte se corrigieron y la secuencia completa final pasó. La evidencia de concurrencia del último Administrador en dos sesiones no se ejecutó; permanece abierta. Resultado local/sintético únicamente: no afirma producción, datos reales, cumplimiento regulatorio, FHIR completo, escritura clínica, emergency access ni auditoría de lectura.
+Phase 4.2 adds PostgreSQL preflight/registration tests for normalized Auth-email matching, sanitised denial audit, authority revalidation and replay; runtime `profiles` write guards; Deno HTTP-handler tests for revocation cleanup and ambiguous post-commit retry; and upgrade-harness coverage. This evidence is limited to the backend and does not imply implementation of the other Flutter administration flows; role composition has separate evidence below. Auth and PostgreSQL do not share a distributed transaction: a process crash after Auth creation and before registration can leave an Auth identity orphaned, while observable registration failures invoke compensating `auth.admin.deleteUser`.
+
+### Gate UI pre-PR: composición de permisos
+
+La evidencia dirigida de Flutter cubre autorización por ambos permisos efectivos, rechazo y no consulta de catálogo/roles sin acceso, carga/error/reintento, roles ordinarios únicamente, protección ante permisos ocultos, composición completa y vacía confirmada, cambios de rol/organización sin contenido anterior, sanitización de denegaciones, retry con snapshot/clave idénticos y clave nueva para gesto nuevo, e invalidación tras éxito. El gate pre-PR ejecuta una vez `pnpm app:format:check`, `pnpm app:analyze`, `pnpm app:test`, `pnpm docs:format:check`, `pnpm docs:lint` y `git diff --check`. No se ejecutan reset, tests/upgrade de DB, Edge, integración ni pipeline cuando esas capas no cambian.

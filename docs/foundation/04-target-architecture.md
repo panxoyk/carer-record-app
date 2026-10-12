@@ -14,7 +14,7 @@ El repositorio `carer-record-app` es la implementación canónica de CRA. El rep
 4. La hospitalización es el eje clínico. El acceso, la ubicación, el timeline y el contexto se resuelven en relación con una hospitalización, no mediante atributos mutables almacenados directamente en el paciente.
 5. El sistema se inicia con una organización de demostración, pero el modelo, las claves, los índices, la ingesta y RLS son multiinstitución desde el primer diseño. En esta documentación, una `organization` representa la institución u hospital que actúa como tenant de seguridad.
 6. Cada hospital configura sus roles a partir de un catálogo fijo de permisos mantenido por CRA. Los nombres de rol son locales a la organización; no son enums globales ni claims confiables del cliente.
-7. Los permisos se conceden con alcance de organización o unidad. La asignación individual de una hospitalización a un profesional queda preparada en el modelo, pero no tendrá pantalla ni flujo operativo en la primera entrega.
+7. Los roles se conceden con alcance de organización o unidad, pero para Personal clínico ese alcance no sustituye la asignación individual vigente a una hospitalización ni la unidad restringe su lectura en la demo. El Administrador de demo accede clínicamente solo con `clinical.organization.read` reservado, permisos concretos y alcance organizacional, bajo RLS y limitado a datos sintéticos, conforme a ADR-013.
 8. `clinical_events` es un read model reconstruible para la línea de tiempo. Nunca es la fuente canónica de condiciones, observaciones, procedimientos, documentos, notas de contexto u hospitalizaciones.
 9. La primera capacidad clínica continúa siendo de lectura. Toda futura escritura originada en CRA debe tener permiso explícito, autoría, procedencia, auditoría y una tabla canónica propia; no se habilita por inferencia desde un permiso de lectura.
 10. Las operaciones privilegiadas de identidad, administración e ingesta se ejecutan en Edge Functions o procesos de integración confiables. La Service Role Key no se distribuye a Flutter ni a gateways hospitalarios generales (`AGENTS.md:12-15`, `supabase/functions/create-practitioner/index.ts:74-101`).
@@ -35,18 +35,20 @@ La autorización del baseline permite lectura global de pacientes y eventos a cu
 
 ### Brechas que resuelve el objetivo
 
-| Brecha observada en el baseline       | Riesgo                                                 | Resolución objetivo                                                                                          |
-| ------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| Rol enum almacenado en el perfil      | No permite configuración por hospital ni más de un rol | Membresía, roles organizacionales, permisos y asignaciones separados                                         |
-| Paciente sin tenant                   | Una fila puede quedar visible fuera de su institución  | `organization_id` obligatorio y coherencia institucional en todas las relaciones                             |
-| Unidad y cama dentro de `patients`    | Pierde historia y confunde persona con episodio        | Hospitalización y períodos de ubicación explícitos                                                           |
-| Acceso clínico global por tipo de rol | Sobreexposición dentro del hospital                    | Permiso más alcance organizacional/unidad y futura asignación individual                                     |
-| `clinical_events` genérico            | JSONB se convierte en fuente clínica implícita         | Tablas canónicas por concepto y timeline derivado reconstruible                                              |
-| Identificador externo global          | Colisiones entre hospitales o fuentes                  | Unicidad por organización, fuente, tipo y external ID                                                        |
-| Sin ejecución/checkpoint de ingesta   | Reintentos no trazables ni idempotentes                | Fuentes, ejecuciones, recursos y errores persistidos                                                         |
-| Cliente conoce tablas físicas         | Acoplamiento de UI y persistencia                      | Repositorios Flutter y contratos de lectura estables; RPC/Edge Function cuando una operación cruza agregados |
+| Brecha observada en el baseline       | Riesgo                                                 | Resolución objetivo                                                                                           |
+| ------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Rol enum almacenado en el perfil      | No permite configuración por hospital ni más de un rol | Membresía, roles organizacionales, permisos y asignaciones separados                                          |
+| Paciente sin tenant                   | Una fila puede quedar visible fuera de su institución  | `organization_id` obligatorio y coherencia institucional en todas las relaciones                              |
+| Unidad y cama dentro de `patients`    | Pierde historia y confunde persona con episodio        | Hospitalización y períodos de ubicación explícitos                                                            |
+| Acceso clínico global por tipo de rol | Sobreexposición dentro del hospital                    | Permisos concretos más asignación asistencial vigente; excepción explícita y auditada para Administrador demo |
+| `clinical_events` genérico            | JSONB se convierte en fuente clínica implícita         | Tablas canónicas por concepto y timeline derivado reconstruible                                               |
+| Identificador externo global          | Colisiones entre hospitales o fuentes                  | Unicidad por organización, fuente, tipo y external ID                                                         |
+| Sin ejecución/checkpoint de ingesta   | Reintentos no trazables ni idempotentes                | Fuentes, ejecuciones, recursos y errores persistidos                                                          |
+| Cliente conoce tablas físicas         | Acoplamiento de UI y persistencia                      | Repositorios Flutter y contratos de lectura estables; RPC/Edge Function cuando una operación cruza agregados  |
 
 ## Vista de contexto
+
+La vista Flutter de composición está disponible en `/roles`. La navegación exige los permisos efectivos `iam.role.read` e `iam.role.manage`; no depende del nombre o ID del rol. Presenta solo roles ordinarios existentes y permisos ordinarios activos que el actor puede delegar. La pantalla no es autoridad: la RPC transaccional `replace_iam_role_permissions` vuelve a validar actor, tenant, rol ordinario, catálogo delegable y permisos poseídos, y aplica el reemplazo completo con idempotencia.
 
 ```mermaid
 flowchart LR
@@ -212,8 +214,10 @@ Reglas de la frontera:
 
 ### Consulta de pacientes hospitalizados
 
+El corte DB `20261011270000_clinical_rls_contracts.sql` y su corrección `20261011280000_harden_clinical_runtime_writes_and_views.sql` publican `clinical_census_by_hospitalization`, `clinical_patient_demographics_by_hospitalization` y `clinical_timeline_by_hospitalization` como vistas PostgreSQL 17 `security_invoker` y `security_barrier`. Los grants mínimos sobre tablas base y sus policies RLS siguen aplicando al invocador. El censo acumula `clinical.census.read` y `clinical.patient.read` para incluir la demografía; el timeline contiene `patient_id` y `created_at`, pero no `recorded_by` ni payload. `clinical_events.summary` es tipado y derivado de `payload`; el JSONB original no se concede al invocador. No hay DML clínico runtime, tampoco para `service_role`. Flutter consume los contratos por hospitalización desde la subtarea 4.4; las revisiones 4.5 y 5.2 verificaron la integración para la demo sintética/local, sin afirmar producción ni concurrencia de dos sesiones.
+
 1. Flutter envía el JWT a PostgREST.
-2. RLS resuelve `auth.uid()`, perfil activo, membresía activa, permiso fijo y asignación con alcance aplicable.
+2. RLS resuelve `auth.uid()`, perfil activo, membresía activa y permisos concretos. Para Personal clínico exige además una asignación asistencial vigente; para el Administrador de demo exige `clinical.organization.read` reservado y alcance organizacional. No evalúa el nombre ni el ID del rol.
 3. La consulta parte desde `hospitalizations`, une el paciente y su ubicación vigente y retorna solo episodios autorizados.
 4. Abrir un paciente no amplía autoridad: cada consulta de condiciones, observaciones o timeline vuelve a aplicar RLS por hospitalización.
 5. El detalle ofrece vínculo de procedencia hacia la entidad canónica y, cuando esté permitido, hacia metadatos de la fuente.
@@ -232,11 +236,11 @@ La lista no se deriva de `patients.care_unit` ni de un texto de cama. El modelo 
 
 ### Administración de acceso
 
-1. Un administrador con `iam.membership.manage` en la organización solicita una operación.
+1. Un administrador con el permiso IAM o de asignación exacto en la organización solicita una operación.
 2. La Edge Function valida el JWT y vuelve a consultar ese permiso con RLS/RPC.
 3. Si se crea una cuenta, usa la API administrativa de Auth con Service Role y coordina la creación de perfil/membresía.
 4. El rol asignado debe pertenecer a la misma organización y solo contener permisos del catálogo fijo.
-5. La asignación de alcance debe referenciar una unidad de esa organización o declarar alcance organizacional.
+5. La asignación de alcance debe referenciar una unidad de esa organización o declarar alcance organizacional; una asignación asistencial debe referenciar una hospitalización sintética de esa organización y exige `clinical.assignment.manage`.
 6. La operación y su resultado quedan en auditoría. Suspender la membresía revoca el acceso de esa organización sin necesariamente invalidar otras membresías de la misma persona.
 
 ## Despliegue objetivo y aislamiento
@@ -316,6 +320,6 @@ La transición alcanza esta arquitectura cuando:
 - la ubicación activa se deriva de períodos de ubicación y no de columnas del paciente;
 - la ingesta FHIR es idempotente, conserva procedencia y no requiere Service Role en el gateway;
 - `clinical_events` solo recibe escrituras del proyector y puede reconstruirse desde datos canónicos;
-- los administradores no obtienen acceso clínico implícito;
+- los administradores no obtienen acceso clínico implícito; el Administrador de demo solo accede mediante `clinical.organization.read` reservado, permisos concretos y RLS, sin nombre/ID de rol como autoridad;
 - las pruebas demuestran denegación entre tenants, fuera de alcance, para suspendidos y para operaciones no concedidas;
 - la documentación operativa distingue capacidades implementadas de capacidades objetivo.

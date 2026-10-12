@@ -35,7 +35,7 @@ Carer Record es una capa de contexto clínico e integración para hospitalizaci�
 1. El proyecto es un prototipo funcional académico estructurado para evolución futura.
 2. CRA continúa sobre Flutter y Supabase; RLS es la autoridad de autorización.
 3. La demo usa una organización, pero claves, relaciones y políticas se diseñan con aislamiento multiinstitución.
-4. Cada hospital configura roles sobre un catálogo fijo de permisos. El primer ámbito operativo es organización o unidad.
+4. Cada hospital configura roles sobre un catálogo fijo de permisos. Para Personal clínico, los permisos concretos solo habilitan lectura junto con una asignación asistencial vigente a la hospitalización; el alcance organizacional o de unidad no la sustituye. La excepción de demo requiere `clinical.organization.read` reservado, permiso concreto, alcance y RLS; no depende del nombre/ID del rol y está limitada por ADR-013.
 5. La hospitalización, no el paciente aislado, es el eje para ubicación, timeline, notas y permisos.
 6. FHIR R4 es una frontera de intercambio, no el esquema interno.
 7. El primer subconjunto FHIR incluye `Organization`, `Patient`, `Encounter`, `Location`, `Condition`, `Observation`, `AllergyIntolerance` y `MedicationRequest`, más `CapabilityStatement`, `Bundle` y `OperationOutcome` como infraestructura.

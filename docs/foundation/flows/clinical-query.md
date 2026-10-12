@@ -2,139 +2,41 @@
 
 ## Estado y objetivo
 
-El listado, búsqueda local de pacientes, ficha y timeline de eventos están implementados en modo de solo lectura con roles globales. El objetivo mantiene la consulta de solo lectura, pero la centra en hospitalizaciones autorizadas por organización, permiso y alcance, con RLS como autoridad.
+Subtarea 4.4 migra Flutter a contratos de lectura por hospitalización. La revisión integrada 4.5 y el gate final 5.2 se completaron para la demo sintética/local; el corte 3+4 se declara integrado solo dentro de ese alcance.
 
-El baseline cargaba el listado permitido y filtraba nombre, RUT y unidad en Flutter; la timeline consultaba por `patient_id` y ordenaba por `occurred_at` descendente. Los entornos de desarrollo y pruebas contenían solo datos sintéticos.
+El gate de cierre 5.2 repitió validaciones locales con datos sintéticos y reset del stack desechable; no añade escritura clínica, lectura fuera de la asignación vigente ni despliegue productivo.
 
-## Actores
+## Permisos y precondiciones
 
-- Baseline: `physician`, `nurse` o `technician` en estado `active`.
-- Objetivo: perfil/membresía activos con permisos clínicos y alcance aplicable.
-- Aplicación Flutter.
-- PostgREST y Postgres con RLS.
-- Administrador, cuenta suspendida, usuario sin perfil o anónimo como actores explícitamente denegados.
+- El censo y la demografía mínima requieren `clinical.census.read` y `clinical.patient.read` efectivos en la organización seleccionada.
+- La timeline requiere además `clinical.timeline.read`. RLS de PostgreSQL decide las filas; los guards son solo UX.
+- El personal clínico requiere además asignación vigente exacta a la hospitalización. Los permisos y la organización seleccionada no sustituyen RLS.
+- Las rutas de detalle usan `hospitalizationId`, nunca `patient_id` como frontera.
 
-## Permisos
+## Contratos de lectura
 
-- En el baseline, los tres roles asistenciales activos pueden listar y buscar pacientes, abrir una ficha y leer sus eventos.
-- En el objetivo, `clinical.census.read`, `clinical.patient.read`, `clinical.timeline.read` y permisos granulares permiten solo hospitalizaciones/unidades dentro del alcance.
-- `administrator` no tiene acceso clínico implícito.
-- Una cuenta suspendida, sin perfil o anónima no puede leer pacientes ni eventos.
-- Ningún rol puede crear, actualizar o eliminar pacientes o eventos en este flujo.
-- La búsqueda no amplía el conjunto devuelto por RLS; solo filtra hospitalizaciones y filas ya autorizadas.
+- `clinical_census_by_hospitalization`: columnas explícitas `organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date`.
+- `clinical_patient_demographics_by_hospitalization`: columnas explícitas `organization_id,hospitalization_id,patient_id,given_name,family_name,birth_date`.
+- `clinical_timeline_by_hospitalization`: columnas explícitas `organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at`; filtra organización y hospitalización y ordena `occurred_at` descendente.
 
-## Precondiciones
+`patient_id` y `created_at` existen en el contrato de timeline vigente, pero el cliente no los usa para autorizar, correlacionar episodios ni presentar detalles. Ninguna vista expone `payload`, `recorded_by`, RUT, referencia externa o enum de practitioner.
 
-- Existe una sesión válida; en el objetivo, perfil y membresía están activos y las asignaciones/permisos están vigentes.
-- El paciente y sus eventos fueron ingeridos por un proceso autorizado; la app no los crea.
-- RLS está habilitado en todas las tablas expuestas; el objetivo deriva acceso al paciente y recursos desde una hospitalización autorizada, no desde `patient_id` aislado.
-- El identificador de paciente proviene de una fila visible o se trata como entrada no confiable.
-- La demo presenta instantes UTC en `America/Santiago`; las fechas sin hora se muestran como fecha y no se convierten a medianoche.
+## Presentación y autorización
 
-## Flujo principal
+- El censo busca localmente solo por nombre. Puede mostrar el `bed_label` autorizado; nunca presenta `unit_id` ni UUID. Sin ubicación autorizada muestra “Ubicación no registrada”.
+- Detalle limitado a nombre, fecha de nacimiento y ubicación autorizada. Timeline consume `summary` como texto; no parsea JSONB.
+- En 4.4 se retiraron deliberadamente los filtros de categorías de timeline para reducir estado de UI; el orden descendente lo establece el repositorio/PostgREST y la pantalla conserva el orden recibido.
+- UUID manipulado, inexistente u oculto presenta el mismo estado neutro “Paciente no encontrado”. Una organización seleccionada determina el tenant; cambios de organización no reutilizan datos anteriores.
+- Errores o respuestas vacías/denegadas eliminan el contenido visible; no hay fallback stale ni caché persistente.
 
-1. El practitioner elige una organización/membresía activa y abre el censo.
-2. En el objetivo, Flutter consulta hospitalizaciones bajo `clinical.census.read`; el baseline solicitaba directamente las columnas necesarias de `patients`.
-3. Postgres evalúa membresía, permiso y alcance objetivo; el baseline todavía usa `can_read_patients()`.
-4. La persona filtra por nombre o RUT y opcionalmente por unidad; en el baseline, el filtro ocurría localmente sobre el conjunto autorizado.
-5. La lista muestra nombre, ubicación y RUT enmascarado.
-6. La persona abre la hospitalización; cada consulta de demografía o recurso vuelve a evaluar alcance.
-7. Flutter solicita `clinical_events` con `hospitalization_id` y orden descendente; el baseline todavía filtra por `patient_id`.
-8. Postgres exige `clinical.timeline.read` y alcance; el baseline evalúa `can_read_clinical_events()`.
-9. Si se abre Información del paciente, se muestran los campos autorizados de la ficha, incluido el RUT completo solo en esa vista deliberada.
+## Q-AUTH-02
 
-```mermaid
-sequenceDiagram
-  actor P as Rol asistencial activo
-  participant App as Flutter
-  participant DB as Postgres con RLS
-  P->>App: Abrir pacientes
-  App->>DB: SELECT patients con JWT
-  DB->>DB: can_read_patients()
-  DB-->>App: Filas autorizadas
-  P->>App: Buscar y elegir paciente
-  App->>DB: SELECT patient por id
-  App->>DB: SELECT clinical_events por patient_id
-  DB->>DB: can_read_clinical_events()
-  DB-->>App: Ficha y timeline autorizadas
-  App-->>P: Vista de solo lectura
-```
+Providers clínicos `autoDispose` dependen de sesión y `iamContextProvider`. Entrar a censo, detalle o timeline invalida autorización y datos una vez; pull-to-refresh vuelve a consultar y reemplaza el estado. El observer global `resumed` invalida contexto IAM y providers clínicos. El cambio de organización y mutaciones IAM también invalidan estas fuentes.
 
-## Flujos alternativos y errores
+Una revocación remota surte efecto en la siguiente consulta PostgreSQL; no se promete retirada push mientras la pantalla permanece inmóvil. Loading, empty, not-found, error y denied nunca conservan contenido anterior como fallback. RLS es la autoridad final.
 
-- Sin resultados: se muestra un estado vacío sin inferir si existen pacientes fuera del alcance.
-- UUID inexistente o fila oculta por RLS: se presenta “Paciente no encontrado” sin distinguir ambas causas.
-- Sesión expirada o cuenta suspendida: se retira el contenido visible y se dirige al flujo de autenticación o suspensión.
-- Error de red/servidor: se conserva una pantalla segura con un mensaje neutro; no se presenta información parcial como vigente ni se promete que una actualización resolverá el fallo.
-- Error al cargar eventos con ficha visible: la ficha puede mostrarse con un estado de error independiente para la timeline, sin fabricar eventos.
-- RUT ausente o inválido: se muestra “No registrado” o una máscara segura; no se reconstruye.
-- Dataset mayor al límite de PostgREST: la futura paginación debe mantener RLS y búsqueda del lado servidor. El baseline no paginaba y su configuración local limitaba respuestas a 1000 filas.
-- Filtro temporal o zona horaria: la interfaz presenta fecha y hora absolutas en la zona institucional; no usa rótulos relativos como evidencia clínica exacta.
-- Sin conexión: no se promete consulta offline. Solo podría mostrarse un caché clínico si una política futura define cifrado, expiración, invalidación y cierre de sesión.
+## Evidencia y límites
 
-## Estados
+Modelos: `app/lib/domains/patient/data/models/patient_model.dart` y `app/lib/domains/clinical_event/data/models/clinical_event_model.dart`. Repositorios y providers: `patient_repository.dart`, `clinical_event_repository.dart`, `patient_providers.dart` y `clinical_event_providers.dart`. UI/rutas: `patient_screens.dart` y `core/router/app_router.dart`.
 
-| Estado           | Descripción                         | Transición                                          |
-| ---------------- | ----------------------------------- | --------------------------------------------------- |
-| `loading`        | Se solicita lista, ficha o timeline | `ready`, `empty`, `not_found` o `error`             |
-| `ready`          | Datos autorizados visibles          | Filtrar, abrir detalle, refrescar o salir           |
-| `empty`          | Consulta autorizada sin filas       | Cambiar filtro o refrescar                          |
-| `not_found`      | UUID inexistente o no visible       | Volver al listado                                   |
-| `error`          | Fallo de red, Auth o servidor       | Nueva consulta posterior, cambio de sesión o salida |
-| `access_revoked` | Rol/estado ya no permite acceso     | Retirar datos y redirigir                           |
-
-Los estados pertenecen a la presentación; no se persisten como estado clínico.
-
-## Datos
-
-- Baseline: paciente con `id`, `external_reference`, `rut`, nombres, fecha de nacimiento, unidad y cama.
-- Objetivo: organización, hospitalización, ubicación vigente e identidad/demografía mínima separadas; unidad/cama no pertenecen al paciente.
-- Lista: usa RUT enmascarado mediante una regla de dominio; la búsqueda normaliza nombre y RUT localmente.
-- Evento: `id`, `patient_id`, `recorded_by`, `kind`, `occurred_at`, `payload.summary`, `created_at`.
-- Filtros del baseline: texto, unidad y categorías derivadas de `kind`.
-- No se incluyen contraseñas, tokens Auth, audio, mapas NER ni contenido de outbox en consultas clínicas.
-- Logs y auditoría identifican recursos mediante UUID y metadatos mínimos; no copian `payload.summary` ni RUT.
-
-## RLS y auditoría
-
-En el baseline, `can_read_patients()` exige perfil activo con rol `physician`, `nurse` o `technician`, y `can_read_clinical_events()` delega en ese criterio. El objetivo exige membresía, permiso y alcance sobre la hospitalización. La autoridad IAM no hereda acceso clínico. La fotografía no contiene policies de escritura clínica, y sus pruebas verifican que las mutaciones no cambian filas.
-
-La aplicación selecciona columnas explícitas para pacientes, pero el repositorio de eventos usa `select()`; al evolucionar el schema debe adoptar selección explícita para minimizar exposición y evitar acoplamiento accidental.
-
-La auditoría de lectura clínica no está implementada en el repositorio. Antes de producción se debe decidir qué consultas requieren evento auditado, retención y acceso a esa bitácora. Si se incorpora, registra actor, paciente, tipo de vista, timestamp y resultado, nunca el texto de eventos ni identificadores personales en claro.
-
-## Criterios de aceptación
-
-- El baseline conserva lectura por rol; el objetivo lista hospitalizaciones y abre fichas/timelines solo con permisos y alcance vigentes.
-- Administradores, suspendidos, usuarios sin perfil y anónimos reciben cero filas o denegación en API directa.
-- La lista enmascara RUT y la vista completa solo lo revela en el detalle deliberado.
-- Buscar o manipular un UUID no permite detectar ni abrir una fila oculta.
-- La timeline se ordena por `occurred_at` descendente y sus filtros no alteran datos.
-- Insert, update y delete clínicos permanecen denegados en este flujo.
-- Errores, vacíos y revocación retiran datos sin filtrar contenido a logs.
-- Toda demostración y prueba usa pacientes y eventos sintéticos.
-
-## Pruebas
-
-- pgTAP: baseline por rol y objetivo por tenant, membresía, permiso, vigencia, unidad/hospitalización cubierta y ajena.
-- pgTAP: insert, update y delete denegados y filas sin cambios después del intento.
-- Unit test de dominio: búsqueda por nombre/RUT y enmascaramiento de RUT, por ser reglas de privacidad observables.
-- Manual: estados loading, vacío, no encontrado, error de red, sesión expirada y suspensión durante una sesión; la actualización por gesto se verifica como consulta de lectura y no como solución garantizada de un error.
-- Flutter: conversión UTC a `America/Santiago`, borde de fecha, DST, fecha sin hora y textos neutros de consulta.
-- Manual: orden y filtros de timeline, campos de ficha y navegación directa con UUID sintético no visible.
-- Escala: comprobar límite y paginación antes de usar datasets que puedan superar `max_rows`.
-- Privacidad: inspeccionar logs y errores para confirmar ausencia de RUT completo y `payload.summary`.
-
-## Evidencia y referencias
-
-- [`PatientRepository`](../../../app/lib/domains/patient/data/patient_repository.dart#L9-L29) selecciona columnas y consulta lista/detalle.
-- [`Patient`](../../../app/lib/domains/patient/domain/entities/patient.dart#L22-L71) implementa búsqueda normalizada, máscara de RUT y ubicación.
-- [`PatientsScreen`](../../../app/lib/domains/patient/presentation/patient_screens.dart) filtra localmente el conjunto, presenta estados y permite actualizar consultas por gesto; la ficha y timeline se encuentran en el mismo archivo.
-- [`ClinicalEventRepository`](../../../app/lib/domains/clinical_event/data/clinical_event_repository.dart#L10-L17) consulta por paciente y ordena por fecha descendente.
-- Los providers clínicos dependen de la sesión actual, para no reutilizar resultados al perderla (`patient_providers.dart` y `clinical_event_providers.dart`).
-- [`patient_screens_test.dart`](../../../app/test/domains/patient/presentation/patient_screens_test.dart) cubre estados de vista y actualización por gesto.
-- [`patient_read_access.sql`](../../../supabase/migrations/20260910100000_patient_read_access.sql#L3-L23) y [`clinical_timeline.sql`](../../../supabase/migrations/20260910110000_clinical_timeline.sql#L53-L68) definen la lectura clínica por RLS.
-- [`patients_rls.test.sql`](../../../supabase/tests/patients_rls.test.sql#L29-L169) cubre casos permitidos, denegados y solo lectura.
-- [Arquitectura objetivo](../04-target-architecture.md#consulta-de-pacientes-hospitalizados) define la consulta centrada en hospitalización y el timeline como read model.
-- [Supabase: Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security) documenta autorización por fila dentro de Postgres.
-- [Supabase Dart: filtros](https://supabase.com/docs/reference/dart/using-filters) documenta que los filtros se agregan a la consulta; no sustituyen RLS.
+La cobertura incluye parsing tipado, búsqueda por nombre, ubicación segura, estado neutral y resumen tipado. La integración local comprueba censo, vista demográfica específica y timeline por `organization_id` + `hospitalization_id`, UUID manipulado y revocación con el mismo JWT clínico; Flutter tiene cobertura widget/modelo dirigida. La verificación es solo para demo sintética/local: no acredita concurrencia entre dos sesiones, producción ni datos reales.

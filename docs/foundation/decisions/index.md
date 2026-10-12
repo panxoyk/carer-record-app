@@ -18,6 +18,8 @@ Ninguna ADR de esta carpeta acredita cumplimiento productivo. La evidencia de es
 | [ADR-003](adr-003-supabase.md)                           | Supabase como backend versionado        | Aceptada                 | Sí, alcance actual                      |
 | [ADR-004](adr-004-fhir-frontera.md)                      | FHIR como frontera anticorrupción       | Aceptada                 | No; solo scaffold                       |
 | [ADR-005](adr-005-permisos-configurables.md)             | Permisos configurables                  | Aceptada                 | No; matriz estática                     |
+| [ADR-013](adr-013-acceso-clinico-por-asignacion.md)      | Acceso clínico por asignación           | Aceptada                 | Sí, demo sintética/local                |
+| [ADR-014](adr-014-delegacion-gestion-asignaciones.md)    | Delegación de gestión de asignaciones   | Aceptada                 | Sí, demo sintética/local                |
 | [ADR-006](adr-006-audio.md)                              | Captura de audio local y explícita      | Aceptada                 | No                                      |
 | [ADR-007](adr-007-asr-local.md)                          | ASR local                               | Aceptada                 | No                                      |
 | [ADR-008](adr-008-ner-tokenizacion-reversible.md)        | NER y tokenización reversible           | Aceptada                 | No                                      |

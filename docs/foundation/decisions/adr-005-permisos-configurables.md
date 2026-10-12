@@ -12,7 +12,9 @@ Hoy la autorización clínica está codificada en SQL: tres roles activos pueden
 
 Evolucionar hacia un catálogo cerrado de permisos configurables, aplicado por RLS. Los nombres de permiso y su semántica siguen versionados en código. Cada organización define roles, combina permisos del catálogo y los asigna a membresías con alcance inicial de organización o unidad. La ausencia de asignación deniega. Estado suspendido y restricciones de ámbito prevalecen sobre cualquier grant.
 
-La configuración solo puede ser modificada por una autoridad administrativa explícita, con validación para impedir autoelevación y auditoría. La UI consume decisiones, pero no las impone. Una futura asignación individual por hospitalización queda contemplada por el modelo, pero no forma parte del primer flujo operativo. No se implementa un lenguaje arbitrario de políticas ni permisos configurables por columna.
+La configuración solo puede ser modificada por una autoridad administrativa explícita, con validación para impedir autoelevación y auditoría. La UI consume decisiones, pero no las impone. [ADR-013](adr-013-acceso-clinico-por-asignacion.md) complementa esta decisión: adelanta la asignación individual por hospitalización como frontera obligatoria para Personal clínico y define la excepción explícita del Administrador de demo. No se implementa un lenguaje arbitrario de políticas ni permisos configurables por columna.
+
+La subtarea 4.1 implementa las operaciones IAM administrativas en PostgreSQL mediante RPCs `SECURITY DEFINER` autenticadas, idempotentes y auditadas (`20261011290000_iam_administrative_operations.sql`). El alta Edge se verifica en integración local con identidades sintéticas y reset del entorno desechable; esto no amplía permisos ni acredita operación remota/productiva.
 
 ## Alternativas consideradas
 

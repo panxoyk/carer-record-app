@@ -6,6 +6,8 @@ Este documento propone el modelo relacional objetivo de CRA en PostgreSQL/Supaba
 
 La propuesta aplica las decisiones de [04-target-architecture.md](04-target-architecture.md), [05-access-control.md](05-access-control.md) y [07-domain-model.md](07-domain-model.md): modelo canónico CRA, hospitalización como eje, multiinstitución desde la demo, roles configurables sobre permisos fijos, FHIR en la frontera y `clinical_events` como read model.
 
+Estado de implementación: las migraciones `20261011200000_hospitalizations_care_assignments.sql` y `20261011210000_harden_phase2_integrity.sql` materializan y endurecen el subconjunto mínimo de fase 2.1 (`units`, `hospitalizations`, `hospitalization_locations`, `care_assignments` y los vínculos tenant/hospitalización necesarios en `patients` y `clinical_events`). `20261011220000_transactional_care_assignment_operations.sql` añade las RPCs transaccionales tipadas de concesión/revocación y una bitácora mínima `audit_events`; `20261011230000_canonical_assignment_idempotency_and_runtime_privileges.sql` fija UTC en la firma RPC y revoca DML/TRUNCATE runtime, `20261011240000_normalize_open_assignment_request_timestamps.sql` completa la normalización independiente de timestamps históricos presentes, incluidos grants abiertos, `20261011250000_reauthorize_assignment_idempotent_replays.sql` revalida autoridad antes de revelar replay, y `20261011260000_require_unit_read_permission.sql` exige `org.unit.read` efectivo para lectura directa de unidades. No implementa el modelo de auditoría completo descrito aquí. Eventos enlazados validan también el paciente; ubicaciones y asignaciones impiden intervalos solapados para la misma clave. El censo organizacional exige `clinical.organization.read` y `clinical.census.read`, no `clinical.assignment.manage`. No sustituye las policies clínicas legacy; las filas no enlazadas permanecen sin publicar en el futuro corte.
+
 ## Esquema del baseline: evidencia y límites
 
 El esquema capturado en el baseline no es este modelo objetivo. Las migraciones observadas crean:
@@ -228,17 +230,17 @@ erDiagram
 
 ### `organizations`
 
-| Aspecto     | Definición                                                                                                                             |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Propósito   | Tenant institucional equivalente a un hospital en el alcance inicial                                                                   |
-| PK          | `id uuid`                                                                                                                              |
-| Columnas    | `slug`, `display_name`, `status`, `timezone`, `created_at`, `updated_at`                                                               |
-| FK          | Ninguna de dominio; es raíz                                                                                                            |
-| Constraints | `slug` único global y normalizado; nombre no vacío; `status` en `active/suspended/closed`; timezone IANA válida; timestamps coherentes |
-| Índices     | Único por `slug`; `(status)` solo si operación multi-tenant lo requiere                                                                |
-| Mutabilidad | Nombre/timezone actualizables con auditoría; `id` inmutable; suspensión/cierre lógico; sin DELETE ordinario                            |
-| Procedencia | Configuración CRA creada por operador autorizado; auditoría registra actor                                                             |
-| RLS         | Visible a perfiles con membresía activa en la organización; gestión solo por operación de plataforma/institucional explícita           |
+| Aspecto     | Definición                                                                                                                                              |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Propósito   | Tenant institucional equivalente a un hospital en el alcance inicial                                                                                    |
+| PK          | `id uuid`                                                                                                                                               |
+| Columnas    | `slug`, `display_name`, `status`, `timezone`, `created_at`, `updated_at`                                                                                |
+| FK          | Ninguna de dominio; es raíz                                                                                                                             |
+| Constraints | `slug` único global y normalizado; nombre no vacío; `status` en `active/suspended/closed`; timezone IANA válida mediante trigger; timestamps coherentes |
+| Índices     | Único por `slug`; `(status)` solo si operación multi-tenant lo requiere                                                                                 |
+| Mutabilidad | Nombre/timezone actualizables con auditoría; `id` inmutable; suspensión/cierre lógico; sin DELETE ordinario                                             |
+| Procedencia | Configuración CRA creada por operador autorizado; auditoría registra actor                                                                              |
+| RLS         | Visible a perfiles con membresía activa en la organización; gestión solo por operación de plataforma/institucional explícita                            |
 
 La demo contiene una organización. No se agrega `is_demo` como bypass de seguridad; si se necesita etiquetar el entorno, se hace en configuración, no en policies.
 
@@ -304,75 +306,77 @@ Esta separación reemplaza el acoplamiento del baseline `practitioners.id = auth
 
 ### `permission_catalog`
 
-| Aspecto     | Definición                                                                                                         |
-| ----------- | ------------------------------------------------------------------------------------------------------------------ |
-| Propósito   | Universo fijo y versionado de capacidades que RLS entiende                                                         |
-| PK          | `code text`, por ejemplo `clinical.timeline.read`                                                                  |
-| Columnas    | `family`, `description`, `status`, `introduced_at`, `deprecated_at` nullable                                       |
-| FK          | Ninguna                                                                                                            |
-| Constraints | Código con formato estable y único; textos no vacíos; deprecación coherente; no permite códigos creados por tenant |
-| Índices     | PK; `(family, status)` para UI administrativa                                                                      |
-| Mutabilidad | Solo migraciones CRA; códigos no se renombran en sitio si existen asignaciones, se deprecan                        |
-| Procedencia | Catálogo de plataforma versionado en repositorio                                                                   |
-| RLS         | Lectura para perfiles activos que administran o necesitan representar permisos; sin DML de usuario/tenant          |
+| Aspecto     | Definición                                                                                                                                                                                                                  |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Propósito   | Universo fijo y versionado de capacidades que RLS entiende                                                                                                                                                                  |
+| PK          | `code text`, por ejemplo `clinical.timeline.read`                                                                                                                                                                           |
+| Columnas    | `family`, `description`, `status`, `delegation_policy`, `introduced_at`, `deprecated_at` nullable                                                                                                                           |
+| FK          | Ninguna                                                                                                                                                                                                                     |
+| Constraints | Código con formato estable y único; textos no vacíos; deprecación coherente; no permite códigos creados por tenant; `clinical.organization.read` usa `delegation_policy = system_only`                                      |
+| Índices     | PK; `(family, status)` para UI administrativa                                                                                                                                                                               |
+| Mutabilidad | Solo migraciones CRA, incluido frente a DML de Service Role; códigos no se renombran en sitio si existen asignaciones, se deprecan; un código `system_only` no se agrega, copia ni delega mediante administración ordinaria |
+| Procedencia | Catálogo de plataforma versionado en repositorio                                                                                                                                                                            |
+| RLS         | Lectura para perfiles activos que administran o necesitan representar permisos; sin DML de usuario/tenant                                                                                                                   |
 
 ### `roles`
 
-| Aspecto     | Definición                                                                                                                               |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Propósito   | Rol nombrado y configurable dentro de una organización                                                                                   |
-| PK          | `id uuid` y unicidad auxiliar `(organization_id, id)`                                                                                    |
-| Columnas    | `organization_id`, `name`, `description`, `status`, `is_system`, `created_by_membership_id`, `created_at`, `updated_at`                  |
-| FK          | Organización y membresía creadora de la misma organización                                                                               |
-| Constraints | Nombre único case-insensitive por organización; estado `active/inactive`; nombre no vacío; un rol inactivo no recibe asignaciones nuevas |
-| Índices     | Único `(organization_id, normalized_name)`; `(organization_id, status)`                                                                  |
-| Mutabilidad | Nombre/descripcion/composición mutables con auditoría; tenant inmutable; desactivación lógica                                            |
-| Procedencia | Configuración CRA del hospital; una plantilla seed no cambia su propiedad local                                                          |
-| RLS         | `iam.role.read` para lectura; creación/cambio mediante operación con `iam.role.manage`; sin acceso cruzado                               |
+| Aspecto     | Definición                                                                                                                                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Propósito   | Rol nombrado y configurable dentro de una organización                                                                                                                                                                   |
+| PK          | `id uuid` y unicidad auxiliar `(organization_id, id)`                                                                                                                                                                    |
+| Columnas    | `organization_id`, `name`, `description`, `status`, `is_system`, `protected_kind` nullable, `created_by_membership_id`, `created_at`, `updated_at`                                                                       |
+| FK          | Organización y membresía creadora de la misma organización                                                                                                                                                               |
+| Constraints | Nombre único case-insensitive por organización; estado `active/inactive`; nombre no vacío; un rol inactivo no recibe asignaciones nuevas; un único `protected_kind = demo_administrator` activo por organización de demo |
+| Índices     | Único `(organization_id, normalized_name)`; `(organization_id, status)`                                                                                                                                                  |
+| Mutabilidad | Nombre/descripcion/composición mutables con auditoría para roles ordinarios; tenant inmutable; el rol `demo_administrator` protegido no se desactiva, elimina, clona ni recompone por administración ordinaria           |
+| Procedencia | Configuración CRA del hospital; una plantilla seed no cambia su propiedad local                                                                                                                                          |
+| RLS         | `iam.role.read` para lectura; creación/cambio mediante operación con `iam.role.manage`; sin acceso cruzado                                                                                                               |
 
 No hay columna enum `role` en `profiles` o memberships. Los roles del baseline `administrator`, `physician`, `nurse`, `technician` son datos de transición, no el catálogo objetivo.
 
+La migración aditiva crea el rol protegido `demo_administrator` y el permiso reservado antes de asignarlos. Para las cuentas sintéticas existentes, mapea `administrator` al rol protegido, `physician` y `nurse` activos a Personal clínico, y `technician` a una membresía sin permisos clínicos nuevos. Las asignaciones asistenciales se materializan con hospitalizaciones. Desde `20261011270000_clinical_rls_contracts.sql`, las filas sin episodio exacto y episodios cancelados o invalidados quedan ocultos. `20261011280000_harden_clinical_runtime_writes_and_views.sql` completa censo y timeline, y bloquea el DML runtime en tablas clínicas, incluido `service_role`. El contrato entrega `summary` como `text` derivado de `payload`, sin conceder acceso a JSONB. La transición se aplica también en upgrade y no depende de modificar migraciones ya aplicadas.
+
 ### `role_permissions`
 
-| Aspecto     | Definición                                                                                                      |
-| ----------- | --------------------------------------------------------------------------------------------------------------- |
-| Propósito   | Composición many-to-many entre rol local y permiso fijo                                                         |
-| PK          | `(role_id, permission_code)`; se conserva `organization_id` para tenant/RLS                                     |
-| Columnas    | `organization_id`, `role_id`, `permission_code`, `granted_at`, `granted_by_membership_id`                       |
-| FK          | FK compuesta al rol de la organización; FK a `permission_catalog`; membresía otorgante de la misma organización |
-| Constraints | Sin duplicados; rol activo para nuevas concesiones; permiso no deprecado para nuevas concesiones                |
-| Índices     | PK; `(organization_id, permission_code, role_id)` para resolver autorización; `(granted_by_membership_id)`      |
-| Mutabilidad | Insert/delete auditados; no update semántico; eliminar una fila revoca inmediatamente ese permiso del rol       |
-| Procedencia | Configuración CRA con actor institucional                                                                       |
-| RLS         | Lectura con `iam.role.read`; mutación solo por operación con `iam.role.manage` y control anti-escalamiento      |
+| Aspecto     | Definición                                                                                                                                                                                                                                                                                     |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Propósito   | Composición many-to-many entre rol local y permiso fijo                                                                                                                                                                                                                                        |
+| PK          | `(role_id, permission_code)`; se conserva `organization_id` para tenant/RLS                                                                                                                                                                                                                    |
+| Columnas    | `organization_id`, `role_id`, `permission_code`, `granted_at`, `granted_by_membership_id`                                                                                                                                                                                                      |
+| FK          | FK compuesta al rol de la organización; FK a `permission_catalog`; membresía otorgante de la misma organización                                                                                                                                                                                |
+| Constraints | Sin duplicados; trigger exige rol activo y permiso activo para nuevas concesiones; las concesiones existentes a roles/permisos luego inactivados/deprecados se conservan pero no son efectivas; `clinical.organization.read` solo puede relacionarse con `protected_kind = demo_administrator` |
+| Índices     | PK; `(organization_id, permission_code, role_id)` para resolver autorización; `(granted_by_membership_id)`                                                                                                                                                                                     |
+| Mutabilidad | Insert/delete auditados; no update semántico; eliminar una fila revoca inmediatamente ese permiso del rol; la composición protegida no admite DML runtime, incluido Service Role, y solo cambia mediante migraciones CRA explícitas                                                            |
+| Procedencia | Configuración CRA con actor institucional                                                                                                                                                                                                                                                      |
+| RLS         | Lectura con `iam.role.read`; mutación solo por operación con `iam.role.manage` y control anti-escalamiento; sin operación ordinaria para copiar/delegar permisos `system_only`                                                                                                                 |
 
 ### `role_assignments`
 
-| Aspecto     | Definición                                                                                                                                                                                            |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Propósito   | Conceder un rol a una membresía durante una vigencia y alcance                                                                                                                                        |
-| PK          | `id uuid` y unicidad auxiliar `(organization_id, id)`                                                                                                                                                 |
-| Columnas    | `organization_id`, `membership_id`, `role_id`, `scope_type`, `unit_id` nullable, `valid_from`, `valid_until`, `revoked_at`, `revoked_by_membership_id`, `created_at`, `created_by_membership_id`      |
-| FK          | Membresía, rol, unidad opcional y actores, todos de la misma organización mediante FKs compuestas                                                                                                     |
-| Constraints | `scope_type` en `organization/unit`; `unit_id` nulo solo para organización y obligatorio solo para unidad; fin posterior al inicio; revocación no anterior a creación; rol/membresía activos al crear |
-| Índices     | `(organization_id, membership_id, valid_from, valid_until)`; `(organization_id, role_id)`; `(organization_id, unit_id)`; parcial de asignaciones no revocadas                                         |
-| Mutabilidad | Vigencia puede acortarse o revocarse; no se cambia tenant/membresía/rol/alcance en sitio: se revoca y crea otra                                                                                       |
-| Procedencia | Configuración CRA con actor creador/revocador y auditoría                                                                                                                                             |
-| RLS         | Miembro puede leer sus concesiones efectivas; `iam.role.read` lista; crear/revocar requiere `iam.role.assign` vía operación controlada                                                                |
+| Aspecto     | Definición                                                                                                                                                                                                                                                                                                                                                     |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Propósito   | Conceder un rol a una membresía durante una vigencia y alcance                                                                                                                                                                                                                                                                                                 |
+| PK          | `id uuid` y unicidad auxiliar `(organization_id, id)`                                                                                                                                                                                                                                                                                                          |
+| Columnas    | `organization_id`, `membership_id`, `role_id`, `scope_type`, `unit_id` nullable, `valid_from`, `valid_until`, `revoked_at`, `revoked_by_membership_id`, `created_at`, `created_by_membership_id`                                                                                                                                                               |
+| FK          | Membresía, rol, unidad opcional y actores, todos de la misma organización mediante FKs compuestas                                                                                                                                                                                                                                                              |
+| Constraints | `scope_type` en `organization/unit`; `unit_id` nulo solo para organización y obligatorio solo para unidad; fin posterior al inicio; revocación no anterior a creación; organización, perfil, rol y membresía activos al crear; no se solapan concesiones equivalentes no revocadas; el rol protegido solo se asigna mediante operación administrativa dedicada |
+| Índices     | `(organization_id, membership_id, valid_from, valid_until)`; `(organization_id, role_id)`; `(organization_id, unit_id)`; exclusión GiST por organización/membresía/rol/alcance e intervalo no revocado                                                                                                                                                         |
+| Mutabilidad | Vigencia puede acortarse o revocarse; no se cambia tenant/membresía/rol/alcance en sitio: se revoca y crea otra; la operación protegida impide autoasignación y dejar sin Administrador efectivo a la organización                                                                                                                                             |
+| Procedencia | Configuración CRA con actor creador/revocador y auditoría                                                                                                                                                                                                                                                                                                      |
+| RLS         | Miembro puede leer sus concesiones efectivas; `iam.role.read` lista; crear/revocar requiere `iam.role.assign` vía operación controlada, salvo el rol protegido que usa una operación dedicada                                                                                                                                                                  |
 
 ### `care_assignments`
 
-| Aspecto     | Definición                                                                                                                                                                                  |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Propósito   | Preparar la relación individual entre profesional y hospitalización sin activarla en el flujo inicial                                                                                       |
-| PK          | `id uuid` y unicidad auxiliar `(organization_id, id)`                                                                                                                                       |
-| Columnas    | `organization_id`, `hospitalization_id`, `membership_id`, `relationship_code` nullable, `valid_from`, `valid_until`, `revoked_at`, `created_by_membership_id`, `created_at`                 |
-| FK          | Hospitalización, membresía y actor de la misma organización                                                                                                                                 |
-| Constraints | Fin posterior a inicio; una asignación activa equivalente no se duplica; no se crea para episodio terminal salvo justificación histórica                                                    |
-| Índices     | `(organization_id, membership_id, valid_from, valid_until)`; `(organization_id, hospitalization_id)`; parcial para vigentes/no revocadas                                                    |
-| Mutabilidad | Append/revocar; no se reasigna una fila a otra persona/episodio                                                                                                                             |
-| Procedencia | CRA, creada por flujo futuro auditado; no se infiere automáticamente desde FHIR o autoría                                                                                                   |
-| RLS         | Sin INSERT/UPDATE de usuario en primera entrega; helper puede consultar por rol definer; lectura administrativa futura con permiso específico; no concede nada sin `clinical.assigned.read` |
+| Aspecto     | Definición                                                                                                                                                                                                                                                                                                 |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Propósito   | Relación individual entre profesional y hospitalización, frontera obligatoria de lectura para Personal clínico                                                                                                                                                                                             |
+| PK          | `id uuid` y unicidad auxiliar `(organization_id, id)`                                                                                                                                                                                                                                                      |
+| Columnas    | `organization_id`, `hospitalization_id`, `membership_id`, `relationship_code` nullable, `valid_from`, `valid_until`, `revoked_at`, `revoked_by_membership_id` nullable, `created_by_membership_id`, `created_at`                                                                                           |
+| FK          | Hospitalización, membresía, actor creador y revocador opcional de la misma organización                                                                                                                                                                                                                    |
+| Constraints | Intervalo semiabierto `[valid_from, valid_until)`; fin posterior a inicio; una asignación activa equivalente no se duplica; solo es vigente con membresía activa y sin revocación; alta conserva lectura histórica, cancelación/invalidación la deniega y un episodio de corrección no hereda asignaciones |
+| Índices     | `(organization_id, membership_id, valid_from, valid_until)`; `(organization_id, hospitalization_id)`; parcial para vigentes/no revocadas                                                                                                                                                                   |
+| Mutabilidad | Append/revocar; no se reasigna una fila a otra persona/episodio; un traslado conserva la asignación de la misma hospitalización; la operación registra actor y resultado sin contenido clínico                                                                                                             |
+| Procedencia | CRA, creada por flujo futuro auditado; no se infiere automáticamente desde FHIR o autoría                                                                                                                                                                                                                  |
+| RLS         | Sin INSERT/UPDATE directo de usuario; operación de servidor con `clinical.assignment.manage` efectivo para actor elegible del mismo tenant; no concede lectura sin `clinical.assigned.read` y permiso concreto                                                                                             |
 
 ## Tablas de interoperabilidad y procedencia
 
@@ -488,17 +492,17 @@ El uso de destinos nullable está acotado por un XOR comprobable y por FKs reale
 
 ### `patients`
 
-| Aspecto     | Definición                                                                                                                                                                                                                                       |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Propósito   | Identidad canónica del paciente dentro de una organización                                                                                                                                                                                       |
-| PK          | `id uuid` y unicidad auxiliar `(organization_id, id)`                                                                                                                                                                                            |
-| Columnas    | `organization_id`, `status`, `given_names`, `family_names`, `birth_date` nullable, `administrative_gender` nullable, `deceased_at` nullable, `created_from_resource_id` nullable, `last_source_resource_id` nullable, `created_at`, `updated_at` |
-| FK          | Organización; recursos de origen de la misma organización                                                                                                                                                                                        |
-| Constraints | Al menos un nombre/identificador según política de admisión; estado `active/inactive/entered_in_error`; `last_source_resource` de tipo compatible; fallecimiento no anterior de forma imposible a nacimiento                                     |
-| Índices     | `(organization_id, status, family_names, given_names)` para búsqueda acotada; `(organization_id, birth_date)` si hay caso; nunca búsqueda global entre tenants                                                                                   |
-| Mutabilidad | Demografía mutable según precedencia y auditada; tenant/ID inmutables; baja/corrección lógica; sin DELETE cascada                                                                                                                                |
-| Procedencia | Recursos Patient y reconciliación; filas manuales futuras registran actor/auditoría en vez de fingir source resource                                                                                                                             |
-| RLS         | `clinical.patient.read` y al menos una hospitalización accesible; no DML de usuario inicial; búsquedas devuelven mínimo necesario y siempre dentro de organización/episodio                                                                      |
+| Aspecto     | Definición                                                                                                                                                                                                                                               |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Propósito   | Identidad canónica del paciente dentro de una organización                                                                                                                                                                                               |
+| PK          | `id uuid` y unicidad auxiliar `(organization_id, id)`                                                                                                                                                                                                    |
+| Columnas    | `organization_id`, `status`, `given_names`, `family_names`, `birth_date` nullable, `administrative_gender` nullable, `deceased_at` nullable, `created_from_resource_id` nullable, `last_source_resource_id` nullable, `created_at`, `updated_at`         |
+| FK          | Organización; recursos de origen de la misma organización                                                                                                                                                                                                |
+| Constraints | Al menos un nombre/identificador según política de admisión; estado `active/inactive/entered_in_error`; `last_source_resource` de tipo compatible; fallecimiento no anterior de forma imposible a nacimiento                                             |
+| Índices     | `(organization_id, status, family_names, given_names)` para búsqueda acotada; `(organization_id, birth_date)` si hay caso; nunca búsqueda global entre tenants                                                                                           |
+| Mutabilidad | Demografía mutable según precedencia y auditada; tenant/ID inmutables; baja/corrección lógica; sin DELETE cascada                                                                                                                                        |
+| Procedencia | Recursos Patient y reconciliación; filas manuales futuras registran actor/auditoría en vez de fingir source resource                                                                                                                                     |
+| RLS         | `clinical.patient.read` y al menos una hospitalización accesible; para Personal clínico, además `clinical.assigned.read` y asignación vigente; no DML de usuario inicial; búsquedas devuelven mínimo necesario y siempre dentro de organización/episodio |
 
 No contiene `care_unit`, `bed_label`, `admission_date` ni “active hospitalization”. Esos datos pertenecen a hospitalizaciones y ubicaciones.
 
@@ -520,19 +524,23 @@ Esto evita la unicidad global del baseline para `rut` (`supabase/migrations/2026
 
 ### `hospitalizations`
 
-| Aspecto     | Definición                                                                                                                                                                                                                                                      |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Propósito   | Episodio central de hospitalización y frontera de autorización clínica                                                                                                                                                                                          |
-| PK          | `id uuid` y unicidad auxiliar `(organization_id, id)`                                                                                                                                                                                                           |
-| Columnas    | `organization_id`, `patient_id`, `status`, `encounter_class`, `admitted_at`, `discharged_at` nullable, `responsible_unit_id` nullable, `reason_code/system/display` nullable, `created_from_resource_id`, `last_source_resource_id`, `created_at`, `updated_at` |
-| FK          | Paciente, unidad responsable y recursos de origen, todos de la misma organización                                                                                                                                                                               |
-| Constraints | Status canónico; egreso no anterior a ingreso; unidad pertenece al tenant; paciente/tenant inmutables; recurso Encounter compatible; estados terminales coherentes con tiempos                                                                                  |
-| Índices     | `(organization_id, status, admitted_at desc)`; `(organization_id, patient_id, admitted_at desc)`; `(organization_id, responsible_unit_id, status)`; referencias de origen                                                                                       |
-| Mutabilidad | Estado, fin, unidad responsable y datos mapeados mutables por reconciliación trazable; ID/paciente/tenant inmutables; sin DELETE ordinario                                                                                                                      |
-| Procedencia | Encounter u origen equivalente; cada cambio apunta al último recurso conservado; alta CRA futura auditable                                                                                                                                                      |
-| RLS         | Acceso mediante `can_access_hospitalization` y permiso solicitado; censo exige `clinical.census.read`; sin escritura directa de usuario                                                                                                                         |
+La implementación de fase 2.1 es deliberadamente mínima: contiene `organization_id`, `patient_id`, `status`, `admitted_at`, `discharged_at` y `created_at`; las columnas de Encounter, unidad responsable y procedencia de la tabla objetivo siguen pendientes.
+
+| Aspecto     | Definición                                                                                                                                                                                                                                                                                        |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Propósito   | Episodio central de hospitalización y frontera de autorización clínica                                                                                                                                                                                                                            |
+| PK          | `id uuid` y unicidad auxiliar `(organization_id, id)`                                                                                                                                                                                                                                             |
+| Columnas    | `organization_id`, `patient_id`, `status`, `encounter_class`, `admitted_at`, `discharged_at` nullable, `responsible_unit_id` nullable, `reason_code/system/display` nullable, `created_from_resource_id`, `last_source_resource_id`, `created_at`, `updated_at`                                   |
+| FK          | Paciente, unidad responsable y recursos de origen, todos de la misma organización                                                                                                                                                                                                                 |
+| Constraints | Status canónico; egreso no anterior a ingreso; unidad pertenece al tenant; paciente/tenant inmutables; recurso Encounter compatible; estados terminales coherentes con tiempos                                                                                                                    |
+| Índices     | `(organization_id, status, admitted_at desc)`; `(organization_id, patient_id, admitted_at desc)`; `(organization_id, responsible_unit_id, status)`; referencias de origen                                                                                                                         |
+| Mutabilidad | Estado, fin, unidad responsable y datos mapeados mutables por reconciliación trazable; ID/paciente/tenant inmutables; sin DELETE ordinario                                                                                                                                                        |
+| Procedencia | Encounter u origen equivalente; cada cambio apunta al último recurso conservado; alta CRA futura auditable                                                                                                                                                                                        |
+| RLS         | Acceso mediante `can_access_hospitalization` y permiso solicitado; censo exige `clinical.census.read`; Personal clínico requiere asignación vigente, mientras el Administrador de demo requiere `clinical.organization.read` reservado y alcance organizacional; sin escritura directa de usuario |
 
 ### `hospitalization_locations`
+
+La implementación de fase 2.1 contiene tenant, episodio, unidad opcional, etiqueta de cama e intervalo. Aplica intervalo positivo, exclusión GiST de períodos solapados por episodio y como máximo una ubicación abierta por episodio; la procedencia FHIR sigue pendiente.
 
 | Aspecto     | Definición                                                                                                                                                                       |
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -544,7 +552,7 @@ Esto evita la unicidad global del baseline para `rut` (`supabase/migrations/2026
 | Índices     | `(organization_id, hospitalization_id, started_at desc)`; parcial `(organization_id, unit_id, started_at)` para ubicaciones vigentes; soporte GiST/exclusion para rango temporal |
 | Mutabilidad | Abrir/cerrar/cancelar de forma transaccional; no sobrescribir historia; tenant/hospitalización/unidad inmutables tras uso                                                        |
 | Procedencia | Encounter/location externo o transferencia CRA futura; source resource por período                                                                                               |
-| RLS         | Mismo acceso que hospitalización; el censo lee solo período vigente y scope de unidad; sin DML de usuario inicial                                                                |
+| RLS         | Mismo acceso que hospitalización; el censo lee solo período vigente, pero la unidad no restringe la lectura de Personal clínico en la demo; sin DML de usuario inicial           |
 
 ### `hospitalization_events`
 
@@ -562,7 +570,9 @@ Esto evita la unicidad global del baseline para `rut` (`supabase/migrations/2026
 
 ### Relación de `care_assignments` con hospitalización
 
-Se definió en identidad porque participa en autorización, pero referencia `hospitalizations`. La implementación debe crearla cuando ambos lados existan y mantener las FKs compuestas de tenant. Su existencia no habilita el flujo inicial.
+Se definió en identidad porque participa en autorización, pero referencia `hospitalizations`. La migración de fase 2.1 la crea con FKs compuestas de tenant, intervalo semiabierto y revocación. `private.has_current_care_assignment(uuid)` representa la vigencia junto con perfil, membresía y organización activos, y excluye episodios cancelados o invalidados. No activa autorización sobre `patients` ni `clinical_events`; las policies legacy siguen vigentes. El alta conserva la relación histórica mientras siga vigente, una cancelación/invalidación deniega y una corrección con otro episodio requiere una nueva asignación; un traslado de unidad no la cambia.
+
+El puente de fixtures versionado se limita a UUIDs explícitos del seed y asignaciones aprobadas para la demo. Filas preexistentes que no coinciden con el mapa permanecen con `organization_id`/`hospitalization_id` nulos; no se infiere hospitalización ni autoridad desde unidad, cama, `recorded_by` o autoría.
 
 ## Cabecera clínica canónica
 
@@ -738,17 +748,17 @@ Esta tabla cambia de semántica respecto del baseline, donde era el único almac
 
 ### `audit_events`
 
-| Aspecto     | Definición                                                                                                                                                                                                                               |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Propósito   | Bitácora append-only de operaciones administrativas, escrituras CRA y acciones técnicas sensibles                                                                                                                                        |
-| PK          | `id uuid` y unicidad auxiliar `(organization_id, id)`                                                                                                                                                                                    |
-| Columnas    | `organization_id`, `occurred_at`, `actor_type`, `actor_profile_id` nullable, `actor_membership_id` nullable, `technical_principal` nullable, `action`, `target_type`, `target_id` nullable, `result`, `correlation_id`, `metadata jsonb` |
-| FK          | Organización; perfil/membresía cuando aplica, preservando coherencia de tenant                                                                                                                                                           |
-| Constraints | Exactamente un actor humano o técnico según tipo; acción/target/result no vacíos; metadata objeto, limitada y sin secretos/payload clínico completo; timestamp inmutable                                                                 |
-| Índices     | `(organization_id, occurred_at desc, id)`; `(organization_id, target_type, target_id, occurred_at desc)`; `(organization_id, actor_membership_id, occurred_at desc)`; correlation ID                                                     |
-| Mutabilidad | Solo INSERT por funciones/servicios; sin UPDATE/DELETE para usuarios; corrección mediante evento adicional                                                                                                                               |
-| Procedencia | Es evidencia de la operación, firmada lógicamente por contexto servidor; no acepta actor arbitrario del body                                                                                                                             |
-| RLS         | `audit.read` de la organización mediante vista/RPC minimizada; writers no confían en campos de actor enviados por cliente                                                                                                                |
+| Aspecto     | Definición                                                                                                                                                                           |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Propósito   | Bitácora append-only de operaciones administrativas, escrituras CRA y acciones técnicas sensibles                                                                                    |
+| PK          | `id uuid` y unicidad auxiliar `(organization_id, id)`                                                                                                                                |
+| Columnas    | Modelo objetivo: actor humano/técnico y correlation ID. Fase 2.2: tenant, timestamp, actor Auth/membresía, acción, target, resultado, idempotency key y metadata sanitizada.         |
+| FK          | Organización; perfil/membresía cuando aplica, preservando coherencia de tenant                                                                                                       |
+| Constraints | Exactamente un actor humano o técnico según tipo; acción/target/result no vacíos; metadata objeto, limitada y sin secretos/payload clínico completo; timestamp inmutable             |
+| Índices     | `(organization_id, occurred_at desc, id)`; `(organization_id, target_type, target_id, occurred_at desc)`; `(organization_id, actor_membership_id, occurred_at desc)`; correlation ID |
+| Mutabilidad | Solo INSERT por funciones/servicios; sin UPDATE/DELETE para usuarios; corrección mediante evento adicional                                                                           |
+| Procedencia | Es evidencia de la operación, firmada lógicamente por contexto servidor; no acepta actor arbitrario del body                                                                         |
+| RLS         | `audit.read` de la organización mediante vista/RPC minimizada; writers no confían en campos de actor enviados por cliente                                                            |
 
 Una auditoría de lecturas clínicas puede requerir captura fuera de RLS/PostgREST o una API específica para garantizar que cada acceso quede registrado. Esa decisión operativa debe resolverse antes de producción; no se afirma que una tabla por sí sola intercepte todos los SELECT.
 
@@ -909,3 +919,4 @@ Descartado como modelo lógico inicial por complejidad operativa. Tenant explíc
 - No hay DML clínico concedido por el mero permiso de lectura.
 - La demo de una organización no introduce nulos, constantes ni bypasses que impidan una segunda organización.
 - Constraints, índices, RLS y pruebas se entregan juntos por cada corte vertical implementado.
+  Runtime IAM mutations are exposed only through typed PostgreSQL operations; direct DML (including `service_role`) on memberships, roles, role composition and role assignments is blocked. Each operation records sanitized append-only audit metadata and supports stable idempotent replay after re-authorizing the actor.
