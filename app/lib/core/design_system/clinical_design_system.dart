@@ -262,25 +262,39 @@ class ClinicalBottomNavigation extends StatelessWidget {
   );
 }
 
-AppBar clinicalBackAppBar(BuildContext context, {required String title}) =>
-    AppBar(
-      backgroundColor: ClinicalColors.canvas,
-      surfaceTintColor: ClinicalColors.canvas,
-      shadowColor: Colors.transparent,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w700,
-          color: ClinicalColors.ink,
-        ),
-      ),
-      leadingWidth: 56,
-      leading: IconButton(
-        tooltip: 'Volver',
-        onPressed:
-            () => context.canPop() ? context.pop() : context.go('/patients'),
-        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-      ),
-    );
+AppBar clinicalBackAppBar(
+  BuildContext context, {
+  required String title,
+  String fallbackLocation = '/patients',
+  String tooltip = 'Volver',
+}) => clinicalAppBar(
+  title: title,
+  leadingWidth: 56,
+  leading: IconButton(
+    tooltip: tooltip,
+    onPressed:
+        () => context.canPop() ? context.pop() : context.go(fallbackLocation),
+    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+  ),
+);
+
+AppBar clinicalAppBar({
+  required String title,
+  double? leadingWidth,
+  Widget? leading,
+}) => AppBar(
+  backgroundColor: ClinicalColors.canvas,
+  surfaceTintColor: ClinicalColors.canvas,
+  shadowColor: Colors.transparent,
+  elevation: 0,
+  scrolledUnderElevation: 0,
+  title: Text(
+    title,
+    style: const TextStyle(
+      fontWeight: FontWeight.w700,
+      color: ClinicalColors.ink,
+    ),
+  ),
+  leadingWidth: leadingWidth,
+  leading: leading,
+);

@@ -21,6 +21,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.byType(PopupMenuButton<String>), findsNothing);
+      expect(find.byTooltip('Volver a Ajustes'), findsOneWidget);
       expect(
         find.text('No tienes permiso para administrar miembros.'),
         findsOneWidget,
@@ -224,6 +226,57 @@ void main() {
     await tester.pumpAndSettle();
     expect(fake.lastMembershipStatus, 'active');
     expect(fake.attempts['updateMembership'], hasLength(1));
+  });
+
+  testWidgets('member search filters the directory by display name', (
+    tester,
+  ) async {
+    final fake = _FakeIamRepository();
+    const suspended = IamMember(
+      membershipId: 'membership-search-suspended',
+      profileId: 'profile-search-suspended',
+      displayName: 'Persona suspendida',
+      profileStatus: 'active',
+      membershipStatus: 'suspended',
+    );
+    const active = IamMember(
+      membershipId: 'membership-search-active',
+      profileId: 'profile-search-active',
+      displayName: 'Persona activa',
+      profileStatus: 'active',
+      membershipStatus: 'active',
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          iamContextProvider.overrideWith(
+            (ref) async => _context({'iam.membership.read'}),
+          ),
+          iamMembersProvider.overrideWith((ref) async => [active, suspended]),
+          iamRolesProvider.overrideWith((ref) async => []),
+          iamRoleAssignmentsProvider.overrideWith(
+            (ref) async => const <String, List<IamRoleAssignment>>{},
+          ),
+          iamRepositoryProvider.overrideWithValue(fake),
+        ],
+        child: const MaterialApp(home: UsersScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Gestión de usuarios'), findsOneWidget);
+    expect(find.text('Buscar por nombre'), findsOneWidget);
+    expect(find.text('Persona suspendida'), findsOneWidget);
+    expect(find.text('Persona activa'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Persona suspen');
+    await tester.pumpAndSettle();
+    expect(find.text('Persona suspendida'), findsOneWidget);
+    expect(find.text('Persona activa'), findsNothing);
+    await tester.enterText(find.byType(TextField), 'nadie');
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Ningún miembro coincide con la búsqueda.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -637,6 +690,77 @@ void main() {
       });
       expect(reads, 1);
       expect(find.textContaining('Ada Lovelace'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'care history preserves the assignee name and filters displayed episodes locally',
+    (tester) async {
+      final fake =
+          _FakeIamRepository()
+            ..careRows = [
+              CareAssignmentRecord(
+                hospitalizationId: 'episode-with-name',
+                status: 'admitted',
+                admittedAt: DateTime.utc(2026, 10, 1, 12),
+                assignmentId: 'care-suspended',
+                membershipId: 'membership-suspended',
+                validFrom: DateTime.utc(2026, 10, 1, 12),
+                assigneeDisplayName: 'Profesional histórico',
+                assigneeMembershipStatus: 'suspended',
+              ),
+              CareAssignmentRecord(
+                hospitalizationId: 'episode-without-name',
+                status: 'admitted',
+                admittedAt: DateTime.utc(2026, 10, 2, 12),
+              ),
+            ]
+            ..patientNames = {'episode-with-name': 'Ada Lovelace'};
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            iamContextProvider.overrideWith(
+              (ref) async => _context({
+                'clinical.assignment.manage',
+                'clinical.census.read',
+                'clinical.patient.read',
+              }),
+            ),
+            careAssignmentsProvider.overrideWith((ref) async => fake.careRows),
+            eligibleMembersProvider.overrideWith((ref) async => const []),
+            iamRepositoryProvider.overrideWithValue(fake),
+          ],
+          child: const MaterialApp(home: AssignmentsScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Profesional histórico'), findsOneWidget);
+      expect(
+        find.textContaining('Sin acceso · Membresía suspendida'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Asignado el 01-10-2026 · 09:00'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Ingreso'), findsNothing);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Buscar por nombre del paciente'),
+        'ada',
+      );
+      await tester.pump();
+      expect(find.textContaining('episode-with-name'), findsOneWidget);
+      expect(find.textContaining('episode-without-name'), findsNothing);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Buscar por nombre del paciente'),
+        'without-name',
+      );
+      await tester.pump();
+      expect(find.textContaining('episode-with-name'), findsNothing);
+      expect(find.textContaining('episode-without-name'), findsOneWidget);
     },
   );
 

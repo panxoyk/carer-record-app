@@ -31,7 +31,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(router.routeInformationProvider.value.uri.path, '/roles');
           expect(find.byType(RolesPermissionsScreen), findsOneWidget);
-          expect(find.text('Composición de permisos'), findsOneWidget);
+          expect(find.text('Gestión de roles y permisos'), findsOneWidget);
         } else {
           expect(button, findsNothing);
         }

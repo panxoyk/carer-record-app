@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-
+import '../../../core/design_system/clinical_design_system.dart';
 import '../../institutional/data/iam_models.dart';
 import '../../institutional/data/iam_repository.dart';
 import '../../institutional/presentation/iam_providers.dart';
@@ -14,13 +13,11 @@ class RolesPermissionsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final iam = ref.watch(iamContextProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Composición de permisos'),
-        leading: IconButton(
-          tooltip: 'Volver',
-          onPressed: () => context.go('/'),
-          icon: const Icon(Icons.arrow_back),
-        ),
+      appBar: clinicalBackAppBar(
+        context,
+        title: 'Gestión de roles y permisos',
+        fallbackLocation: '/settings',
+        tooltip: 'Volver a Ajustes',
       ),
       body: iam.when(
         skipLoadingOnRefresh: false,
@@ -37,16 +34,9 @@ class RolesPermissionsScreen extends ConsumerWidget {
               !context.allows('iam.role.manage')) {
             return const Center(child: Text('Acceso no disponible.'));
           }
-          return Column(
-            children: [
-              _OrganizationHeader(name: context.organizationName),
-              Expanded(
-                child: _RolePermissionsBody(
-                  key: ValueKey(context.organizationId),
-                  iamContext: context,
-                ),
-              ),
-            ],
+          return _RolePermissionsBody(
+            key: ValueKey(context.organizationId),
+            iamContext: context,
           );
         },
       ),
@@ -124,6 +114,7 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
   Set<String> _draft = {};
   Set<String> _initial = {};
   bool _saving = false;
+  var _permissionQuery = '';
 
   bool get _dirty =>
       !_draft.containsAll(_initial) || !_initial.containsAll(_draft);
@@ -143,8 +134,16 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
     if (roles.isEmpty) {
       return const Center(child: Text('No hay roles ordinarios activos.'));
     }
+    final query = _permissionQuery.trim().toLowerCase();
+    final visible =
+        catalog.where((permission) {
+          if (query.isEmpty) return true;
+          return permission.code.toLowerCase().contains(query) ||
+              permission.family.toLowerCase().contains(query) ||
+              permission.description.toLowerCase().contains(query);
+        }).toList();
     final groups = <String, List<IamPermission>>{};
-    for (final permission in catalog) {
+    for (final permission in visible) {
       (groups[permission.family] ??= []).add(permission);
     }
     return ListView(
@@ -162,6 +161,15 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
         if (role != null) ...[
           const SizedBox(height: 8),
           Text(role.description),
+          const SizedBox(height: 12),
+          TextField(
+            decoration: const InputDecoration(
+              labelText: 'Buscar permisos',
+              helperText: 'Busca por nombre, familia o descripción.',
+              prefixIcon: Icon(Icons.search),
+            ),
+            onChanged: (value) => setState(() => _permissionQuery = value),
+          ),
           if (hidden)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
@@ -188,6 +196,10 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
                         }),
               ),
           ],
+          if (visible.isEmpty)
+            const ListTile(
+              title: Text('Ningún permiso coincide con la búsqueda.'),
+            ),
           FilledButton(
             onPressed:
                 _saving || !_dirty || hidden ? null : () => _save(context),
@@ -311,17 +323,6 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
       'La solicitud no pudo confirmarse. Recarga antes de continuar.',
     _ => 'No fue posible actualizar los permisos.',
   };
-}
-
-class _OrganizationHeader extends StatelessWidget {
-  const _OrganizationHeader({required this.name});
-  final String name;
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-    title: Text(name),
-    subtitle: const Text('Organización seleccionada'),
-  );
 }
 
 Future<bool> _confirm(BuildContext context, String message) async =>

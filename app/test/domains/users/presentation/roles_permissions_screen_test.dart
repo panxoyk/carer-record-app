@@ -82,6 +82,40 @@ void main() {
   );
 
   testWidgets(
+    'permission search keeps family groups and matches descriptions',
+    (tester) async {
+      await _mount(
+        tester,
+        _FakeRepository(),
+        roles: [_role.copyWith(permissions: {})],
+      );
+      await _select(tester, 'Equipo');
+      expect(find.text('Gestión de roles y permisos'), findsOneWidget);
+      expect(find.text('Buscar permisos'), findsOneWidget);
+      expect(find.text('clínico'), findsOneWidget);
+      expect(find.text('membresías'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'escritura');
+      await tester.pumpAndSettle();
+      expect(find.text('clinical.write'), findsOneWidget);
+      expect(find.text('clinical.read'), findsNothing);
+      expect(find.text('membresías'), findsNothing);
+
+      await tester.enterText(find.byType(TextField), 'membresías');
+      await tester.pumpAndSettle();
+      expect(find.text('iam.membership.read'), findsOneWidget);
+      expect(find.text('clinical.write'), findsNothing);
+
+      await tester.enterText(find.byType(TextField), 'nada coincide');
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Ningún permiso coincide con la búsqueda.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'empty roles state and ordinary selection excludes protected role',
     (tester) async {
       await _mount(tester, _FakeRepository(), roles: []);
@@ -331,6 +365,9 @@ void main() {
       await tester.pump();
       await tester.tap(find.byType(CheckboxListTile).at(1));
       await tester.pump();
+      await tester.pumpAndSettle(const Duration(seconds: 5));
+      await tester.ensureVisible(find.text('Guardar'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Guardar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Confirmar'));

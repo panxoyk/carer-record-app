@@ -31,4 +31,36 @@ void main() {
       expect(formatClinicalDate(null), 'No registrada');
     });
   });
+
+  group('formatAssignmentTimeRange', () {
+    final assignedAt = DateTime.utc(2024, 7, 1, 3, 30);
+
+    test('formats a non-ended assignment in the institution time zone', () {
+      expect(
+        formatAssignmentTimeRange(
+          validFrom: assignedAt,
+          now: DateTime.utc(2024, 7, 2),
+        ),
+        'Asignado el 30-06-2024 · 23:30',
+      );
+    });
+
+    test('formats revoked and ended assignments as ranges', () {
+      expect(
+        formatAssignmentTimeRange(
+          validFrom: assignedAt,
+          revokedAt: DateTime.utc(2024, 7, 2, 3, 30),
+        ),
+        'Revocado · 30-06-2024 · 23:30 → 01-07-2024 · 23:30',
+      );
+      expect(
+        formatAssignmentTimeRange(
+          validFrom: assignedAt,
+          validUntil: DateTime.utc(2024, 7, 2, 3, 30),
+          now: DateTime.utc(2024, 7, 3),
+        ),
+        'Finalizada · 30-06-2024 · 23:30 → 01-07-2024 · 23:30',
+      );
+    });
+  });
 }

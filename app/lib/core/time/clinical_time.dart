@@ -24,6 +24,25 @@ String formatClinicalDateTime(DateTime value) {
   return '${_formatDate(localValue)} · ${_twoDigits(localValue.hour)}:${_twoDigits(localValue.minute)}';
 }
 
+/// Formats the lifecycle of an IAM assignment without exposing raw timestamps.
+String formatAssignmentTimeRange({
+  required DateTime? validFrom,
+  DateTime? validUntil,
+  DateTime? revokedAt,
+  DateTime? now,
+}) {
+  final assignedAt =
+      validFrom == null ? 'No registrada' : formatClinicalDateTime(validFrom);
+  if (revokedAt != null) {
+    return 'Revocado · $assignedAt → ${formatClinicalDateTime(revokedAt)}';
+  }
+  final instant = (now ?? DateTime.now()).toUtc();
+  if (validUntil != null && !validUntil.toUtc().isAfter(instant)) {
+    return 'Finalizada · $assignedAt → ${formatClinicalDateTime(validUntil)}';
+  }
+  return 'Asignado el $assignedAt';
+}
+
 String _formatDate(DateTime value) =>
     '${_twoDigits(value.day)}-${_twoDigits(value.month)}-${value.year}';
 

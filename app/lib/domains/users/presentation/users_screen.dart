@@ -1,46 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/design_system/clinical_design_system.dart';
+import '../../../core/time/clinical_time.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/router/administration_navigation.dart';
 import '../../institutional/data/iam_models.dart';
 import '../../institutional/data/iam_repository.dart';
 import '../../institutional/presentation/iam_providers.dart';
 
-class UsersScreen extends ConsumerWidget {
+class UsersScreen extends ConsumerStatefulWidget {
   const UsersScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<UsersScreen> createState() => _UsersScreenState();
+}
+
+class _UsersScreenState extends ConsumerState<UsersScreen> {
+  var _query = '';
+
+  @override
+  Widget build(BuildContext context) {
     final iam = ref.watch(iamContextProvider);
     final members = ref.watch(iamMembersProvider);
     final roles = ref.watch(iamRolesProvider);
     final assignments = ref.watch(iamRoleAssignmentsProvider);
     return PopScope(
       canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go('/settings');
+      },
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Administración institucional'),
-          automaticallyImplyLeading: false,
-          actions: [
-            if (iam is AsyncData<IamContext?> &&
-                iam.value?.allows('iam.membership.read') == true)
-              PopupMenuButton<String>(
-                tooltip: 'Navegación',
-                icon: const Icon(Icons.menu),
-                onSelected: (location) => context.go(location),
-                itemBuilder:
-                    (_) => [
-                      for (final destination in administrationNavigationFor(
-                        iam.value!,
-                      ))
-                        PopupMenuItem(
-                          value: destination.location,
-                          child: Text(destination.label),
-                        ),
-                    ],
-              ),
-          ],
+        appBar: clinicalBackAppBar(
+          context,
+          title: 'Gestión de usuarios',
+          fallbackLocation: '/settings',
+          tooltip: 'Volver a Ajustes',
         ),
         floatingActionButton:
             iam is AsyncData<IamContext?> &&
@@ -69,6 +64,16 @@ class UsersScreen extends ConsumerWidget {
             }
             return Column(
               children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar por nombre',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                    onChanged: (value) => setState(() => _query = value),
+                  ),
+                ),
                 Expanded(
                   child: members.when(
                     skipLoadingOnRefresh: false,
@@ -109,13 +114,18 @@ class UsersScreen extends ConsumerWidget {
                                       'No fue posible cargar las asignaciones de rol.',
                                     ),
                                 data: (byMember) {
+                                  final query = _query.trim().toLowerCase();
                                   final visible =
                                       items
                                           .where(
                                             (m) =>
                                                 m.membershipId !=
                                                     ctx.membershipId &&
-                                                isVisibleInMemberDirectory(m),
+                                                isVisibleInMemberDirectory(m) &&
+                                                (query.isEmpty ||
+                                                    m.displayName
+                                                        .toLowerCase()
+                                                        .contains(query)),
                                           )
                                           .toList();
                                   return ListView(
@@ -131,9 +141,11 @@ class UsersScreen extends ConsumerWidget {
                                           context: ctx,
                                         ),
                                       if (visible.isEmpty)
-                                        const ListTile(
+                                        ListTile(
                                           title: Text(
-                                            'No hay miembros disponibles.',
+                                            _query.trim().isEmpty
+                                                ? 'No hay miembros disponibles.'
+                                                : 'Ningún miembro coincide con la búsqueda.',
                                           ),
                                         ),
                                     ],
@@ -193,9 +205,11 @@ class _MemberTile extends ConsumerWidget {
             dense: true,
             title: Text(assignment.roleName),
             subtitle: Text(
-              assignment.revokedAt == null
-                  ? 'Vigente desde ${assignment.validFrom}'
-                  : 'Revocado · vigente desde ${assignment.validFrom}',
+              formatAssignmentTimeRange(
+                validFrom: assignment.validFrom,
+                validUntil: assignment.validUntil,
+                revokedAt: assignment.revokedAt,
+              ),
             ),
             trailing:
                 canAssign && assignment.revokedAt == null

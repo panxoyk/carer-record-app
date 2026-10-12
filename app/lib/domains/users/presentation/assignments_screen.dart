@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-
+import '../../../core/design_system/clinical_design_system.dart';
+import '../../../core/time/clinical_time.dart';
 import '../../institutional/data/iam_models.dart';
 import '../../institutional/data/iam_repository.dart';
 import '../../institutional/presentation/iam_providers.dart';
 
-class AssignmentsScreen extends ConsumerWidget {
+class AssignmentsScreen extends ConsumerStatefulWidget {
   const AssignmentsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AssignmentsScreen> createState() => _AssignmentsScreenState();
+}
+
+class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
+  var _patientQuery = '';
+
+  @override
+  Widget build(BuildContext context) {
     final iamState = ref.watch(iamContextProvider);
     final iam = iamState.valueOrNull;
     final permission = iam?.allows('clinical.assignment.manage') ?? false;
@@ -19,25 +26,37 @@ class AssignmentsScreen extends ConsumerWidget {
     final eligible = ref.watch(eligibleMembersProvider);
     if (!permission) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Asignaciones asistenciales')),
+        appBar: clinicalBackAppBar(
+          context,
+          title: 'Asignaciones asistenciales',
+          fallbackLocation: '/settings',
+          tooltip: 'Volver a Ajustes',
+        ),
         body: const Center(
           child: Text('No tienes permiso para gestionar asignaciones.'),
         ),
       );
     }
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Asignaciones asistenciales'),
-        leading: IconButton(
-          onPressed: () => context.go('/'),
-          icon: const Icon(Icons.arrow_back),
-        ),
+      appBar: clinicalBackAppBar(
+        context,
+        title: 'Asignaciones asistenciales',
+        fallbackLocation: '/settings',
+        tooltip: 'Volver a Ajustes',
       ),
       body: Column(
         children: [
-          ListTile(
-            title: Text(iam!.organizationName),
-            subtitle: const Text('Organización seleccionada'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: TextField(
+              decoration: const InputDecoration(
+                labelText: 'Buscar por nombre del paciente',
+                helperText:
+                    'Sin acceso a nombres, busca por identificador del episodio.',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: (value) => setState(() => _patientQuery = value),
+            ),
           ),
           Expanded(
             child: assignments.when(
@@ -71,6 +90,7 @@ class AssignmentsScreen extends ConsumerWidget {
                             names is AsyncData<Map<String, String>>
                                 ? names.value
                                 : const {},
+                        patientQuery: _patientQuery,
                       );
                     },
                   ),
@@ -104,10 +124,12 @@ class _AssignmentList extends ConsumerWidget {
     required this.items,
     required this.members,
     required this.patientNames,
+    required this.patientQuery,
   });
   final List<CareAssignmentRecord> items;
   final List<EligibleMember> members;
   final Map<String, String> patientNames;
+  final String patientQuery;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -117,9 +139,17 @@ class _AssignmentList extends ConsumerWidget {
     for (final item in items) {
       episodes.putIfAbsent(item.hospitalizationId, () => []).add(item);
     }
+    final query = patientQuery.trim().toLowerCase();
+    final visibleEpisodes = episodes.entries.where((entry) {
+      if (query.isEmpty) return true;
+      final patientName = patientNames[entry.key]?.toLowerCase() ?? '';
+      return patientName.contains(query) ||
+          entry.key.toLowerCase().contains(query);
+    });
     return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
       children: [
-        for (final entry in episodes.entries)
+        for (final entry in visibleEpisodes)
           _HospitalizationCard(
             hospitalizationId: entry.key,
             rows: entry.value,
@@ -127,7 +157,7 @@ class _AssignmentList extends ConsumerWidget {
             patientName: patientNames[entry.key],
             organizationId: iam.organizationId,
           ),
-        if (items.isEmpty)
+        if (items.isEmpty || visibleEpisodes.isEmpty)
           const ListTile(title: Text('No hay hospitalizaciones disponibles.')),
       ],
     );
@@ -169,82 +199,111 @@ class _HospitalizationCard extends ConsumerWidget {
         members
             .where((member) => !activeMemberships.contains(member.membershipId))
             .toList();
-    return Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ListTile(
-            title: Text(
-              '${patientName?.isNotEmpty == true ? '$patientName · ' : ''}Ingreso ${episode.admittedAt.toLocal().toString().split(' ').first}',
-            ),
-            subtitle: Text(
-              '$hospitalizationId\n${episode.status} · ingreso ${episode.admittedAt.toLocal()}',
-            ),
-            isThreeLine: true,
-            leading: IconButton(
-              tooltip: 'Copiar identificador del episodio',
-              icon: const Icon(Icons.copy),
-              onPressed:
-                  () =>
-                      Clipboard.setData(ClipboardData(text: hospitalizationId)),
-            ),
-          ),
-          for (final row in rows.where((row) => row.assignmentId != null))
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ClinicalCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             ListTile(
-              title: Text(_memberName(row.membershipId, members)),
-              subtitle: Text(_assignmentStatus(row)),
-              trailing:
-                  row.revokedAt == null
-                      ? IconButton(
-                        tooltip: 'Revocar asignación',
-                        icon: const Icon(Icons.link_off),
-                        onPressed:
-                            () => _apply(
-                              context,
-                              ref,
-                              (attempt) => ref
-                                  .read(iamRepositoryProvider)
-                                  .revokeCareAssignment(
-                                    organizationId: organizationId,
-                                    assignmentId: row.assignmentId!,
-                                    attempt: attempt,
-                                  ),
-                            ),
-                      )
-                      : null,
+              title: Text(
+                patientName?.isNotEmpty == true
+                    ? patientName!
+                    : 'Hospitalización',
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${episode.status} · ingreso ${formatClinicalDateTime(episode.admittedAt)}',
+                  ),
+                  Text(
+                    hospitalizationId,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+              isThreeLine: true,
+              leading: IconButton(
+                tooltip: 'Copiar identificador del episodio',
+                icon: const Icon(Icons.copy),
+                onPressed:
+                    () => Clipboard.setData(
+                      ClipboardData(text: hospitalizationId),
+                    ),
+              ),
             ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.person_add_alt_1),
-              label: const Text('Asignar profesional'),
-              onPressed:
-                  () => _grant(context, ref, organizationId, episode, targets),
+            for (final row in rows.where((row) => row.assignmentId != null))
+              ListTile(
+                title: Text(_memberName(row, members)),
+                subtitle:
+                    row.assigneeMembershipStatus == 'suspended'
+                        ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_assignmentStatus(row)),
+                            const Text('Sin acceso · Membresía suspendida'),
+                          ],
+                        )
+                        : Text(_assignmentStatus(row)),
+                isThreeLine: row.assigneeMembershipStatus == 'suspended',
+                trailing:
+                    row.revokedAt == null
+                        ? IconButton(
+                          tooltip: 'Revocar asignación',
+                          icon: const Icon(Icons.link_off),
+                          onPressed:
+                              () => _apply(
+                                context,
+                                ref,
+                                (attempt) => ref
+                                    .read(iamRepositoryProvider)
+                                    .revokeCareAssignment(
+                                      organizationId: organizationId,
+                                      assignmentId: row.assignmentId!,
+                                      attempt: attempt,
+                                    ),
+                              ),
+                        )
+                        : null,
+              ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.person_add_alt_1),
+                label: const Text('Asignar profesional'),
+                onPressed:
+                    () =>
+                        _grant(context, ref, organizationId, episode, targets),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-String _memberName(String? membershipId, List<EligibleMember> members) =>
+String _memberName(CareAssignmentRecord row, List<EligibleMember> members) =>
+    row.assigneeDisplayName ??
     members
-        .where((member) => member.membershipId == membershipId)
+        .where((member) => member.membershipId == row.membershipId)
         .map((member) => member.displayName)
         .firstOrNull ??
     'Profesional asignado';
 
 String _assignmentStatus(CareAssignmentRecord row) {
-  if (row.revokedAt != null) {
-    return 'Revocada · ${row.validFrom?.toLocal() ?? ''}';
-  }
-  final now = DateTime.now().toUtc();
-  if ((row.validFrom != null && row.validFrom!.toUtc().isAfter(now)) ||
-      (row.validUntil != null && !row.validUntil!.toUtc().isAfter(now))) {
-    return 'Histórica · desde ${row.validFrom?.toLocal()} · hasta ${row.validUntil?.toLocal()}';
-  }
-  return 'Vigente desde ${row.validFrom?.toLocal()}';
+  final timing = formatAssignmentTimeRange(
+    validFrom: row.validFrom,
+    validUntil: row.validUntil,
+    revokedAt: row.revokedAt,
+  );
+  return timing;
 }
 
 Future<void> _grant(
