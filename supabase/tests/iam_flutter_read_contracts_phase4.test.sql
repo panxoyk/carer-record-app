@@ -135,7 +135,7 @@ select ok(
   and (select array_agg(attname::text order by attnum) from pg_attribute where attrelid='public.iam_member_role_assignments'::regclass and attnum>0 and not attisdropped)
     = array['organization_id','assignment_id','membership_id','role_id','role_name','protected_kind','valid_from','valid_until','revoked_at']::text[]
   and (select array_agg(attname::text order by attnum) from pg_attribute where attrelid='public.iam_assignment_hospitalizations'::regclass and attnum>0 and not attisdropped)
-    = array['organization_id','hospitalization_id','hospitalization_status','admitted_at','discharged_at','assignment_id','membership_id','assignment_valid_from','assignment_valid_until','revoked_at']::text[]
+    = array['organization_id','hospitalization_id','hospitalization_status','admitted_at','discharged_at','assignment_id','membership_id','assignment_valid_from','assignment_valid_until','revoked_at','assignee_display_name','assignee_membership_status']::text[]
   and (select array_agg(attname::text order by attnum) from pg_attribute where attrelid='public.iam_assignment_eligible_members'::regclass and attnum>0 and not attisdropped)
     = array['organization_id','membership_id','display_name']::text[],
   'all six Flutter views expose only their exact typed column contracts');
@@ -187,8 +187,12 @@ select ok(exists(select 1 from public.iam_member_directory
     where membership_id=current_setting('cra.contract.target_membership')::uuid)
   and (select count(*) from public.iam_assignment_hospitalizations
     where membership_id=current_setting('cra.contract.target_membership')::uuid
-      and assignment_id is not null) > 0,
-  'a suspended target membership remains visible with role/care history but is not eligible for new care assignments');
+      and assignment_id is not null
+      and assignee_display_name=(select p.display_name from public.organization_memberships m
+        join public.profiles p on p.id=m.profile_id
+        where m.id=current_setting('cra.contract.target_membership')::uuid)
+      and assignee_membership_status='suspended') > 0,
+  'a suspended target membership remains identifiable in care history but is not eligible for new care assignments');
 reset role;
 update public.organization_memberships set status='active'
 where id=current_setting('cra.contract.target_membership')::uuid;
