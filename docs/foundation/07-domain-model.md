@@ -34,24 +34,25 @@ El objetivo introduce explícitamente:
 
 ## Lenguaje ubicuo
 
-| Término                      | Significado preciso                                                        | No significa                                                 |
-| ---------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Organización                 | Institución/hospital que constituye un tenant de seguridad                 | Unidad clínica ni red suprainstitucional implícita           |
-| Unidad                       | Área asistencial jerárquica perteneciente a una organización               | Texto libre de ubicación                                     |
-| Perfil                       | Persona de CRA vinculada a una identidad Supabase Auth                     | Rol, membresía o licencia institucional                      |
-| Membresía                    | Vinculación de un perfil con una organización y su estado local            | Sesión Auth                                                  |
-| Rol                          | Conjunto nombrado de permisos configurado por una organización             | Enum global ni permiso por sí mismo                          |
-| Alcance                      | Parte de la organización cubierta por una asignación de rol                | Filtro de interfaz                                           |
-| Paciente                     | Persona clínica identificada dentro de una organización                    | Hospitalización actual                                       |
-| Hospitalización              | Episodio asistencial institucional desde admisión hasta egreso/cancelación | Paciente, consulta ambulatoria genérica ni ubicación puntual |
-| Ubicación de hospitalización | Período en que el episodio se asocia a una unidad/cama                     | Atributo permanente del paciente                             |
-| Registro clínico             | Cabecera canónica CRA de un hecho o documento tipado                       | Evento de timeline                                           |
-| Recurso de origen            | Versión inmutable de un payload recibido desde una fuente                  | Entidad de dominio directamente consumible por UI            |
-| Procedencia                  | Evidencia de organización, fuente, recurso, versión, ejecución y tiempo    | Solo un string `external_id`                                 |
-| Nota de contexto             | Registro complementario originado y confirmado en CRA                      | Nota oficial de FCE o dato importado                         |
-| Evento clínico               | Fila derivada y ordenable del timeline                                     | Fuente canónica del hecho clínico                            |
-| Fuente                       | Sistema institucional autorizado del que se ingieren recursos              | Organización                                                 |
-| Ejecución de ingesta         | Intento trazable de procesar un lote/checkpoint de una fuente              | Recurso clínico individual                                   |
+| Término                      | Significado preciso                                                              | No significa                                                  |
+| ---------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Organización                 | Institución/hospital que constituye un tenant de seguridad                       | Unidad clínica ni red suprainstitucional implícita            |
+| Unidad                       | Área asistencial jerárquica perteneciente a una organización                     | Texto libre de ubicación                                      |
+| Perfil                       | Persona de CRA vinculada a una identidad Supabase Auth                           | Rol, membresía o licencia institucional                       |
+| Membresía                    | Vinculación de un perfil con una organización y su estado local                  | Sesión Auth                                                   |
+| Rol                          | Conjunto nombrado de permisos configurado por una organización                   | Enum global ni permiso por sí mismo                           |
+| Alcance                      | Parte de la organización cubierta por una asignación de rol                      | Sustituto de una asignación asistencial para Personal clínico |
+| Asignación asistencial       | Relación temporal entre membresía y hospitalización que habilita lectura clínica | Asignación de rol, autoría o búsqueda de paciente             |
+| Paciente                     | Persona clínica identificada dentro de una organización                          | Hospitalización actual                                        |
+| Hospitalización              | Episodio asistencial institucional desde admisión hasta egreso/cancelación       | Paciente, consulta ambulatoria genérica ni ubicación puntual  |
+| Ubicación de hospitalización | Período en que el episodio se asocia a una unidad/cama                           | Atributo permanente del paciente                              |
+| Registro clínico             | Cabecera canónica CRA de un hecho o documento tipado                             | Evento de timeline                                            |
+| Recurso de origen            | Versión inmutable de un payload recibido desde una fuente                        | Entidad de dominio directamente consumible por UI             |
+| Procedencia                  | Evidencia de organización, fuente, recurso, versión, ejecución y tiempo          | Solo un string `external_id`                                  |
+| Nota de contexto             | Registro complementario originado y confirmado en CRA                            | Nota oficial de FCE o dato importado                          |
+| Evento clínico               | Fila derivada y ordenable del timeline                                           | Fuente canónica del hecho clínico                             |
+| Fuente                       | Sistema institucional autorizado del que se ingieren recursos                    | Organización                                                  |
+| Ejecución de ingesta         | Intento trazable de procesar un lote/checkpoint de una fuente                    | Recurso clínico individual                                    |
 
 ## Mapa de contextos
 
@@ -275,12 +276,12 @@ Une membresía, rol, alcance y vigencia. Debe pertenecer a una sola organizació
 - organización completa;
 - unidad, con la semántica jerárquica definida por la institución.
 
-La asignación individual a una hospitalización es otra entidad (`CareAssignment`), no un tercer valor ambiguo de `scope_type`. Está preparada para una etapa posterior y exige un permiso específico además de la relación.
+La asignación individual a una hospitalización es otra entidad (`CareAssignment`), no un tercer valor ambiguo de `scope_type`. ADR-013 la adelanta como condición obligatoria de lectura para Personal clínico: exige `clinical.assigned.read`, el permiso concreto del recurso y una relación vigente. El alta conserva acceso histórico mientras la relación siga vigente; cancelación/invalidación lo deniega, correcciones no heredan y traslados no la modifican. El Administrador de demo es una excepción explícita por `clinical.organization.read` reservado, no por nombre de rol ni Service Role.
 
 ### Invariantes
 
 - Perfil activo, membresía activa, rol activo, asignación vigente y permiso presente son condiciones acumulativas.
-- El administrador no hereda permisos clínicos.
+- Ninguna autoridad IAM hereda permisos clínicos; el Administrador de demo solo los recibe mediante `clinical.organization.read` reservado, permisos concretos y alcance definidos por ADR-013.
 - Ningún actor puede autoasignarse autoridad mediante una mutación directa.
 - El tenant se deriva de las entidades persistidas, no de un parámetro confiado al cliente.
 

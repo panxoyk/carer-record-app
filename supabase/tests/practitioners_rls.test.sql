@@ -64,8 +64,8 @@ select is(
 );
 select is(
   (select count(*) from public.clinical_events where id = '91000000-0000-0000-0000-000000000201'),
-  1::bigint,
-  'an active care practitioner can read clinical events'
+  0::bigint,
+  'unlinked clinical events remain hidden after the RLS cut'
 );
 
 -- An active administrator can list and update practitioners.

@@ -86,6 +86,12 @@ Esto excluía en el baseline:
 | Completar error y retry                        | Creación/actualización, recuperación y consultas no tenían estados uniformes.                           | `baseline/carer-record-app.md:95-99`                                                           |
 | Ampliar evidencia de UI/Auth                   | La fotografía no contiene pruebas HTTP, widget ni integración automatizada para esos flujos.            | `baseline/carer-record-app.md:185-189`                                                         |
 
+## Próximo corte de autorización clínica
+
+**Subtarea DB 3.2, consulta Flutter 4.4 y revisión integrada 4.5 completadas; gate final 5.2 cerrado para demo sintética/local.** La migración aditiva `20261011280000_harden_clinical_runtime_writes_and_views.sql` corrige DML runtime de tablas clínicas y completa los contratos mínimos del censo y timeline. Las vistas se consumen con modelos y repositorios por hospitalización; la integración local verifica censo, demografía específica, timeline, UUID manipulado y revocación.
+
+Este corte no incluye ingesta FHIR completa, escritura clínica, solicitudes de acceso, acceso de emergencia, rol `technician` nuevo ni identificadores completos de paciente. La gestión delegable de asignaciones se rige por [ADR-014](decisions/adr-014-delegacion-gestion-asignaciones.md): exige permiso efectivo y no concede acceso clínico. El upgrade migra cuentas sintéticas de forma aditiva según [ADR-013](decisions/adr-013-acceso-clinico-por-asignacion.md). Fases 3 y 4 forman un único corte desplegable y se integraron únicamente para demo sintética/local; no se afirma concurrencia de dos sesiones, producción ni datos reales.
+
 ## Futuro propuesto
 
 **Propuesto.** El orden siguiente reduce el riesgo y evita trasladar capacidades del repositorio hermano sin sus controles faltantes.

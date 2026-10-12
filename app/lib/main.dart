@@ -20,9 +20,12 @@ class CarerRecordApp extends ConsumerWidget {
   const CarerRecordApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
-    title: 'Carer Record',
-    theme: ClinicalTheme.build(),
-    routerConfig: ref.watch(appRouterProvider),
-  );
+  Widget build(BuildContext context, WidgetRef ref) =>
+      AuthorizationLifecycleBoundary(
+        child: MaterialApp.router(
+          title: 'Carer Record',
+          theme: ClinicalTheme.build(),
+          routerConfig: ref.watch(appRouterProvider),
+        ),
+      );
 }

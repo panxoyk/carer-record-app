@@ -8,15 +8,18 @@ Una pregunta abierta registra una decisión faltante, no una autorización provi
 
 Las siguientes preguntas se resolvieron durante la fundación y no se mantienen como bloqueantes:
 
-| Tema                    | Decisión                                                                                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Modelo de permisos      | Roles por organización sobre catálogo fijo; alcance inicial de organización o unidad; asignación individual preparada para una fase futura. |
-| Versión y recursos FHIR | FHIR R4; ocho recursos de dominio y tres de infraestructura definidos en `06-fhir-integration.md`.                                          |
-| Zona horaria            | Instantes UTC y presentación mediante timezone IANA de la organización; se conserva offset/precisión de origen cuando exista.               |
-| Reversión NER           | La realiza localmente el mismo autor; mapa y valores nunca llegan al proveedor.                                                             |
-| Síntesis de nota        | Ordena y reduce texto sin inventar hechos; el mismo autor escucha audio, edita síntesis y confirma.                                         |
-| Outbox inicial          | Notas textuales/de audio y solicitudes de síntesis pendientes; solo contenido tokenizado cruza la red.                                      |
-| Turnos                  | Scheduling, RRHH y handoff formal quedan fuera; el resumen usa intervalos explícitos.                                                       |
+| Tema                    | Decisión                                                                                                                                                                                                  |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Modelo de permisos      | Roles por organización sobre catálogo fijo; Personal clínico requiere permiso concreto y asignación asistencial vigente; Admin demo usa permiso reservado y RLS.                                          |
+| Excepción Administrador | `clinical.organization.read` reservado solo para el rol seed protegido; RLS evalúa permiso, alcance y tenant, no nombre/ID; no es copiable ni delegable.                                                  |
+| Episodios y traslados   | Alta conserva lectura histórica con asignación vigente; cancelación/invalidación deniega; corrección no hereda; traslado mantiene la asignación y la unidad no restringe Personal clínico en demo.        |
+| Bootstrap y migración   | Bootstrap crea Administrador sintético; la operación autorizada mantiene al menos uno; cuentas `administrator`, `physician`, `nurse` y `technician` preexistentes tienen tratamiento de upgrade definido. |
+| Versión y recursos FHIR | FHIR R4; ocho recursos de dominio y tres de infraestructura definidos en `06-fhir-integration.md`.                                                                                                        |
+| Zona horaria            | Instantes UTC y presentación mediante timezone IANA de la organización; se conserva offset/precisión de origen cuando exista.                                                                             |
+| Reversión NER           | La realiza localmente el mismo autor; mapa y valores nunca llegan al proveedor.                                                                                                                           |
+| Síntesis de nota        | Ordena y reduce texto sin inventar hechos; el mismo autor escucha audio, edita síntesis y confirma.                                                                                                       |
+| Outbox inicial          | Notas textuales/de audio y solicitudes de síntesis pendientes; solo contenido tokenizado cruza la red.                                                                                                    |
+| Turnos                  | Scheduling, RRHH y handoff formal quedan fuera; el resumen usa intervalos explícitos.                                                                                                                     |
 
 ## Privacidad, legal y gobernanza
 
@@ -31,13 +34,12 @@ Las siguientes preguntas se resolvieron durante la fundación y no se mantienen 
 
 ## Autorización y datos
 
-| ID        | Pregunta                                                                                       | Prioridad  | Responsable a confirmar   | Momento de resolución |
-| --------- | ---------------------------------------------------------------------------------------------- | ---------- | ------------------------- | --------------------- |
-| Q-AUTH-02 | ¿Cómo se invalida una sesión/caché de autorización tras revocación?                            | Alta       | Backend/seguridad         | Diseño de V2          |
-| Q-AUTH-03 | ¿Quién puede cambiar permisos y cómo se impide autoelevación o último-admin inválido?          | Bloqueante | Seguridad/producto        | Diseño de V2          |
-| Q-DATA-01 | ¿Qué perfiles o Implementation Guides concretos restringen los recursos FHIR R4 seleccionados? | Alta       | Interoperabilidad         | Inicio de V1          |
-| Q-DATA-02 | ¿Qué sistema identifica pacientes y cómo se resuelven duplicados/conflictos?                   | Bloqueante | Datos/clínica             | Diseño de mapping V1  |
-| Q-DATA-04 | ¿Qué pérdidas de mapping FHIR son aceptables y quién las aprueba?                              | Alta       | Clínica/interoperabilidad | Criterio de salida V1 |
+| ID        | Pregunta                                                                                       | Prioridad  | Responsable a confirmar   | Momento de resolución                                                                                                                                                                                                               |
+| --------- | ---------------------------------------------------------------------------------------------- | ---------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q-AUTH-02 | ¿Cómo se invalida una sesión/caché de autorización tras revocación?                            | Alta       | Backend/seguridad         | Resuelta en 4.4: providers autoDispose, sin caché persistente, invalidación en entrada/resume/cambio de organización y reconsulta; revocación remota se refleja en la siguiente consulta, sin push. Gates 4.5/5.2 cerrados en demo. |
+| Q-DATA-01 | ¿Qué perfiles o Implementation Guides concretos restringen los recursos FHIR R4 seleccionados? | Alta       | Interoperabilidad         | Inicio de V1                                                                                                                                                                                                                        |
+| Q-DATA-02 | ¿Qué sistema identifica pacientes y cómo se resuelven duplicados/conflictos?                   | Bloqueante | Datos/clínica             | Diseño de mapping V1                                                                                                                                                                                                                |
+| Q-DATA-04 | ¿Qué pérdidas de mapping FHIR son aceptables y quién las aprueba?                              | Alta       | Clínica/interoperabilidad | Criterio de salida V1                                                                                                                                                                                                               |
 
 ## Audio, modelos y síntesis
 
@@ -58,6 +60,8 @@ Las siguientes preguntas se resolvieron durante la fundación y no se mantienen 
 | Q-OPS-02   | ¿Qué política de retry, dead-letter y alerta aplica por operación?    | Alta      | Backend/operación       | Diseño de V7          |
 | Q-OPS-03   | ¿Dónde se almacenan resultados de benchmarks y por cuánto tiempo?     | Media     | Investigación           | Antes de SP-01        |
 | Q-SCOPE-02 | ¿Qué evidencia exacta exige la evaluación académica y en qué formato? | Alta      | Sponsor/investigación   | Antes de V8           |
+
+El harness `integration:local` restaura baseline antes y en `finally` después, usando únicamente el Supabase local desechable; el reset elimina también su historia/auditoría sintética y no se borran filas manualmente. La prueba concurrente de último Administrador en dos sesiones sigue abierta: los tests pgTAP prueban el contrato sin forzar una carrera real. No se presenta la garantía como evidencia concurrente.
 
 ## Regla de cierre
 

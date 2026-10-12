@@ -18,19 +18,21 @@ La fotografía previa a esta fundación registra un MVP local con autenticación
 
 ## Estado y secuencia
 
-| Corte | Resultado demostrable                                       | Estado documental        | Dependencias        |
-| ----- | ----------------------------------------------------------- | ------------------------ | ------------------- |
-| V0    | Baseline local reproducible y límites declarados            | Parcialmente evidenciado | Ninguna             |
-| V1    | FHIR sintético validado llega a timeline                    | Propuesto                | V0, ADR-004         |
-| V2    | Permiso configurable gobierna lectura                       | Propuesto                | V1, ADR-005         |
-| V3    | Audio sintético se captura, transcribe localmente y elimina | Propuesto                | V0, ADR-006/007/010 |
-| V4    | Texto sintético se tokeniza y revierte localmente           | Propuesto                | V3, ADR-008         |
-| V5    | Síntesis cloud procesa solo texto sintético permitido       | Propuesto                | V4, ADR-009         |
-| V6    | Resumen temporal versionado usa caché segura                | Propuesto                | V1, V5, ADR-011     |
-| V7    | Eliminación, auditoría y outbox resisten fallos             | Propuesto                | V2-V6               |
-| V8    | Evaluación académica reproducible y cierre de brechas       | Propuesto                | V1-V7               |
+| Corte | Resultado demostrable                                       | Estado documental        | Dependencias                                |
+| ----- | ----------------------------------------------------------- | ------------------------ | ------------------------------------------- |
+| V0    | Baseline local reproducible y límites declarados            | Parcialmente evidenciado | Ninguna                                     |
+| V1    | FHIR sintético validado llega a timeline                    | Propuesto                | V0, ADR-004                                 |
+| V2    | Permisos configurables y asignación gobiernan lectura       | Propuesto                | V0, ADR-005/013 y hospitalizaciones mínimas |
+| V3    | Audio sintético se captura, transcribe localmente y elimina | Propuesto                | V0, ADR-006/007/010                         |
+| V4    | Texto sintético se tokeniza y revierte localmente           | Propuesto                | V3, ADR-008                                 |
+| V5    | Síntesis cloud procesa solo texto sintético permitido       | Propuesto                | V4, ADR-009                                 |
+| V6    | Resumen temporal versionado usa caché segura                | Propuesto                | V1, V5, ADR-011                             |
+| V7    | Eliminación, auditoría y outbox resisten fallos             | Propuesto                | V2-V6                                       |
+| V8    | Evaluación académica reproducible y cierre de brechas       | Propuesto                | V1-V7                                       |
 
 V1 y V3 pueden explorarse en paralelo mediante spikes, pero no compartir contratos inestables. V5 permanece bloqueado hasta demostrar técnicamente que el flujo cloud solo acepta procedencia sintética.
+
+El subcorte DB de V2 implementa IAM, hospitalizaciones/asignaciones y RLS clínico por episodio. Los subcortes 4.1 (operaciones IAM), 4.2 (alta institucional Edge), 4.3 (administración institucional Flutter y asignaciones asistenciales) y 4.4 (consulta clínica Flutter por hospitalización) tienen implementación y pruebas dirigidas. La revisión integrada 4.5 y el gate 5.2 están cerrados para demo sintética/local; esto no completa V2 ni acredita producción. Fases 3 y 4 solo se consideran integradas dentro de ese alcance.
 
 ## V0 - Baseline y guardrails
 
@@ -42,7 +44,7 @@ V1 y V3 pueden explorarse en paralelo mediante spikes, pero no compartir contrat
 
 - setup local y CI pasan desde un checkout limpio;
 - las limitaciones académicas y de datos sintéticos son visibles;
-- ADR-001 a ADR-012 y apéndices están enlazados;
+- ADR-001 a ADR-013 y apéndices están enlazados;
 - no hay secretos ni datos reales versionados;
 - riesgos P0 tienen tratamiento o bloqueo explícito.
 
@@ -60,13 +62,13 @@ V1 y V3 pueden explorarse en paralelo mediante spikes, pero no compartir contrat
 
 ## V2 - Permisos configurables
 
-**Valor:** una persona administradora autorizada modifica una asignación de permiso y RLS refleja la decisión sin despliegue SQL.
+**Valor:** una persona administradora autorizada compone permisos y asigna hospitalizaciones sintéticas; RLS permite al Personal clínico leer solo sus episodios vigentes sin despliegue SQL.
 
-**Incluye:** catálogo cerrado de permisos, grants por sujeto o rol, estado/vigencia si se aprueba, administración mínima y auditoría. La matriz estática del baseline (`supabase/migrations/20260910100000_patient_read_access.sql:10-16`) se migra de forma aditiva.
+**Incluye:** catálogo cerrado de permisos, dos roles seed, hospitalizaciones mínimas y `care_assignments`, estado/vigencia, administración mínima y auditoría. La matriz estática del baseline (`supabase/migrations/20260910100000_patient_read_access.sql:10-16`) se migra de forma aditiva. Personal clínico requiere asignación vigente; el Administrador de demo usa `clinical.organization.read` reservado, permisos concretos y RLS. No depende de completar V1 ni de la ingesta FHIR completa.
 
-**Entidades:** `organizations`, `units`, `profiles`, `organization_memberships`, `roles`, `permission_catalog`, `role_permissions` y `role_assignments`, con alcance inicial de organización o unidad. La asignación individual de hospitalizaciones queda preparada, pero no integra el flujo inicial.
+**Entidades:** `organizations`, `units`, `profiles`, `organization_memberships`, `roles`, `permission_catalog`, `role_permissions`, `role_assignments`, `hospitalizations` y `care_assignments`. La ingesta FHIR completa puede seguir pendiente; V2 solo adelanta las hospitalizaciones mínimas definidas por ADR-013.
 
-**Pruebas:** pgTAP de grant/revoke/suspensión/administrador/sin perfil, concurrencia e invalidación de sesión según contrato.
+**Pruebas:** pgTAP de permiso reservado no delegable, bootstrap/último Administrador, grant/revoke/suspensión/Administrador de demo/sin perfil, Personal clínico asignado/no asignado, alta/cancelación/corrección, traslado, múltiples episodios, tenant ajeno, concurrencia e invalidación de sesión según contrato.
 
 **Criterio de salida:** denegación por defecto permanece; ninguna edición de UI agrega autoridad; todas las combinaciones soportadas tienen casos positivos y negativos.
 
@@ -156,3 +158,5 @@ Estos límites derivan de [ADR-002](decisions/adr-002-prototipo-academico.md) y 
 ## Control de entrega
 
 Cada corte debe añadir una fila o actualizar estado en [requirements-traceability.md](appendices/requirements-traceability.md), registrar evidencia en [evidence-index.md](appendices/evidence-index.md), cerrar o reformular preguntas y revisar [risk-register.md](appendices/risk-register.md). La etiqueta **implementado** solo se usa cuando código y pruebas existen; **validado** requiere además que los criterios del corte se hayan ejecutado en el entorno declarado.
+
+El gate 5.2 aquí registrado cierra la evidencia local sintética de las fases 3+4 y la revisión de controles; no inicia V5 ni declara V2 completo o el sistema desplegable en producción. La carrera de dos sesiones del último Administrador permanece pendiente y no se habilita ninguna capacidad futura o productiva.

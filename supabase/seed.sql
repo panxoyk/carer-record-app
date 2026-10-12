@@ -19,6 +19,10 @@ insert into public.practitioners (id, display_name, role, license_number, status
   ('55555555-5555-5555-5555-555555555555', 'Dra. Camila Vera', 'physician', 'MED-10003', 'suspended')
 on conflict (id) do nothing;
 
+-- IAM migrations run before this seed. Populate the additive identity bridge after
+-- synthetic legacy practitioners exist; this is idempotent and has no runtime grant.
+select public.bootstrap_legacy_practitioner_iam();
+
 -- Fictitious local-development patients only; never use clinical data here.
 insert into public.patients (
   id, external_reference, given_name, family_name, birth_date, rut, care_unit,
@@ -245,3 +249,6 @@ insert into public.clinical_events (
     '{"summary":"Encuentro sintético con información demográfica incompleta."}'::jsonb
   )
 on conflict (id) do nothing;
+
+-- Apply only the versioned, UUID-explicit synthetic episode/event/assignment map.
+select public.bootstrap_synthetic_hospitalization_fixtures();
