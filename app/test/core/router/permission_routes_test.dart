@@ -71,15 +71,19 @@ void main() {
       permissionRedirectForLocation(administrator, '/assignments'),
       isNull,
     );
-    expect(permissionRedirectForLocation(administrator, '/'), '/users');
+    expect(permissionRedirectForLocation(administrator, '/'), '/patients');
+    expect(
+      permissionRedirectForLocation(_context({'iam.membership.read'}), '/'),
+      '/settings',
+    );
   });
 
   test(
-    'users navigation offers only destinations allowed by IAM permissions',
+    'settings navigation offers only destinations allowed by IAM permissions',
     () {
       expect(
         administrationNavigationFor(_context({})).map((item) => item.location),
-        ['/settings'],
+        isEmpty,
       );
       expect(
         administrationNavigationFor(
@@ -91,13 +95,13 @@ void main() {
             'clinical.patient.read',
           }),
         ).map((item) => item.location),
-        ['/roles', '/assignments', '/patients', '/settings'],
+        ['/roles', '/assignments'],
       );
       expect(
         administrationNavigationFor(
           _context({'iam.role.read'}),
         ).map((item) => item.location),
-        ['/settings'],
+        isEmpty,
       );
     },
   );

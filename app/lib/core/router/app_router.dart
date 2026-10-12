@@ -10,6 +10,7 @@ import '../../domains/institutional/data/iam_models.dart';
 import '../../domains/users/presentation/users_screen.dart';
 import '../../domains/users/presentation/assignments_screen.dart';
 import '../../domains/users/presentation/roles_permissions_screen.dart';
+import '../design_system/clinical_design_system.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final gate = ref.read(authGateProvider);
@@ -129,7 +130,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
 String? permissionRedirectForLocation(IamContext context, String location) {
   if (location == '/') {
-    if (context.allows('iam.membership.read')) return '/users';
     if (context.allows('clinical.census.read') &&
         context.allows('clinical.patient.read')) {
       return '/patients';
@@ -197,7 +197,7 @@ class OrganizationSelectionScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final contexts = ref.watch(iamContextsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Seleccionar organización')),
+      appBar: clinicalAppBar(title: 'Seleccionar organización'),
       body: contexts.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error:

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/design_system/clinical_design_system.dart';
+import '../../../core/router/administration_navigation.dart';
 import '../../../core/time/clinical_time.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../clinical_event/domain/entities/clinical_event.dart';
@@ -268,80 +269,99 @@ class SettingsScreen extends ConsumerWidget {
         error:
             (_, __) =>
                 const Center(child: Text('No fue posible cargar el perfil.')),
-        data:
-            (profile) =>
-                profile == null
-                    ? const Center(
-                      child: Text('No fue posible cargar el perfil.'),
-                    )
-                    : ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        ClinicalProfileCard(
-                          initials: _initials(profile.displayName),
-                          name: profile.displayName,
-                          subtitle: profile.organizationName,
-                          status:
-                              profile.profileStatus == 'active' &&
-                                      profile.membershipStatus == 'active'
-                                  ? 'Activo'
-                                  : 'Suspendido',
-                        ),
-                        if (profile.allows('iam.membership.read'))
-                          ListTile(
-                            title: const Text('Administración de usuarios'),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => context.go('/users'),
-                          ),
-                        const SizedBox(height: 18),
-                        ClinicalSettingsSection(
-                          title: 'Perfil institucional',
-                          children: [
-                            ClinicalSettingsRow(
-                              label: 'Nombre',
-                              value: profile.displayName,
-                              icon: Icons.person_outline,
+        data: (profile) {
+          if (profile == null) {
+            return const Center(
+              child: Text('No fue posible cargar el perfil.'),
+            );
+          }
+          final administrationDestinations = administrationNavigationFor(
+            profile,
+          );
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              ClinicalProfileCard(
+                initials: _initials(profile.displayName),
+                name: profile.displayName,
+                subtitle: profile.organizationName,
+                status:
+                    profile.profileStatus == 'active' &&
+                            profile.membershipStatus == 'active'
+                        ? 'Activo'
+                        : 'Suspendido',
+              ),
+              if (administrationDestinations.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                ClinicalSettingsSection(
+                  title: 'Administración institucional',
+                  children: [
+                    for (var i = 0; i < administrationDestinations.length; i++)
+                      ClinicalSettingsRow(
+                        label: administrationDestinations[i].label,
+                        icon: switch (administrationDestinations[i].location) {
+                          '/users' => Icons.group_outlined,
+                          '/roles' => Icons.admin_panel_settings_outlined,
+                          _ => Icons.assignment_ind_outlined,
+                        },
+                        isLast: i == administrationDestinations.length - 1,
+                        onTap:
+                            () => context.go(
+                              administrationDestinations[i].location,
                             ),
-                            ClinicalSettingsRow(
-                              label: 'Organización',
-                              value: profile.organizationName,
-                              icon: Icons.business_outlined,
-                            ),
-                            ClinicalSettingsRow(
-                              label: 'Estado de perfil',
-                              value: profile.profileStatus,
-                              icon: Icons.verified_outlined,
-                            ),
-                            ClinicalSettingsRow(
-                              label: 'Estado de membresía',
-                              value: profile.membershipStatus,
-                              icon: Icons.groups_outlined,
-                              isLast: true,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        ClinicalSettingsSection(
-                          title: 'Seguridad',
-                          children: [
-                            ClinicalSettingsRow(
-                              label: 'Correo institucional',
-                              value: session?.user.email ?? 'No disponible',
-                              icon: Icons.mail_outline,
-                              isLast: true,
-                            ),
-                          ],
-                        ),
-                        ClinicalSettingsRow(
-                          label: 'Cerrar sesión',
-                          icon: Icons.logout,
-                          destructive: true,
-                          onTap:
-                              () => ref.read(authRepositoryProvider).signOut(),
-                          isLast: true,
-                        ),
-                      ],
-                    ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+              ],
+              ClinicalSettingsSection(
+                title: 'Perfil institucional',
+                children: [
+                  ClinicalSettingsRow(
+                    label: 'Nombre',
+                    value: profile.displayName,
+                    icon: Icons.person_outline,
+                  ),
+                  ClinicalSettingsRow(
+                    label: 'Organización',
+                    value: profile.organizationName,
+                    icon: Icons.business_outlined,
+                  ),
+                  ClinicalSettingsRow(
+                    label: 'Estado de perfil',
+                    value: profile.profileStatus,
+                    icon: Icons.verified_outlined,
+                  ),
+                  ClinicalSettingsRow(
+                    label: 'Estado de membresía',
+                    value: profile.membershipStatus,
+                    icon: Icons.groups_outlined,
+                    isLast: true,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              ClinicalSettingsSection(
+                title: 'Seguridad',
+                children: [
+                  ClinicalSettingsRow(
+                    label: 'Correo institucional',
+                    value: session?.user.email ?? 'No disponible',
+                    icon: Icons.mail_outline,
+                    isLast: true,
+                  ),
+                ],
+              ),
+              ClinicalSettingsRow(
+                label: 'Cerrar sesión',
+                icon: Icons.logout,
+                destructive: true,
+                onTap: () => ref.read(authRepositoryProvider).signOut(),
+                isLast: true,
+              ),
+            ],
+          );
+        },
       ),
     );
   }

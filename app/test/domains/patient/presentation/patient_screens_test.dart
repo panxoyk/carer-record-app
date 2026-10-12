@@ -372,6 +372,46 @@ void main() {
     expect(find.text('Synthetic hospital'), findsWidgets);
     expect(find.text('Rol'), findsNothing);
   });
+
+  testWidgets(
+    'settings lists institutional destinations allowed by effective permissions',
+    (tester) async {
+      await tester.pumpWidget(
+        screen(const SettingsScreen(), [
+          iamContextProvider.overrideWith(
+            (ref) async =>
+                _iam({'iam.membership.read', 'clinical.assignment.manage'}),
+          ),
+          sessionProvider.overrideWith((ref) => null),
+        ]),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('ADMINISTRACIÓN INSTITUCIONAL'), findsOneWidget);
+      expect(find.text('Gestionar usuarios'), findsOneWidget);
+      expect(find.text('Asignaciones asistenciales'), findsOneWidget);
+      expect(find.text('Roles y permisos'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'settings hides the institutional section for clinical-only permissions',
+    (tester) async {
+      await tester.pumpWidget(
+        screen(const SettingsScreen(), [
+          iamContextProvider.overrideWith(
+            (ref) async =>
+                _iam({'clinical.census.read', 'clinical.patient.read'}),
+          ),
+          sessionProvider.overrideWith((ref) => null),
+        ]),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('ADMINISTRACIÓN INSTITUCIONAL'), findsNothing);
+      expect(find.text('Gestionar usuarios'), findsNothing);
+      expect(find.text('Roles y permisos'), findsNothing);
+      expect(find.text('Asignaciones asistenciales'), findsNothing);
+    },
+  );
 }
 
 IamContext _iam(Set<String> permissions) => IamContext(
