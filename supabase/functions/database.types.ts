@@ -9,35 +9,213 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      clinical_events: {
+      audit_events: {
+        Row: {
+          action: string;
+          actor_auth_user_id: string | null;
+          actor_membership_id: string | null;
+          id: string;
+          idempotency_key: string;
+          metadata: Json;
+          occurred_at: string;
+          organization_id: string;
+          result: string;
+          target_id: string | null;
+          target_type: string;
+        };
+        Insert: {
+          action: string;
+          actor_auth_user_id?: string | null;
+          actor_membership_id?: string | null;
+          id?: string;
+          idempotency_key: string;
+          metadata?: Json;
+          occurred_at?: string;
+          organization_id: string;
+          result: string;
+          target_id?: string | null;
+          target_type: string;
+        };
+        Update: {
+          action?: string;
+          actor_auth_user_id?: string | null;
+          actor_membership_id?: string | null;
+          id?: string;
+          idempotency_key?: string;
+          metadata?: Json;
+          occurred_at?: string;
+          organization_id?: string;
+          result?: string;
+          target_id?: string | null;
+          target_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_actor_membership_fk";
+            columns: ["organization_id", "actor_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "organization_memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "audit_events_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      care_assignments: {
         Row: {
           created_at: string;
+          created_by_membership_id: string;
+          hospitalization_id: string;
           id: string;
-          kind: Database["public"]["Enums"]["clinical_event_kind"];
-          occurred_at: string;
-          patient_id: string;
-          payload: Json;
-          recorded_by: string | null;
+          membership_id: string;
+          organization_id: string;
+          relationship_code: string | null;
+          revoked_at: string | null;
+          revoked_by_membership_id: string | null;
+          valid_from: string;
+          valid_until: string | null;
         };
         Insert: {
           created_at?: string;
+          created_by_membership_id: string;
+          hospitalization_id: string;
           id?: string;
-          kind: Database["public"]["Enums"]["clinical_event_kind"];
-          occurred_at: string;
-          patient_id: string;
-          payload?: Json;
-          recorded_by?: string | null;
+          membership_id: string;
+          organization_id: string;
+          relationship_code?: string | null;
+          revoked_at?: string | null;
+          revoked_by_membership_id?: string | null;
+          valid_from: string;
+          valid_until?: string | null;
         };
         Update: {
           created_at?: string;
+          created_by_membership_id?: string;
+          hospitalization_id?: string;
+          id?: string;
+          membership_id?: string;
+          organization_id?: string;
+          relationship_code?: string | null;
+          revoked_at?: string | null;
+          revoked_by_membership_id?: string | null;
+          valid_from?: string;
+          valid_until?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "care_assignments_creator_fk";
+            columns: ["organization_id", "created_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "organization_memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "care_assignments_episode_fk";
+            columns: ["organization_id", "hospitalization_id"];
+            isOneToOne: false;
+            referencedRelation: "clinical_census_by_hospitalization";
+            referencedColumns: ["organization_id", "hospitalization_id"];
+          },
+          {
+            foreignKeyName: "care_assignments_episode_fk";
+            columns: ["organization_id", "hospitalization_id"];
+            isOneToOne: false;
+            referencedRelation:
+              "clinical_patient_demographics_by_hospitalization";
+            referencedColumns: ["organization_id", "hospitalization_id"];
+          },
+          {
+            foreignKeyName: "care_assignments_episode_fk";
+            columns: ["organization_id", "hospitalization_id"];
+            isOneToOne: false;
+            referencedRelation: "hospitalizations";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "care_assignments_membership_fk";
+            columns: ["organization_id", "membership_id"];
+            isOneToOne: false;
+            referencedRelation: "organization_memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "care_assignments_revoker_fk";
+            columns: ["organization_id", "revoked_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "organization_memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
+      clinical_events: {
+        Row: {
+          created_at: string;
+          hospitalization_id: string | null;
+          id: string;
+          kind: Database["public"]["Enums"]["clinical_event_kind"];
+          occurred_at: string;
+          organization_id: string | null;
+          patient_id: string;
+          payload: Json;
+          recorded_by: string | null;
+          summary: string;
+        };
+        Insert: {
+          created_at?: string;
+          hospitalization_id?: string | null;
+          id?: string;
+          kind: Database["public"]["Enums"]["clinical_event_kind"];
+          occurred_at: string;
+          organization_id?: string | null;
+          patient_id: string;
+          payload?: Json;
+          recorded_by?: string | null;
+          summary: string;
+        };
+        Update: {
+          created_at?: string;
+          hospitalization_id?: string | null;
           id?: string;
           kind?: Database["public"]["Enums"]["clinical_event_kind"];
           occurred_at?: string;
+          organization_id?: string | null;
           patient_id?: string;
           payload?: Json;
           recorded_by?: string | null;
+          summary?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "clinical_events_episode_patient_tenant_fk";
+            columns: ["organization_id", "hospitalization_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "clinical_census_by_hospitalization";
+            referencedColumns: [
+              "organization_id",
+              "hospitalization_id",
+              "patient_id",
+            ];
+          },
+          {
+            foreignKeyName: "clinical_events_episode_patient_tenant_fk";
+            columns: ["organization_id", "hospitalization_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "hospitalizations";
+            referencedColumns: ["organization_id", "id", "patient_id"];
+          },
+          {
+            foreignKeyName: "clinical_events_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation:
+              "clinical_patient_demographics_by_hospitalization";
+            referencedColumns: ["patient_id"];
+          },
           {
             foreignKeyName: "clinical_events_patient_id_fkey";
             columns: ["patient_id"];
@@ -54,6 +232,195 @@ export type Database = {
           },
         ];
       };
+      hospitalization_locations: {
+        Row: {
+          bed_label: string | null;
+          created_at: string;
+          ended_at: string | null;
+          hospitalization_id: string;
+          id: string;
+          organization_id: string;
+          started_at: string;
+          unit_id: string | null;
+        };
+        Insert: {
+          bed_label?: string | null;
+          created_at?: string;
+          ended_at?: string | null;
+          hospitalization_id: string;
+          id?: string;
+          organization_id: string;
+          started_at: string;
+          unit_id?: string | null;
+        };
+        Update: {
+          bed_label?: string | null;
+          created_at?: string;
+          ended_at?: string | null;
+          hospitalization_id?: string;
+          id?: string;
+          organization_id?: string;
+          started_at?: string;
+          unit_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "hospitalization_locations_episode_fk";
+            columns: ["organization_id", "hospitalization_id"];
+            isOneToOne: false;
+            referencedRelation: "clinical_census_by_hospitalization";
+            referencedColumns: ["organization_id", "hospitalization_id"];
+          },
+          {
+            foreignKeyName: "hospitalization_locations_episode_fk";
+            columns: ["organization_id", "hospitalization_id"];
+            isOneToOne: false;
+            referencedRelation:
+              "clinical_patient_demographics_by_hospitalization";
+            referencedColumns: ["organization_id", "hospitalization_id"];
+          },
+          {
+            foreignKeyName: "hospitalization_locations_episode_fk";
+            columns: ["organization_id", "hospitalization_id"];
+            isOneToOne: false;
+            referencedRelation: "hospitalizations";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "hospitalization_locations_unit_fk";
+            columns: ["organization_id", "unit_id"];
+            isOneToOne: false;
+            referencedRelation: "units";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
+      hospitalizations: {
+        Row: {
+          admitted_at: string;
+          created_at: string;
+          discharged_at: string | null;
+          id: string;
+          organization_id: string;
+          patient_id: string;
+          status: string;
+        };
+        Insert: {
+          admitted_at: string;
+          created_at?: string;
+          discharged_at?: string | null;
+          id?: string;
+          organization_id: string;
+          patient_id: string;
+          status: string;
+        };
+        Update: {
+          admitted_at?: string;
+          created_at?: string;
+          discharged_at?: string | null;
+          id?: string;
+          organization_id?: string;
+          patient_id?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "hospitalizations_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "hospitalizations_patient_tenant_fk";
+            columns: ["organization_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
+      organization_memberships: {
+        Row: {
+          created_at: string;
+          id: string;
+          local_identifier: string | null;
+          organization_id: string;
+          profile_id: string;
+          status: string;
+          updated_at: string;
+          valid_from: string;
+          valid_until: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          local_identifier?: string | null;
+          organization_id: string;
+          profile_id: string;
+          status?: string;
+          updated_at?: string;
+          valid_from?: string;
+          valid_until?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          local_identifier?: string | null;
+          organization_id?: string;
+          profile_id?: string;
+          status?: string;
+          updated_at?: string;
+          valid_from?: string;
+          valid_until?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_memberships_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "organization_memberships_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organizations: {
+        Row: {
+          created_at: string;
+          display_name: string;
+          id: string;
+          slug: string;
+          status: string;
+          timezone: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          display_name: string;
+          id?: string;
+          slug: string;
+          status?: string;
+          timezone?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          display_name?: string;
+          id?: string;
+          slug?: string;
+          status?: string;
+          timezone?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       patients: {
         Row: {
           bed_label: string | null;
@@ -64,6 +431,7 @@ export type Database = {
           family_name: string;
           given_name: string;
           id: string;
+          organization_id: string | null;
           payload: Json;
           rut: string | null;
           updated_at: string;
@@ -77,6 +445,7 @@ export type Database = {
           family_name: string;
           given_name: string;
           id?: string;
+          organization_id?: string | null;
           payload?: Json;
           rut?: string | null;
           updated_at?: string;
@@ -90,9 +459,48 @@ export type Database = {
           family_name?: string;
           given_name?: string;
           id?: string;
+          organization_id?: string | null;
           payload?: Json;
           rut?: string | null;
           updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "patients_organization_fk";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      permission_catalog: {
+        Row: {
+          code: string;
+          delegation_policy: string;
+          deprecated_at: string | null;
+          description: string;
+          family: string;
+          introduced_at: string;
+          status: string;
+        };
+        Insert: {
+          code: string;
+          delegation_policy?: string;
+          deprecated_at?: string | null;
+          description: string;
+          family: string;
+          introduced_at?: string;
+          status?: string;
+        };
+        Update: {
+          code?: string;
+          delegation_policy?: string;
+          deprecated_at?: string | null;
+          description?: string;
+          family?: string;
+          introduced_at?: string;
+          status?: string;
         };
         Relationships: [];
       };
@@ -126,15 +534,571 @@ export type Database = {
         };
         Relationships: [];
       };
+      profiles: {
+        Row: {
+          auth_user_id: string;
+          created_at: string;
+          display_name: string;
+          id: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          auth_user_id: string;
+          created_at?: string;
+          display_name: string;
+          id?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          auth_user_id?: string;
+          created_at?: string;
+          display_name?: string;
+          id?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      role_assignments: {
+        Row: {
+          created_at: string;
+          created_by_membership_id: string | null;
+          id: string;
+          membership_id: string;
+          organization_id: string;
+          revoked_at: string | null;
+          revoked_by_membership_id: string | null;
+          role_id: string;
+          scope_type: string;
+          valid_from: string;
+          valid_until: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          created_by_membership_id?: string | null;
+          id?: string;
+          membership_id: string;
+          organization_id: string;
+          revoked_at?: string | null;
+          revoked_by_membership_id?: string | null;
+          role_id: string;
+          scope_type?: string;
+          valid_from?: string;
+          valid_until?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by_membership_id?: string | null;
+          id?: string;
+          membership_id?: string;
+          organization_id?: string;
+          revoked_at?: string | null;
+          revoked_by_membership_id?: string | null;
+          role_id?: string;
+          scope_type?: string;
+          valid_from?: string;
+          valid_until?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "role_assignments_created_by_membership_tenant_fk";
+            columns: ["organization_id", "created_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "organization_memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "role_assignments_membership_tenant_fk";
+            columns: ["organization_id", "membership_id"];
+            isOneToOne: false;
+            referencedRelation: "organization_memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "role_assignments_revoked_by_membership_tenant_fk";
+            columns: ["organization_id", "revoked_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "organization_memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "role_assignments_role_tenant_fk";
+            columns: ["organization_id", "role_id"];
+            isOneToOne: false;
+            referencedRelation: "roles";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
+      role_permissions: {
+        Row: {
+          granted_at: string;
+          granted_by_membership_id: string | null;
+          organization_id: string;
+          permission_code: string;
+          role_id: string;
+        };
+        Insert: {
+          granted_at?: string;
+          granted_by_membership_id?: string | null;
+          organization_id: string;
+          permission_code: string;
+          role_id: string;
+        };
+        Update: {
+          granted_at?: string;
+          granted_by_membership_id?: string | null;
+          organization_id?: string;
+          permission_code?: string;
+          role_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_granted_by_membership_tenant_fk";
+            columns: ["organization_id", "granted_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "organization_memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "role_permissions_permission_code_fkey";
+            columns: ["permission_code"];
+            isOneToOne: false;
+            referencedRelation: "permission_catalog";
+            referencedColumns: ["code"];
+          },
+          {
+            foreignKeyName: "role_permissions_role_tenant_fk";
+            columns: ["organization_id", "role_id"];
+            isOneToOne: false;
+            referencedRelation: "roles";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
+      roles: {
+        Row: {
+          created_at: string;
+          created_by_membership_id: string | null;
+          description: string;
+          id: string;
+          is_system: boolean;
+          name: string;
+          organization_id: string;
+          protected_kind: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by_membership_id?: string | null;
+          description: string;
+          id?: string;
+          is_system?: boolean;
+          name: string;
+          organization_id: string;
+          protected_kind?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by_membership_id?: string | null;
+          description?: string;
+          id?: string;
+          is_system?: boolean;
+          name?: string;
+          organization_id?: string;
+          protected_kind?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "roles_created_by_membership_tenant_fk";
+            columns: ["organization_id", "created_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "organization_memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "roles_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      units: {
+        Row: {
+          code: string;
+          created_at: string;
+          display_name: string;
+          id: string;
+          organization_id: string;
+          status: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          display_name: string;
+          id?: string;
+          organization_id: string;
+          status?: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          display_name?: string;
+          id?: string;
+          organization_id?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "units_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
-      [_ in never]: never;
+      clinical_census_by_hospitalization: {
+        Row: {
+          admitted_at: string | null;
+          bed_label: string | null;
+          birth_date: string | null;
+          discharged_at: string | null;
+          family_name: string | null;
+          given_name: string | null;
+          hospitalization_id: string | null;
+          hospitalization_status: string | null;
+          organization_id: string | null;
+          patient_id: string | null;
+          unit_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "hospitalizations_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "hospitalizations_patient_tenant_fk";
+            columns: ["organization_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
+      clinical_patient_demographics_by_hospitalization: {
+        Row: {
+          birth_date: string | null;
+          family_name: string | null;
+          given_name: string | null;
+          hospitalization_id: string | null;
+          organization_id: string | null;
+          patient_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "hospitalizations_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      clinical_timeline_by_hospitalization: {
+        Row: {
+          created_at: string | null;
+          event_id: string | null;
+          hospitalization_id: string | null;
+          kind: Database["public"]["Enums"]["clinical_event_kind"] | null;
+          occurred_at: string | null;
+          organization_id: string | null;
+          patient_id: string | null;
+          summary: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          event_id?: string | null;
+          hospitalization_id?: string | null;
+          kind?: Database["public"]["Enums"]["clinical_event_kind"] | null;
+          occurred_at?: string | null;
+          organization_id?: string | null;
+          patient_id?: string | null;
+          summary?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          event_id?: string | null;
+          hospitalization_id?: string | null;
+          kind?: Database["public"]["Enums"]["clinical_event_kind"] | null;
+          occurred_at?: string | null;
+          organization_id?: string | null;
+          patient_id?: string | null;
+          summary?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clinical_events_episode_patient_tenant_fk";
+            columns: ["organization_id", "hospitalization_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "clinical_census_by_hospitalization";
+            referencedColumns: [
+              "organization_id",
+              "hospitalization_id",
+              "patient_id",
+            ];
+          },
+          {
+            foreignKeyName: "clinical_events_episode_patient_tenant_fk";
+            columns: ["organization_id", "hospitalization_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "hospitalizations";
+            referencedColumns: ["organization_id", "id", "patient_id"];
+          },
+          {
+            foreignKeyName: "clinical_events_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation:
+              "clinical_patient_demographics_by_hospitalization";
+            referencedColumns: ["patient_id"];
+          },
+          {
+            foreignKeyName: "clinical_events_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
-      can_read_clinical_events: { Args: never; Returns: boolean };
-      can_read_patients: { Args: never; Returns: boolean };
+      bootstrap_legacy_practitioner_iam: { Args: never; Returns: undefined };
+      bootstrap_synthetic_hospitalization_fixtures: {
+        Args: never;
+        Returns: undefined;
+      };
+      create_iam_role: {
+        Args: {
+          p_description: string;
+          p_idempotency_key: string;
+          p_name: string;
+          p_organization_id: string;
+        };
+        Returns: {
+          replayed: boolean;
+          result: boolean;
+          result_code: string;
+          target_id: string;
+        }[];
+      };
+      deactivate_iam_role: {
+        Args: {
+          p_idempotency_key: string;
+          p_organization_id: string;
+          p_role_id: string;
+        };
+        Returns: {
+          replayed: boolean;
+          result: boolean;
+          result_code: string;
+          target_id: string;
+        }[];
+      };
+      grant_care_assignment: {
+        Args: {
+          p_hospitalization_id: string;
+          p_idempotency_key: string;
+          p_membership_id: string;
+          p_organization_id: string;
+          p_valid_from: string;
+          p_valid_until: string;
+        };
+        Returns: {
+          assignment_id: string;
+          replayed: boolean;
+          result: boolean;
+          result_code: string;
+        }[];
+      };
+      grant_iam_administrator: {
+        Args: {
+          p_idempotency_key: string;
+          p_membership_id: string;
+          p_organization_id: string;
+          p_role_id: string;
+          p_valid_from: string;
+          p_valid_until: string;
+        };
+        Returns: {
+          replayed: boolean;
+          result: boolean;
+          result_code: string;
+          target_id: string;
+        }[];
+      };
+      grant_iam_role: {
+        Args: {
+          p_idempotency_key: string;
+          p_membership_id: string;
+          p_organization_id: string;
+          p_role_id: string;
+          p_valid_from: string;
+          p_valid_until: string;
+        };
+        Returns: {
+          replayed: boolean;
+          result: boolean;
+          result_code: string;
+          target_id: string;
+        }[];
+      };
+      has_active_iam_permission: {
+        Args: { p_organization_id: string; p_permission_code: string };
+        Returns: boolean;
+      };
+      has_active_organization_membership: {
+        Args: { p_organization_id: string };
+        Returns: boolean;
+      };
+      iam_current_profile_id: { Args: never; Returns: string };
       is_administrator: { Args: never; Returns: boolean };
+      is_current_active_membership: {
+        Args: { p_membership_id: string };
+        Returns: boolean;
+      };
+      manage_organization_membership: {
+        Args: {
+          p_idempotency_key: string;
+          p_membership_id: string;
+          p_organization_id: string;
+          p_status: string;
+          p_valid_until: string;
+        };
+        Returns: {
+          replayed: boolean;
+          result: boolean;
+          result_code: string;
+          target_id: string;
+        }[];
+      };
       normalize_rut: { Args: { value: string }; Returns: string };
+      preflight_organization_member_registration: {
+        Args: {
+          p_display_name: string;
+          p_email: string;
+          p_idempotency_key: string;
+          p_organization_id: string;
+          p_role_id: string;
+        };
+        Returns: {
+          assignment_id: string;
+          membership_id: string;
+          profile_id: string;
+          replayed: boolean;
+          result_code: string;
+        }[];
+      };
+      register_organization_member: {
+        Args: {
+          p_auth_user_id: string;
+          p_display_name: string;
+          p_email: string;
+          p_idempotency_key: string;
+          p_organization_id: string;
+          p_role_id: string;
+        };
+        Returns: {
+          assignment_id: string;
+          membership_id: string;
+          profile_id: string;
+          replayed: boolean;
+          result_code: string;
+        }[];
+      };
+      replace_iam_role_permissions: {
+        Args: {
+          p_idempotency_key: string;
+          p_organization_id: string;
+          p_permissions: string[];
+          p_role_id: string;
+        };
+        Returns: {
+          replayed: boolean;
+          result: boolean;
+          result_code: string;
+          target_id: string;
+        }[];
+      };
+      revoke_care_assignment: {
+        Args: {
+          p_assignment_id: string;
+          p_idempotency_key: string;
+          p_organization_id: string;
+        };
+        Returns: {
+          assignment_id: string;
+          replayed: boolean;
+          result: boolean;
+          result_code: string;
+        }[];
+      };
+      revoke_iam_administrator: {
+        Args: {
+          p_assignment_id: string;
+          p_idempotency_key: string;
+          p_organization_id: string;
+        };
+        Returns: {
+          replayed: boolean;
+          result: boolean;
+          result_code: string;
+          target_id: string;
+        }[];
+      };
+      revoke_iam_role: {
+        Args: {
+          p_assignment_id: string;
+          p_idempotency_key: string;
+          p_organization_id: string;
+        };
+        Returns: {
+          replayed: boolean;
+          result: boolean;
+          result_code: string;
+          target_id: string;
+        }[];
+      };
+      update_iam_role: {
+        Args: {
+          p_description: string;
+          p_idempotency_key: string;
+          p_name: string;
+          p_organization_id: string;
+          p_role_id: string;
+        };
+        Returns: {
+          replayed: boolean;
+          result: boolean;
+          result_code: string;
+          target_id: string;
+        }[];
+      };
     };
     Enums: {
       clinical_event_kind:

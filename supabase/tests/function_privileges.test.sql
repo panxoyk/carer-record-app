@@ -2,19 +2,16 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(9);
+select plan(7);
 
 select ok(
   not has_function_privilege('anon', 'public.is_administrator()', 'execute'),
   'anonymous users cannot execute the administrator helper'
 );
 select ok(
-  not has_function_privilege('anon', 'public.can_read_patients()', 'execute'),
-  'anonymous users cannot execute the patient authorization helper'
-);
-select ok(
-  not has_function_privilege('anon', 'public.can_read_clinical_events()', 'execute'),
-  'anonymous users cannot execute the clinical-event authorization helper'
+  to_regprocedure('public.can_read_patients()') is null
+    and to_regprocedure('public.can_read_clinical_events()') is null,
+  'legacy clinical authorization helpers are removed'
 );
 
 select ok(
@@ -22,12 +19,8 @@ select ok(
   'authenticated users can execute the administrator helper through RLS'
 );
 select ok(
-  has_function_privilege('authenticated', 'public.can_read_patients()', 'execute'),
-  'authenticated users can execute the patient authorization helper through RLS'
-);
-select ok(
-  has_function_privilege('authenticated', 'public.can_read_clinical_events()', 'execute'),
-  'authenticated users can execute the clinical-event authorization helper through RLS'
+  has_function_privilege('authenticated', 'private.can_read_clinical_hospitalization(uuid,uuid,text)', 'execute'),
+  'authenticated policies can invoke the scoped clinical authorization helper'
 );
 
 select ok(
