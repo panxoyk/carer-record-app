@@ -5,203 +5,382 @@ import 'package:carer_record_app/domains/clinical_event/presentation/clinical_ev
 import 'package:carer_record_app/domains/patient/domain/entities/patient.dart';
 import 'package:carer_record_app/domains/patient/presentation/patient_providers.dart';
 import 'package:carer_record_app/domains/patient/presentation/patient_screens.dart';
+import 'package:carer_record_app/domains/auth/presentation/auth_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:carer_record_app/domains/institutional/data/iam_models.dart';
+import 'package:carer_record_app/domains/institutional/presentation/iam_providers.dart';
 
-const _patient = Patient(
-  id: 'patient-id',
-  externalReference: 'LOCAL-0001',
-  rut: '12345678-9',
+const orgId = '00000000-0000-4000-8000-000000000001';
+const hospitalizationId = '00000000-0000-4000-8000-000000000002';
+const patientId = '00000000-0000-4000-8000-000000000003';
+final episode = Patient(
+  organizationId: orgId,
+  hospitalizationId: hospitalizationId,
+  patientId: patientId,
+  hospitalizationStatus: 'active',
+  admittedAt: DateTime.utc(2026),
+  dischargedAt: null,
+  unitId: 'secret-unit-uuid',
+  bedLabel: '12',
   givenName: 'Ana',
   familyName: 'Prueba',
   birthDate: null,
-  careUnit: 'Medicina interna',
-  bedLabel: 'Cama 12',
+);
+
+Widget screen(Widget child, List<Override> overrides) => ProviderScope(
+  key: UniqueKey(),
+  overrides: overrides,
+  child: MaterialApp(home: child),
 );
 
 void main() {
-  Widget buildScreen(Widget screen, List<Override> overrides) =>
-      ProviderScope(overrides: overrides, child: MaterialApp(home: screen));
-
-  testWidgets('shows neutral labels in the patient list', (tester) async {
+  testWidgets('census ready searches name only and displays safe location', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-      buildScreen(const PatientsScreen(), [
-        patientsProvider.overrideWith((ref) async => [_patient]),
+      screen(const PatientsScreen(), [
+        patientsProvider.overrideWith((ref) async => [episode]),
       ]),
     );
     await tester.pumpAndSettle();
-
-    expect(find.text('Consulta de pacientes'), findsOneWidget);
-    expect(find.text('Ficha del paciente · RUT: *****678-9'), findsOneWidget);
-    expect(find.text('Casos activos'), findsNothing);
-    expect(
-      find.text('Pacientes hospitalizados bajo tu atención'),
-      findsNothing,
-    );
-    expect(find.text('Ficha activa'), findsNothing);
+    expect(find.text('Ana Prueba'), findsOneWidget);
+    expect(find.text('Cama 12'), findsOneWidget);
+    expect(find.textContaining('secret-unit-uuid'), findsNothing);
+    expect(find.textContaining(patientId), findsNothing);
+    expect(find.textContaining(episode.hospitalizationId), findsNothing);
+    expect(find.textContaining(episode.unitId!), findsNothing);
+    await tester.enterText(find.byType(TextField), '12345678-9');
+    await tester.pumpAndSettle();
+    expect(find.text('Ana Prueba'), findsNothing);
   });
 
-  testWidgets('shows absolute institutional time in the timeline', (
+  testWidgets('census loading state is visible', (tester) async {
+    final pending = Completer<List<Patient>>();
+    await tester.pumpWidget(
+      screen(const PatientsScreen(), [
+        patientsProvider.overrideWith((ref) => pending.future),
+      ]),
+    );
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    pending.complete([episode]);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('census navigation carries hospitalization id, not patient id', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/patients',
+      routes: [
+        GoRoute(path: '/patients', builder: (_, __) => const PatientsScreen()),
+        GoRoute(
+          path: '/hospitalizations/:hospitalizationId',
+          builder:
+              (_, state) =>
+                  Text('episode:${state.pathParameters['hospitalizationId']}'),
+        ),
+        GoRoute(
+          path: '/hospitalizations/:hospitalizationId/details',
+          builder:
+              (_, state) =>
+                  Text('details:${state.pathParameters['hospitalizationId']}'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          patientsProvider.overrideWith((ref) async => [episode]),
+          iamContextProvider.overrideWith(
+            (ref) async => _iam({'clinical.timeline.read'}),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ana Prueba'));
+    await tester.pumpAndSettle();
+    expect(find.text('episode:$hospitalizationId'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    router.dispose();
+  });
+
+  testWidgets('census without timeline permission links to demographics only', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/patients',
+      routes: [
+        GoRoute(path: '/patients', builder: (_, __) => const PatientsScreen()),
+        GoRoute(
+          path: '/hospitalizations/:hospitalizationId/details',
+          builder:
+              (_, state) =>
+                  Text('details:${state.pathParameters['hospitalizationId']}'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          patientsProvider.overrideWith((ref) async => [episode]),
+          iamContextProvider.overrideWith(
+            (ref) async =>
+                _iam(const {'clinical.census.read', 'clinical.patient.read'}),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ana Prueba'));
+    await tester.pumpAndSettle();
+    expect(find.text('details:$hospitalizationId'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    router.dispose();
+  });
+
+  testWidgets('census empty and error states are neutral', (tester) async {
+    await tester.pumpWidget(
+      screen(const PatientsScreen(), [
+        patientsProvider.overrideWith((ref) async => const []),
+      ]),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('No hay pacientes disponibles para tu acceso.'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(
+      screen(const PatientsScreen(), [
+        patientsProvider.overrideWith(
+          (ref) async => throw StateError('synthetic'),
+        ),
+      ]),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('No fue posible cargar las hospitalizaciones.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('detail uses hospitalization key and shows summary timeline', (
     tester,
   ) async {
     final event = ClinicalEvent(
-      id: 'event-id',
-      patientId: _patient.id,
+      organizationId: orgId,
+      hospitalizationId: hospitalizationId,
+      id: '00000000-0000-4000-8000-000000000004',
+      patientId: patientId,
       kind: 'observation',
-      occurredAt: DateTime.utc(2024, 7, 1, 3, 30),
-      details: ClinicalEventDetails(summary: 'Evento sintético.'),
+      occurredAt: DateTime.utc(2026),
+      createdAt: DateTime.utc(2026),
+      summary: 'Texto resumido',
+    );
+    final olderEvent = ClinicalEvent(
+      organizationId: orgId,
+      hospitalizationId: hospitalizationId,
+      id: '00000000-0000-4000-8000-000000000005',
+      patientId: patientId,
+      kind: 'observation',
+      occurredAt: DateTime.utc(2025),
+      createdAt: DateTime.utc(2025),
+      summary: 'Resumen anterior',
     );
     await tester.pumpWidget(
-      buildScreen(PatientDetailScreen(patientId: _patient.id), [
-        patientProvider(_patient.id).overrideWith((ref) async => _patient),
-        patientClinicalEventsProvider(
-          _patient.id,
-        ).overrideWith((ref) async => [event]),
+      screen(const PatientDetailScreen(hospitalizationId: hospitalizationId), [
+        patientProvider(hospitalizationId).overrideWith((ref) async => episode),
+        hospitalizationClinicalEventsProvider(
+          hospitalizationId,
+        ).overrideWith((ref) async => [event, olderEvent]),
       ]),
     );
     await tester.pumpAndSettle();
-
-    expect(find.text('EVENTOS CLÍNICOS'), findsOneWidget);
-    expect(find.text('Eventos clínicos'), findsOneWidget);
-    expect(find.text('30-06-2024 · 23:30'), findsOneWidget);
-    expect(find.text('HOY · REGISTRO CLÍNICO'), findsNothing);
-    expect(find.text('Eventos recientes'), findsNothing);
+    expect(find.text('Texto resumido'), findsOneWidget);
+    expect(find.textContaining(patientId), findsNothing);
+    expect(find.textContaining(hospitalizationId), findsNothing);
+    expect(find.textContaining(episode.unitId!), findsNothing);
+    expect(
+      find.textContaining('00000000-0000-4000-8000-000000000004'),
+      findsNothing,
+    );
+    expect(
+      tester.getTopLeft(find.text('Texto resumido')).dy,
+      lessThan(tester.getTopLeft(find.text('Resumen anterior')).dy),
+    );
+    expect(find.text('Paciente no encontrado.'), findsNothing);
   });
 
-  testWidgets('does not state an unsupported hospitalization status', (
-    tester,
-  ) async {
+  testWidgets('hidden hospitalization is not found', (tester) async {
     await tester.pumpWidget(
-      buildScreen(PatientInformationScreen(patientId: _patient.id), [
-        patientProvider(_patient.id).overrideWith((ref) async => _patient),
-      ]),
+      screen(
+        const PatientInformationScreen(
+          hospitalizationId: '00000000-0000-4000-8000-000000000088',
+        ),
+        [
+          patientProvider(
+            '00000000-0000-4000-8000-000000000088',
+          ).overrideWith((ref) async => null),
+        ],
+      ),
     );
     await tester.pumpAndSettle();
-
-    expect(find.text('Hospitalización activa'), findsNothing);
-    expect(find.text('Activo'), findsNothing);
-  });
-
-  testWidgets(
-    'shows an empty state when the authorized patient list is empty',
-    (tester) async {
-      await tester.pumpWidget(
-        buildScreen(const PatientsScreen(), [
-          patientsProvider.overrideWith((ref) async => []),
-        ]),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text('No hay pacientes disponibles para tu acceso.'),
-        findsOneWidget,
-      );
-    },
-  );
-
-  testWidgets('shows a terminal patient-list error without a retry button', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      buildScreen(const PatientsScreen(), [
-        patientsProvider.overrideWith((ref) async => throw StateError('fallo')),
-      ]),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('No fue posible cargar los pacientes.'), findsOneWidget);
-    expect(find.text('Reintentar'), findsNothing);
-  });
-
-  testWidgets('shows not found when the requested patient is unavailable', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      buildScreen(const PatientDetailScreen(patientId: 'unknown'), [
-        patientProvider('unknown').overrideWith((ref) async => null),
-      ]),
-    );
-    await tester.pumpAndSettle();
-
     expect(find.text('Paciente no encontrado.'), findsOneWidget);
   });
 
-  testWidgets('keeps the patient visible when only the timeline fails', (
+  testWidgets('detail loading and error states retire prior presentation', (
     tester,
   ) async {
+    final pending = Completer<Patient?>();
     await tester.pumpWidget(
-      buildScreen(PatientDetailScreen(patientId: _patient.id), [
-        patientProvider(_patient.id).overrideWith((ref) async => _patient),
-        patientClinicalEventsProvider(
-          _patient.id,
-        ).overrideWith((ref) async => throw StateError('fallo')),
+      screen(PatientDetailScreen(hospitalizationId: hospitalizationId), [
+        patientProvider(
+          hospitalizationId,
+        ).overrideWith((ref) => pending.future),
       ]),
     );
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    pending.completeError(StateError('synthetic'));
     await tester.pumpAndSettle();
-
-    expect(find.text(_patient.fullName), findsOneWidget);
-    expect(find.text('No fue posible cargar los eventos.'), findsOneWidget);
-    expect(find.text('Reintentar'), findsNothing);
+    expect(
+      find.text('No fue posible cargar la hospitalización.'),
+      findsOneWidget,
+    );
+    expect(find.text('Ana Prueba'), findsNothing);
   });
 
-  testWidgets(
-    'refreshing the patient list starts a new query without old cards',
-    (tester) async {
-      final secondResult = Completer<List<Patient>>();
-      var calls = 0;
-      await tester.pumpWidget(
-        buildScreen(const PatientsScreen(), [
-          patientsProvider.overrideWith((ref) {
-            calls += 1;
-            return calls == 1 ? Future.value([_patient]) : secondResult.future;
-          }),
-        ]),
-      );
-      await tester.pumpAndSettle();
-
-      final list = find.descendant(
-        of: find.byType(RefreshIndicator),
-        matching: find.byType(Scrollable),
-      );
-      await tester.fling(list, const Offset(0, 300), 1000);
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-
-      expect(calls, 2);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      expect(find.text(_patient.fullName), findsNothing);
-
-      secondResult.complete([_patient]);
-      await tester.pumpAndSettle();
-
-      expect(find.text(_patient.fullName), findsOneWidget);
-    },
-  );
-
-  testWidgets('refreshing the timeline reloads its patient and events', (
+  testWidgets('timeline loading and error states show no previous summary', (
     tester,
   ) async {
-    var patientCalls = 0;
-    var eventCalls = 0;
+    final pending = Completer<List<ClinicalEvent>>();
     await tester.pumpWidget(
-      buildScreen(PatientDetailScreen(patientId: _patient.id), [
-        patientProvider(_patient.id).overrideWith((ref) async {
-          patientCalls += 1;
-          return _patient;
-        }),
-        patientClinicalEventsProvider(_patient.id).overrideWith((ref) async {
-          eventCalls += 1;
-          return const <ClinicalEvent>[];
+      screen(PatientDetailScreen(hospitalizationId: hospitalizationId), [
+        patientProvider(hospitalizationId).overrideWith((ref) async => episode),
+        hospitalizationClinicalEventsProvider(
+          hospitalizationId,
+        ).overrideWith((ref) => pending.future),
+      ]),
+    );
+    await tester.pump();
+    expect(find.text('Ana Prueba'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    pending.completeError(StateError('synthetic'));
+    await tester.pumpAndSettle();
+    expect(find.text('No fue posible cargar los eventos.'), findsOneWidget);
+    expect(find.text('summary-anterior'), findsNothing);
+  });
+
+  testWidgets('timeline empty state is neutral', (tester) async {
+    await tester.pumpWidget(
+      screen(PatientDetailScreen(hospitalizationId: hospitalizationId), [
+        patientProvider(hospitalizationId).overrideWith((ref) async => episode),
+        hospitalizationClinicalEventsProvider(
+          hospitalizationId,
+        ).overrideWith((ref) async => const []),
+      ]),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('No hay eventos clínicos disponibles.'), findsOneWidget);
+    expect(find.text('Ana Prueba'), findsOneWidget);
+  });
+
+  testWidgets('pull-to-refresh re-queries and replaces census rows', (
+    tester,
+  ) async {
+    var calls = 0;
+    final pending = Completer<List<Patient>>();
+    await tester.pumpWidget(
+      screen(const PatientsScreen(), [
+        patientsProvider.overrideWith((ref) {
+          calls++;
+          return calls == 1 ? Future.value([episode]) : pending.future;
         }),
       ]),
     );
     await tester.pumpAndSettle();
-
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, 300));
+    expect(calls, 1);
+    await tester.drag(find.byType(ListView), const Offset(0, 350));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(calls, 2);
+    expect(find.text('Ana Prueba'), findsNothing);
+    pending.complete(const []);
     await tester.pumpAndSettle();
+    expect(
+      find.text('No hay pacientes disponibles para tu acceso.'),
+      findsOneWidget,
+    );
+  });
 
-    expect(patientCalls, 2);
-    expect(eventCalls, 2);
+  testWidgets('timeline refresh removes previous summary during requery', (
+    tester,
+  ) async {
+    var calls = 0;
+    final pending = Completer<List<ClinicalEvent>>();
+    final event = ClinicalEvent(
+      organizationId: orgId,
+      hospitalizationId: hospitalizationId,
+      id: '00000000-0000-4000-8000-000000000004',
+      patientId: patientId,
+      kind: 'observation',
+      occurredAt: DateTime.utc(2026),
+      createdAt: DateTime.utc(2026),
+      summary: 'Contenido revocado',
+    );
+    await tester.pumpWidget(
+      screen(PatientDetailScreen(hospitalizationId: hospitalizationId), [
+        patientProvider(hospitalizationId).overrideWith((ref) async => episode),
+        hospitalizationClinicalEventsProvider(hospitalizationId).overrideWith((
+          ref,
+        ) {
+          calls++;
+          return calls == 1 ? Future.value([event]) : pending.future;
+        }),
+      ]),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Contenido revocado'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, 350));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(calls, 2);
+    expect(find.text('Contenido revocado'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    pending.complete(const []);
+    await tester.pumpAndSettle();
+    expect(find.text('No hay eventos clínicos disponibles.'), findsOneWidget);
+  });
+
+  testWidgets('settings renders IAM context without practitioner role', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      screen(const SettingsScreen(), [
+        iamContextProvider.overrideWith((ref) async => _iam(const {})),
+        sessionProvider.overrideWith((ref) => null),
+      ]),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Synthetic user'), findsWidgets);
+    expect(find.text('Synthetic hospital'), findsWidgets);
+    expect(find.text('Rol'), findsNothing);
   });
 }
+
+IamContext _iam(Set<String> permissions) => IamContext(
+  organizationId: '00000000-0000-4000-8000-000000000010',
+  organizationName: 'Synthetic hospital',
+  profileId: '00000000-0000-4000-8000-000000000011',
+  displayName: 'Synthetic user',
+  profileStatus: 'active',
+  membershipId: '00000000-0000-4000-8000-000000000012',
+  membershipStatus: 'active',
+  permissions: permissions,
+);

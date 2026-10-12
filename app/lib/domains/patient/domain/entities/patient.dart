@@ -1,63 +1,42 @@
+/// A minimal census row for one hospitalization; not an authorization by patient.
 class Patient {
   const Patient({
-    required this.id,
-    required this.externalReference,
-    required this.rut,
+    required this.organizationId,
+    required this.hospitalizationId,
+    required this.patientId,
+    required this.hospitalizationStatus,
+    required this.admittedAt,
+    required this.dischargedAt,
+    required this.unitId,
+    required this.bedLabel,
     required this.givenName,
     required this.familyName,
     required this.birthDate,
-    required this.careUnit,
-    required this.bedLabel,
   });
 
-  final String id;
-  final String? externalReference;
-  final String? rut;
+  final String organizationId;
+  final String hospitalizationId;
+  final String patientId;
+  final String hospitalizationStatus;
+  final DateTime admittedAt;
+  final DateTime? dischargedAt;
+  final String? unitId;
+  final String? bedLabel;
   final String givenName;
   final String familyName;
   final DateTime? birthDate;
-  final String? careUnit;
-  final String? bedLabel;
 
   String get fullName => '$givenName $familyName';
+  String get locationLabel =>
+      bedLabel?.trim().isNotEmpty == true
+          ? 'Cama $bedLabel'
+          : 'Ubicación no registrada';
 
   bool matchesSearch(String query) {
-    final normalizedNameQuery = normalizeSearchText(query);
-    if (normalizedNameQuery.isEmpty) return true;
-
-    final normalizedName = normalizeSearchText(fullName);
-    final nameMatches = normalizedNameQuery
-        .split(' ')
-        .every(normalizedName.contains);
-    final value = rut;
-    if (value == null) return nameMatches;
-
-    final normalizedRutQuery = normalizeRut(query);
-    return nameMatches ||
-        (normalizedRutQuery.isNotEmpty &&
-            normalizeRut(value).contains(normalizedRutQuery));
+    final normalized = normalizeSearchText(query);
+    return normalized.isEmpty ||
+        normalized.split(' ').every(normalizeSearchText(fullName).contains);
   }
-
-  String? get maskedRut {
-    final value = rut;
-    if (value == null) return null;
-    final match = RegExp(r'^([0-9]{7,8})-([0-9K])$').firstMatch(value);
-    if (match == null) return '****';
-    final digits = match.group(1)!;
-    final hidden = List.filled(digits.length - 3, '*').join();
-    return '$hidden${digits.substring(digits.length - 3)}-${match.group(2)}';
-  }
-
-  String get locationLabel {
-    final location = <String>[
-      if (careUnit != null) careUnit!,
-      if (bedLabel != null) bedLabel!,
-    ];
-    return location.isEmpty ? 'Ubicación no registrada' : location.join(' · ');
-  }
-
-  static String normalizeRut(String value) =>
-      value.replaceAll(RegExp(r'[.\s-]'), '').toUpperCase();
 
   static String normalizeSearchText(String value) => value
       .trim()
