@@ -85,9 +85,13 @@ void main() {
       'assignment_valid_from': '2026-10-11T10:00:00Z',
       'assignment_valid_until': null,
       'revoked_at': null,
+      'assignee_display_name': 'Profesional histórico',
+      'assignee_membership_status': 'suspended',
     });
     expect(assignment.validUntil, isNull);
     expect(assignment.admittedAt.isUtc, isTrue);
+    expect(assignment.assigneeDisplayName, 'Profesional histórico');
+    expect(assignment.assigneeMembershipStatus, 'suspended');
   });
 
   test(

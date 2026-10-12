@@ -275,7 +275,9 @@ class IamRepository {
   Future<List<CareAssignmentRecord>> assignments(String organizationId) async {
     final rows = await _client
         .from('iam_assignment_hospitalizations')
-        .select()
+        .select(
+          'hospitalization_id,hospitalization_status,admitted_at,assignment_id,membership_id,assignment_valid_from,assignment_valid_until,revoked_at,assignee_display_name,assignee_membership_status',
+        )
         .eq('organization_id', organizationId)
         .order('admitted_at', ascending: false);
     return List<Map<String, dynamic>>.from(

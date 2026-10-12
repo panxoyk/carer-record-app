@@ -220,6 +220,8 @@ class CareAssignmentRecord {
     this.validFrom,
     this.validUntil,
     this.revokedAt,
+    this.assigneeDisplayName,
+    this.assigneeMembershipStatus,
   });
   final String hospitalizationId;
   final String status;
@@ -229,6 +231,8 @@ class CareAssignmentRecord {
   final DateTime? validFrom;
   final DateTime? validUntil;
   final DateTime? revokedAt;
+  final String? assigneeDisplayName;
+  final String? assigneeMembershipStatus;
   factory CareAssignmentRecord.fromJson(Map<String, dynamic> row) =>
       CareAssignmentRecord(
         hospitalizationId: row['hospitalization_id'] as String,
@@ -248,6 +252,8 @@ class CareAssignmentRecord {
             row['revoked_at'] == null
                 ? null
                 : DateTime.parse(row['revoked_at'] as String),
+        assigneeDisplayName: row['assignee_display_name'] as String?,
+        assigneeMembershipStatus: row['assignee_membership_status'] as String?,
       );
 }
 
