@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:just_audio/just_audio.dart';
 
 import '../../../core/design_system/clinical_design_system.dart';
 import '../../../core/router/administration_navigation.dart';
@@ -8,6 +9,8 @@ import '../../../core/time/clinical_time.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../clinical_event/domain/entities/clinical_event.dart';
 import '../../clinical_event/presentation/clinical_event_providers.dart';
+import '../../context_note/presentation/context_note_providers.dart';
+import '../../context_note/presentation/milestone_editor_sheet.dart';
 import '../../institutional/presentation/iam_providers.dart';
 import '../domain/entities/patient.dart';
 import 'patient_providers.dart';
@@ -114,8 +117,39 @@ class PatientDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final patient = ref.watch(patientProvider(hospitalizationId));
+    final iam = ref.watch(iamContextProvider).valueOrNull;
+    // UI guard only: RLS on context_notes remains the authorization authority.
+    final canAddMilestone =
+        (iam?.allows('context.note.create') ?? false) &&
+        (iam?.allows('context.note.confirm') ?? false);
     return Scaffold(
-      appBar: clinicalBackAppBar(context, title: 'Bitácora'),
+      appBar: clinicalBackAppBar(
+        context,
+        title: 'Bitácora',
+        actions:
+            canAddMilestone && patient.valueOrNull != null
+                ? [
+                  IconButton(
+                    tooltip: 'Agregar hito',
+                    icon: const Icon(Icons.add_task_outlined),
+                    onPressed: () {
+                      final item = patient.valueOrNull;
+                      if (item == null) return;
+                      showMilestoneEditorSheet(
+                        context,
+                        patient: item,
+                        onSaved:
+                            () => ref.invalidate(
+                              hospitalizationClinicalEventsProvider(
+                                hospitalizationId,
+                              ),
+                            ),
+                      );
+                    },
+                  ),
+                ]
+                : null,
+      ),
       body: patient.when(
         skipLoadingOnRefresh: false,
         skipError: false,
@@ -197,16 +231,85 @@ class _HospitalizationTimeline extends ConsumerWidget {
   }
 }
 
-class _TimelineRow extends StatelessWidget {
+class _TimelineRow extends ConsumerStatefulWidget {
   const _TimelineRow({required this.event});
   final ClinicalEvent event;
+
   @override
-  Widget build(BuildContext context) => ListTile(
-    title: Text(event.summary),
-    subtitle: Text(
-      '${event.kind} · ${formatClinicalDateTime(event.occurredAt)}',
-    ),
-  );
+  ConsumerState<_TimelineRow> createState() => _TimelineRowState();
+}
+
+class _TimelineRowState extends ConsumerState<_TimelineRow> {
+  AudioPlayer? _player;
+  bool _loadingAudio = false;
+  bool _playing = false;
+
+  @override
+  void dispose() {
+    _player?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _togglePlayback() async {
+    final player = _player ??= AudioPlayer();
+    if (_playing) {
+      await player.pause();
+      setState(() => _playing = false);
+      return;
+    }
+    setState(() => _loadingAudio = true);
+    try {
+      if (player.duration == null) {
+        final url = await ref
+            .read(contextNoteRepositoryProvider)
+            .signedAudioUrl(widget.event.audioStoragePath!);
+        await player.setUrl(url);
+      }
+      await player.play();
+      setState(() => _playing = true);
+    } catch (_) {
+      // A failed playback keeps the row stable; the icon offers a retry.
+    } finally {
+      if (mounted) setState(() => _loadingAudio = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final event = widget.event;
+    final isAudioMilestone = event.isStoredAudioMilestone;
+    final isMilestone = event.sourceKind == 'context_note';
+    final subtitle =
+        isAudioMilestone
+            ? '${event.kind} · ${formatClinicalDateTime(event.occurredAt)} · ${_formatDuration(event.audioDurationMs ?? 0)}'
+            : '${event.kind} · ${formatClinicalDateTime(event.occurredAt)}';
+    return ListTile(
+      leading: isMilestone ? const Icon(Icons.flag_outlined) : null,
+      title: Text(event.summary),
+      subtitle: Text(subtitle),
+      trailing:
+          isAudioMilestone
+              ? _loadingAudio
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : IconButton(
+                    tooltip: _playing ? 'Detener audio' : 'Reproducir audio',
+                    onPressed: _togglePlayback,
+                    icon: Icon(_playing ? Icons.stop : Icons.play_arrow),
+                  )
+              : null,
+    );
+  }
+
+  String _formatDuration(int milliseconds) {
+    final duration = Duration(milliseconds: milliseconds);
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
 }
 
 class PatientInformationScreen extends ConsumerWidget {

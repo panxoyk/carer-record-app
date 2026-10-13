@@ -8,6 +8,9 @@ class ClinicalEvent {
     required this.occurredAt,
     required this.createdAt,
     required this.summary,
+    this.sourceKind = 'clinical_event',
+    this.audioStoragePath,
+    this.audioDurationMs,
   });
 
   final String organizationId;
@@ -18,4 +21,15 @@ class ClinicalEvent {
   final DateTime occurredAt;
   final DateTime createdAt;
   final String summary;
+
+  /// Origin of the row in the timeline view: `clinical_event` or
+  /// `context_note` (bitácora milestone).
+  final String sourceKind;
+  final String? audioStoragePath;
+  final int? audioDurationMs;
+
+  bool get isStoredAudioMilestone =>
+      sourceKind == 'context_note' &&
+      audioStoragePath != null &&
+      audioStoragePath!.isNotEmpty;
 }

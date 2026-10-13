@@ -267,6 +267,7 @@ AppBar clinicalBackAppBar(
   required String title,
   String fallbackLocation = '/patients',
   String tooltip = 'Volver',
+  List<Widget>? actions,
 }) => clinicalAppBar(
   title: title,
   leadingWidth: 56,
@@ -276,12 +277,14 @@ AppBar clinicalBackAppBar(
         () => context.canPop() ? context.pop() : context.go(fallbackLocation),
     icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
   ),
+  actions: actions,
 );
 
 AppBar clinicalAppBar({
   required String title,
   double? leadingWidth,
   Widget? leading,
+  List<Widget>? actions,
 }) => AppBar(
   backgroundColor: ClinicalColors.canvas,
   surfaceTintColor: ClinicalColors.canvas,
@@ -297,4 +300,5 @@ AppBar clinicalAppBar({
   ),
   leadingWidth: leadingWidth,
   leading: leading,
+  actions: actions,
 );

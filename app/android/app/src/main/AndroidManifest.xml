@@ -1,8 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Bitácora milestones: raw audio capture for stored-audio milestones. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- Dev: local Supabase over HTTP (emulator). Native audio playback uses the
+         platform network stack, which blocks cleartext by default. Production
+         uses HTTPS, where this flag is inert. -->
     <application
         android:label="carer_record_app"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

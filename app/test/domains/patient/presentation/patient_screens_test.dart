@@ -199,6 +199,7 @@ void main() {
         hospitalizationClinicalEventsProvider(
           hospitalizationId,
         ).overrideWith((ref) async => [event, olderEvent]),
+        iamContextProvider.overrideWith((ref) async => _iam(const {})),
       ]),
     );
     await tester.pumpAndSettle();
@@ -243,6 +244,7 @@ void main() {
         patientProvider(
           hospitalizationId,
         ).overrideWith((ref) => pending.future),
+        iamContextProvider.overrideWith((ref) async => _iam(const {})),
       ]),
     );
     await tester.pump();
@@ -266,6 +268,7 @@ void main() {
         hospitalizationClinicalEventsProvider(
           hospitalizationId,
         ).overrideWith((ref) => pending.future),
+        iamContextProvider.overrideWith((ref) async => _iam(const {})),
       ]),
     );
     await tester.pump();
@@ -284,6 +287,7 @@ void main() {
         hospitalizationClinicalEventsProvider(
           hospitalizationId,
         ).overrideWith((ref) async => const []),
+        iamContextProvider.overrideWith((ref) async => _iam(const {})),
       ]),
     );
     await tester.pumpAndSettle();
@@ -343,6 +347,7 @@ void main() {
           calls++;
           return calls == 1 ? Future.value([event]) : pending.future;
         }),
+        iamContextProvider.overrideWith((ref) async => _iam(const {})),
       ]),
     );
     await tester.pumpAndSettle();
@@ -356,6 +361,95 @@ void main() {
     pending.complete(const []);
     await tester.pumpAndSettle();
     expect(find.text('No hay eventos clínicos disponibles.'), findsOneWidget);
+  });
+
+  testWidgets('milestone action appears only with create and confirm', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      screen(const PatientDetailScreen(hospitalizationId: hospitalizationId), [
+        patientProvider(hospitalizationId).overrideWith((ref) async => episode),
+        hospitalizationClinicalEventsProvider(
+          hospitalizationId,
+        ).overrideWith((ref) async => const []),
+        iamContextProvider.overrideWith(
+          (ref) async =>
+              _iam(const {'context.note.create', 'context.note.confirm'}),
+        ),
+      ]),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.add_task_outlined), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    await tester.pumpWidget(
+      screen(const PatientDetailScreen(hospitalizationId: hospitalizationId), [
+        patientProvider(hospitalizationId).overrideWith((ref) async => episode),
+        hospitalizationClinicalEventsProvider(
+          hospitalizationId,
+        ).overrideWith((ref) async => const []),
+        iamContextProvider.overrideWith(
+          (ref) async => _iam(const {'context.note.create'}),
+        ),
+      ]),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.add_task_outlined), findsNothing);
+  });
+
+  testWidgets('milestone sheet offers text and audio forms', (tester) async {
+    await tester.pumpWidget(
+      screen(const PatientDetailScreen(hospitalizationId: hospitalizationId), [
+        patientProvider(hospitalizationId).overrideWith((ref) async => episode),
+        hospitalizationClinicalEventsProvider(
+          hospitalizationId,
+        ).overrideWith((ref) async => const []),
+        iamContextProvider.overrideWith(
+          (ref) async =>
+              _iam(const {'context.note.create', 'context.note.confirm'}),
+        ),
+      ]),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add_task_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('Agregar hito a la bitácora'), findsOneWidget);
+    expect(find.text('Texto'), findsOneWidget);
+    expect(find.text('Audio'), findsOneWidget);
+    expect(find.text('Guardar hito'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('audio milestone row shows duration and play control', (
+    tester,
+  ) async {
+    final event = ClinicalEvent(
+      organizationId: orgId,
+      hospitalizationId: hospitalizationId,
+      id: '00000000-0000-4000-8000-000000000006',
+      patientId: patientId,
+      kind: 'milestone_audio',
+      occurredAt: DateTime.utc(2026),
+      createdAt: DateTime.utc(2026),
+      summary: 'Hito de audio',
+      sourceKind: 'context_note',
+      audioStoragePath: '$hospitalizationId/audio.m4a',
+      audioDurationMs: 83000,
+    );
+    await tester.pumpWidget(
+      screen(const PatientDetailScreen(hospitalizationId: hospitalizationId), [
+        patientProvider(hospitalizationId).overrideWith((ref) async => episode),
+        hospitalizationClinicalEventsProvider(
+          hospitalizationId,
+        ).overrideWith((ref) async => [event]),
+        iamContextProvider.overrideWith((ref) async => _iam(const {})),
+      ]),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Hito de audio'), findsOneWidget);
+    expect(find.textContaining('1:23'), findsOneWidget);
+    expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+    expect(find.byIcon(Icons.flag_outlined), findsOneWidget);
   });
 
   testWidgets('settings renders IAM context without practitioner role', (

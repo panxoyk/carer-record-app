@@ -26,4 +26,28 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('defaults legacy clinical rows to the clinical_event source', () {
+    final event = ClinicalEventModel.fromJson(row);
+    expect(event.sourceKind, 'clinical_event');
+    expect(event.audioStoragePath, isNull);
+    expect(event.audioDurationMs, isNull);
+    expect(event.isStoredAudioMilestone, isFalse);
+  });
+
+  test('parses stored-audio milestone fields from the timeline view', () {
+    final event = ClinicalEventModel.fromJson({
+      ...row,
+      'source_kind': 'context_note',
+      'audio_storage_path': '00000000-0000-4000-8000-000000000002/audio.m4a',
+      'audio_duration_ms': 83000,
+    });
+    expect(event.sourceKind, 'context_note');
+    expect(
+      event.audioStoragePath,
+      '00000000-0000-4000-8000-000000000002/audio.m4a',
+    );
+    expect(event.audioDurationMs, 83000);
+    expect(event.isStoredAudioMilestone, isTrue);
+  });
 }

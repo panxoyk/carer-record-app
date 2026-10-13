@@ -36,7 +36,7 @@ class ClinicalReadQuery {
     ClinicalReadView.demographics =>
       'organization_id,hospitalization_id,patient_id,given_name,family_name,birth_date',
     ClinicalReadView.timeline =>
-      'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at',
+      'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,audio_storage_path,audio_duration_ms',
   };
   List<String> get filterColumns => [
     'organization_id',
