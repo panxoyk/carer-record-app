@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../patient/domain/entities/patient.dart';
 import '../data/draft_vault.dart';
+import '../data/wav_container.dart';
 import '../domain/asr_engine.dart';
 import '../domain/entities/context_note.dart';
 import '../domain/entities/dictation_stage.dart';
@@ -118,8 +119,8 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
       await recorder.start(
         const RecordConfig(
           encoder: AudioEncoder.pcm16bits,
-          sampleRate: 16000,
-          numChannels: 1,
+          sampleRate: RecordingFormat.sampleRate,
+          numChannels: RecordingFormat.channels,
         ),
         path: path,
       );
@@ -181,7 +182,9 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
       return;
     }
     try {
-      final transcript = await engine.transcribe(path);
+      // Capture can be raw PCM without a container; the recognizer needs WAV.
+      final wavePath = await ensureWaveHeader(path);
+      final transcript = await engine.transcribe(wavePath);
       await ref
           .read(draftVaultProvider)
           .putDraft(
