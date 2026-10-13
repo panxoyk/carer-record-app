@@ -43,16 +43,25 @@ Las siguientes preguntas se resolvieron durante la fundación y no se mantienen 
 
 ## Audio, modelos y síntesis
 
-| ID         | Pregunta                                                                                                  | Prioridad  | Responsable a confirmar  | Momento de resolución |
-| ---------- | --------------------------------------------------------------------------------------------------------- | ---------- | ------------------------ | --------------------- |
-| Q-ASR-01   | ¿Qué dispositivos, SO, idioma/acentos y presupuesto de latencia/RAM/batería son objetivo?                 | Bloqueante | Móvil/investigación      | SP-01                 |
-| Q-ASR-02   | ¿Qué motor/modelo y licencia permiten distribución académica?                                             | Bloqueante | Investigación/legal      | SP-01                 |
-| Q-NER-01   | ¿Qué taxonomía de identificadores y umbral por clase se requieren?                                        | Bloqueante | Privacidad/investigación | SP-02                 |
-| Q-NER-02   | ¿Dónde y con qué mecanismo se cifra el mapa reversible?                                                   | Bloqueante | Seguridad/móvil          | Diseño de V4          |
-| Q-AI-01    | ¿Qué esquema estructurado de salida y límites de longitud se usarán para cada tipo de síntesis?           | Alta       | Clínica/investigación    | Antes de V5           |
-| Q-AI-02    | ¿Qué proveedor/modelo sandbox se evaluará y con qué límites de costo/timeout?                             | Media      | Investigación/backend    | SP-05                 |
-| Q-AI-03    | ¿Cómo se prueba de forma no falsificable la procedencia sintética en runtime?                             | Bloqueante | Seguridad/backend        | Antes de V5           |
-| Q-AUDIO-01 | ¿Qué plazo de retención y mecanismo de eliminación aplicará al audio crudo de hitos confirmados (RK-028)? | Media      | Privacidad/producto      | Antes de datos reales |
+Las preguntas de motor, modelo, procedencia y egreso están resueltas en el corte del 2026-10-12 (ADR-016 y ADR-017) y se detallan en "Preguntas resueltas" más abajo. Solo `Q-NER-01` sigue abierta: depende del spike SP-02 y de la taxonomía de identificadores.
+
+| ID       | Pregunta                                                           | Prioridad  | Responsable a confirmar  | Momento de resolución |
+| -------- | ------------------------------------------------------------------ | ---------- | ------------------------ | --------------------- |
+| Q-NER-01 | ¿Qué taxonomía de identificadores y umbral por clase se requieren? | Bloqueante | Privacidad/investigación | SP-02                 |
+
+## Preguntas resueltas en el corte ASR/síntesis local (2026-10-12)
+
+La evidencia de código de este corte se completa en `docs/foundation/appendices/evidence-index.md` cuando la implementación correspondiente exista; mientras tanto, la evidencia normativa es la ADR indicada.
+
+| ID         | Decisión                                                                                                                                                                                                                                        | Responsable           | Fecha      | Evidencia                     |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ---------- | ----------------------------- |
+| Q-ASR-01   | Objetivo Android arm64 e iOS, español (Chile) sobre corpus sintético. Presupuesto: factor de tiempo real por debajo de 1,0 en el dispositivo de referencia, RAM de pico bajo 1,5 GB, batería y temperatura registradas sin umbral comprometido. | Móvil/investigación   | 2026-10-12 | ADR-016; `09-audio-ai-ner.md` |
+| Q-ASR-02   | Motor `sherpa_onnx` 1.13.8 (Apache-2.0) con modelo español de licencia verificada, distribuido con versión y checksum en manifiesto versionado; los pesos no se commitean.                                                                      | Investigación/legal   | 2026-10-12 | ADR-016                       |
+| Q-NER-02   | Sin objeto: con ADR-017 no hay mapa token-valor que cifrar porque nada sale del dispositivo. Los artefactos de dictado usan el almacenamiento seguro de la plataforma y se purgan al confirmar, descartar o expirar.                            | Seguridad/móvil       | 2026-10-12 | ADR-017                       |
+| Q-AI-01    | Salida estructurada cuando el modelo la soporte; límites por caso de uso (hito hasta 20000 caracteres, resumen de periodo por intervalo) y códigos de error estables en el puerto `SynthesisProvider`.                                          | Clínica/investigación | 2026-10-12 | ADR-017                       |
+| Q-AI-02    | Sin proveedor cloud. Runtime local `llamadart` (llama.cpp) con modelo GGUF de redacción, descarga explícita con progreso y timeout/cancelación controlados por el caso de uso.                                                                  | Investigación/backend | 2026-10-12 | ADR-017                       |
+| Q-AI-03    | Deja de ser bloqueante: no hay egreso que verificar en runtime. La garantía es la ausencia de transmisión de texto, comprobable por inspección de red y por la prueba de privacidad de pgTAP.                                                   | Seguridad/backend     | 2026-10-12 | ADR-017                       |
+| Q-AUDIO-01 | Sin objeto: no se persiste audio crudo, ni en bucket ni en columna. No hay retención remota que gobernar y RK-028 queda retirado. El audio local existe solo hasta confirmar, descartar o expirar.                                              | Privacidad/producto   | 2026-10-12 | ADR-016                       |
 
 ## Operación y alcance
 

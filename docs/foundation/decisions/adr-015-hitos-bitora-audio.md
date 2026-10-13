@@ -1,9 +1,9 @@
 # ADR-015: Hitos de bitácora como notas de contexto en texto o audio almacenado
 
-- Estado: Aceptada
+- Estado: Aceptada, en parte sustituida por ADR-016 (2026-10-12)
 - Fecha: 2026-10-12
 - Alcance: hitos publicados por usuarios en la bitácora de una hospitalización; persistencia y acceso al audio crudo de hitos de audio
-- Relación: sustituye en parte a ADR-006 y ADR-010 (reglas de no subida y no persistencia remota) para el audio de hitos confirmados; el flujo experimental de dictado con ASR/NER (ADR-007/008/009) queda sin cambios; depende de ADR-005, ADR-013 y ADR-014
+- Relación: sustituye en parte a ADR-006 y ADR-010 (reglas de no subida y no persistencia remota) para el audio de hitos confirmados; **sustituida en parte por ADR-016**, que retira su punto 2 (audio almacenado en bucket privado) y reactiva la no subida de ADR-006 para el flujo de dictado; depende de ADR-005, ADR-013 y ADR-014
 
 ## Contexto
 
@@ -34,3 +34,7 @@ La bitácora (timeline clínico) solo proyectaba eventos generados por el sistem
 - `app/lib/domains/context_note/`: contrato tipado, repositorio con URL firmada y UI en la ficha del paciente.
 - Pruebas de app: `app/test/domains/patient/presentation/patient_screens_test.dart` (guard, hoja de captura y fila de audio) y `app/test/domains/clinical_event/data/models/clinical_event_model_test.dart` (proyección del timeline).
 - Validado solo sobre demo sintética/local; no afirma transcripción, retención productiva, concurrencia ni uso con datos reales.
+
+## Sustituida en parte por ADR-016 (2026-10-12)
+
+Los puntos 2, 5 (columnas de audio), 7 y las consecuencias derivadas del bucket `context-note-audio` quedan sustituidos por [ADR-016](adr-016-asr-local-transcripcion-confirmada.md). El hito de audio pasa a grabarse, transcribirse localmente y confirmarse como texto; el audio nunca sale del dispositivo y la reproducción en la bitácora se retira. El punto 1 y los puntos 3, 4 y 6 (inmutabilidad, autorización RLS y proyección en el timeline) permanecen vigentes. La implementación de esta sustitución es la migración aditiva `20261012010000_context_note_local_transcription.sql`.

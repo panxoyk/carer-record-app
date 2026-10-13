@@ -1,8 +1,9 @@
 # ADR-008: NER y tokenización reversible
 
-- Estado: Aceptada
+- Estado: Sustituida por ADR-017 (2026-10-12)
 - Fecha: 2026-09-27
 - Alcance: reducción experimental de identificadores en texto sintético
+- Relación: sustituida íntegramente por [ADR-017](adr-017-sintesis-local.md); se conserva como registro de la alternativa descartada
 
 ## Contexto
 
@@ -43,3 +44,7 @@ NER y tokenización son reducción de exposición, no anonimización. Tanto text
 - `app/lib/domains/clinical_event/domain/entities/clinical_event.dart:19-22` modela ese resumen como texto.
 
 No existe NER, mapa, cifrado ni prueba de reversión. SP-02 y SP-03 son evidencia requerida.
+
+## Sustituida por ADR-017 (2026-10-12)
+
+Con la síntesis íntegra en el dispositivo no hay egreso que reducir: el mapa token-valor deja de existir porque nada sale del teléfono, y con él desaparecen la custodia del mapa, el cifrado, la validación de integridad de tokens y la restauración local. El NER local se conserva como señalización de entidades al autor, sin sustitución de texto ni mapa.

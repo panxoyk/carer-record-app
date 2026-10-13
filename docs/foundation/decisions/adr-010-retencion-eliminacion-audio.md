@@ -3,7 +3,7 @@
 - Estado: Aceptada
 - Fecha: 2026-09-27
 - Alcance: audio y derivados temporales del flujo experimental
-- Relación: ADR-015 sustituye en parte su regla de no persistencia remota para el audio de hitos de bitácora confirmados; el ciclo de eliminación del flujo experimental permanece vigente
+- Relación: ADR-015 sustituyó en parte su regla de no persistencia remota para el audio de hitos de bitácora confirmados; **ADR-016 reactiva esa regla** al retirar el bucket `context-note-audio`, de modo que no hay retención remota de audio que gobernar; el ciclo de eliminación local permanece vigente
 
 ## Contexto
 

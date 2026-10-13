@@ -1,8 +1,9 @@
 # ADR-009: Síntesis cloud mediante proveedor abstracto
 
-- Estado: Aceptada con restricción
+- Estado: Sustituida por ADR-017 (2026-10-12)
 - Fecha: 2026-09-27
 - Alcance: generación experimental de síntesis; solo datos sintéticos
+- Relación: sustituida íntegramente por [ADR-017](adr-017-sintesis-local.md); se conserva como registro de la alternativa descartada
 
 ## Contexto
 
@@ -45,3 +46,7 @@ La integración cloud solo procesa datasets íntegramente sintéticos con proced
 - ADR-002 y `10-security-privacy.md:5-7` ordenan usar solo datos sintéticos en desarrollo.
 
 No hay proveedor, fake, guard de procedencia ni evaluación contractual implementados.
+
+## Sustituida por ADR-017 (2026-10-12)
+
+El `SynthesisProvider` se conserva como puerto del dominio, pero su adaptador es local (GGUF) en lugar de cloud: no hay Edge Function, ni credenciales de proveedor, ni contrato de tokens, ni guard de procedencia sintética en runtime. `Q-AI-03` deja de ser bloqueante porque no existe egreso que verificar. `supabase/functions/clinical-summary` se elimina por completo.
