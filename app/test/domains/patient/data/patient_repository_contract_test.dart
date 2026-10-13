@@ -127,7 +127,7 @@ void main() {
     expect(query.viewName, 'clinical_timeline_by_hospitalization');
     expect(
       query.columns,
-      'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,audio_storage_path,audio_duration_ms',
+      'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind',
     );
     expect(query.organizationId, org);
     expect(query.hospitalizationId, episode);

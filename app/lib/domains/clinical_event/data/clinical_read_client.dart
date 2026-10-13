@@ -33,7 +33,9 @@ class ClinicalReadQuery {
   String get columns => switch (view) {
     ClinicalReadView.census => 'organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date',
     ClinicalReadView.demographics => 'organization_id,hospitalization_id,patient_id,given_name,family_name,birth_date',
-    ClinicalReadView.timeline => 'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,audio_storage_path,audio_duration_ms',
+    // ADR-016 withdrew the audio columns: a milestone is the text its author
+    // confirmed, and its provenance stays in `context_notes`.
+    ClinicalReadView.timeline => 'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind',
   };
   List<String> get filterColumns => [
     'organization_id',

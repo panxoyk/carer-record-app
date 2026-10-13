@@ -12,6 +12,7 @@ app/.flutter-plugins-dependencies
 app/.idea/
 app/android/build/
 app/android/.gradle/
+app/android/.kotlin/
 app/android/app/build/
 app/android/app/.cxx/
 app/ios/Pods/
