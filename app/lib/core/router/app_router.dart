@@ -339,7 +339,7 @@ class ProtectedShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final iam = ref.watch(iamContextProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Carer Record')),
+      appBar: clinicalAppBar(title: 'Carer Record'),
       body: Center(
         child: iam.when(
           loading: () => const CircularProgressIndicator(),
@@ -397,6 +397,7 @@ class SuspendedScreen extends ConsumerWidget {
   const SuspendedScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
+    appBar: clinicalAppBar(title: 'Cuenta suspendida'),
     body: Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,

@@ -22,21 +22,34 @@ class PatientsScreen extends ConsumerStatefulWidget {
 }
 
 class _PatientsScreenState extends ConsumerState<PatientsScreen> {
+  /// El texto vive en el State y no en el campo: una recarga del censo
+  /// remonta la lista, y el campo debe conservar lo escrito y el foco.
+  final _searchController = TextEditingController();
   String query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final result = ref.watch(patientsProvider);
     final iamContext = ref.watch(iamContextProvider);
     return Scaffold(
       bottomNavigationBar: const ClinicalBottomNavigation(selectedIndex: 0),
-      appBar: AppBar(title: const Text('Hospitalizaciones')),
+      appBar: clinicalAppBar(title: 'Hospitalizaciones'),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
+              controller: _searchController,
               onChanged: (value) => setState(() => query = value),
-              decoration: const InputDecoration(labelText: 'Buscar por nombre'),
+              decoration: clinicalInputDecoration(
+                labelText: 'Buscar por nombre',
+              ),
             ),
           ),
           Expanded(
@@ -366,7 +379,7 @@ class SettingsScreen extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     return Scaffold(
       bottomNavigationBar: const ClinicalBottomNavigation(selectedIndex: 1),
-      appBar: AppBar(title: const Text('Ajustes')),
+      appBar: clinicalAppBar(title: 'Ajustes'),
       body: iam.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error:

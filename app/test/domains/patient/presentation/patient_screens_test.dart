@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:carer_record_app/domains/institutional/data/iam_models.dart';
 import 'package:carer_record_app/domains/institutional/presentation/iam_providers.dart';
+import 'package:carer_record_app/core/design_system/clinical_design_system.dart';
 
 const orgId = '00000000-0000-4000-8000-000000000001';
 const hospitalizationId = '00000000-0000-4000-8000-000000000002';
@@ -37,6 +38,41 @@ Widget screen(Widget child, List<Override> overrides) => ProviderScope(
 );
 
 void main() {
+  testWidgets('internal root app bars use clinical title and colors', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      screen(const PatientsScreen(), [
+        patientsProvider.overrideWith((ref) async => const []),
+      ]),
+    );
+    await tester.pumpAndSettle();
+    final censusBar = tester.widget<AppBar>(find.byType(AppBar));
+    final censusTitle = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.text('Hospitalizaciones'),
+    );
+    expect(censusTitle, findsOneWidget);
+    expect(censusBar.backgroundColor, ClinicalColors.canvas);
+    expect(tester.widget<Text>(censusTitle).style?.color, ClinicalColors.ink);
+
+    await tester.pumpWidget(
+      screen(const SettingsScreen(), [
+        iamContextProvider.overrideWith((ref) async => _iam(const {})),
+        sessionProvider.overrideWith((ref) => null),
+      ]),
+    );
+    await tester.pumpAndSettle();
+    final settingsBar = tester.widget<AppBar>(find.byType(AppBar));
+    final settingsTitle = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.text('Ajustes'),
+    );
+    expect(settingsTitle, findsOneWidget);
+    expect(settingsBar.backgroundColor, ClinicalColors.canvas);
+    expect(tester.widget<Text>(settingsTitle).style?.color, ClinicalColors.ink);
+  });
+
   testWidgets('census ready searches name only and displays safe location', (
     tester,
   ) async {
@@ -203,6 +239,24 @@ void main() {
       ]),
     );
     await tester.pumpAndSettle();
+    final appBar = tester.widget<AppBar>(find.byType(AppBar));
+    final title = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.text('Bitácora'),
+    );
+    expect(title, findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byIcon(Icons.arrow_back_ios_new_rounded),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.getCenter(find.text('Bitácora')).dy,
+      closeTo(tester.getCenter(find.byType(IconButton).first).dy, 1),
+    );
+    expect(appBar.backgroundColor, ClinicalColors.canvas);
     expect(find.text('Texto resumido'), findsOneWidget);
     expect(find.textContaining(patientId), findsNothing);
     expect(find.textContaining(hospitalizationId), findsNothing);
@@ -482,7 +536,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('ADMINISTRACIÓN INSTITUCIONAL'), findsOneWidget);
       expect(find.text('Gestionar usuarios'), findsOneWidget);
-      expect(find.text('Asignaciones asistenciales'), findsOneWidget);
+      expect(find.text('Profesionales por hospitalización'), findsOneWidget);
       expect(find.text('Roles y permisos'), findsNothing);
     },
   );
@@ -503,7 +557,7 @@ void main() {
       expect(find.text('ADMINISTRACIÓN INSTITUCIONAL'), findsNothing);
       expect(find.text('Gestionar usuarios'), findsNothing);
       expect(find.text('Roles y permisos'), findsNothing);
-      expect(find.text('Asignaciones asistenciales'), findsNothing);
+      expect(find.text('Profesionales por hospitalización'), findsNothing);
     },
   );
 }

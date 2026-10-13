@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/design_system/clinical_design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -30,12 +32,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         TextField(
           controller: _email,
           keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: 'Correo electrónico'),
+          decoration: clinicalInputDecoration(labelText: 'Correo electrónico'),
         ),
         TextField(
           controller: _password,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'Contraseña'),
+          decoration: clinicalInputDecoration(labelText: 'Contraseña'),
         ),
         if (_error != null)
           Padding(
@@ -110,7 +112,7 @@ class _RecoverPasswordScreenState extends ConsumerState<RecoverPasswordScreen> {
         TextField(
           controller: _email,
           keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: 'Correo electrónico'),
+          decoration: clinicalInputDecoration(labelText: 'Correo electrónico'),
         ),
         const SizedBox(height: 20),
         FilledButton(
@@ -193,7 +195,7 @@ class _UpdatePasswordScreenState extends ConsumerState<UpdatePasswordScreen> {
         TextField(
           controller: _password,
           obscureText: true,
-          decoration: const InputDecoration(
+          decoration: clinicalInputDecoration(
             labelText: 'Nueva contraseña (mínimo 6 caracteres)',
           ),
         ),
