@@ -15,6 +15,7 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   go_router: ^14.8.1
   just_audio: ^0.9.4
+  llamadart: ^0.11.1
   path_provider: ^2.1.4
   record: ^6.2.1
   sherpa_onnx: ^1.13.8
@@ -31,3 +32,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/asr_model_manifest.json
+    - assets/llm_model_manifest.json

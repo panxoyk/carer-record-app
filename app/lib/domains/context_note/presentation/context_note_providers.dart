@@ -9,8 +9,11 @@ import '../../../core/network/supabase_client.dart';
 import '../data/asr_model_manifest.dart';
 import '../data/context_note_repository.dart';
 import '../data/draft_vault.dart';
+import '../data/llama_gguf_synthesis_provider.dart';
+import '../data/llm_model_manifest.dart';
 import '../data/sherpa_asr_engine.dart';
 import '../domain/asr_engine.dart';
+import '../domain/synthesis_provider.dart';
 
 final contextNoteRepositoryProvider =
     Provider.autoDispose<ContextNoteRepository>(
@@ -59,3 +62,37 @@ final draftVaultProvider = Provider.autoDispose<DraftVault>((ref) {
   unawaited(vault.sweepExpired().catchError((Object _) => 0));
   return vault;
 });
+
+/// Versioned manifest of the local text-assistance model.
+final llmModelManifestProvider = FutureProvider.autoDispose<LlmModelManifest>((
+  ref,
+) async {
+  final source = await rootBundle.loadString('assets/llm_model_manifest.json');
+  return LlmModelManifest.parse(source);
+});
+
+final llmModelDirectoryProvider = FutureProvider.autoDispose<Directory>((
+  ref,
+) async {
+  final base = await getApplicationSupportDirectory();
+  final directory = Directory('${base.path}${Platform.pathSeparator}llm');
+  if (!directory.existsSync()) await directory.create(recursive: true);
+  return directory;
+});
+
+/// Local text assistance, or `null` when the model is not installed.
+///
+/// A missing model leaves this null and the milestone is published with the
+/// author's own text. Assistance never blocks clinical writing (ADR-017).
+final synthesisProviderProvider =
+    FutureProvider.autoDispose<SynthesisProvider?>((ref) async {
+      final manifest = await ref.watch(llmModelManifestProvider.future);
+      final directory = await ref.watch(llmModelDirectoryProvider.future);
+      final provider = LlamaGgufSynthesisProvider(
+        manifest: manifest,
+        modelDirectory: directory,
+      );
+      final ready = await provider.load();
+      ref.onDispose(() => provider.dispose());
+      return ready ? provider : null;
+    });

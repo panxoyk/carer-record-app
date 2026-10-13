@@ -1,0 +1,18 @@
+{
+  "id": "qwen3-1.7b-instruct-q4_k_m",
+  "runtime": "llamadart",
+  "runtime_version": "0.11.1",
+  "language": "es",
+  "license": "Apache-2.0 (Qwen3 weights)",
+  "source_url": "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main",
+  "file": "Qwen3-1.7B-Q4_K_M.gguf",
+  "file_name": "qwen3-1.7b-instruct-q4_k_m.gguf",
+  "sha256": "b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897",
+  "bytes": 1107409472,
+  "parameters": {
+    "context_size": 2048,
+    "threads": 4,
+    "max_tokens": 512
+  },
+  "notes": "Pesos fuera del repositorio: se descargan en el primer arranque con progreso y se verifican por checksum antes de usarse. Si el checksum declarado no coincide, el instalador borra el archivo y deja el hito publicable sin asistencia."
+}

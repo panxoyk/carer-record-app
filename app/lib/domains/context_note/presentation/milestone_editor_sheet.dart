@@ -13,6 +13,8 @@ import '../data/draft_vault.dart';
 import '../domain/asr_engine.dart';
 import '../domain/entities/context_note.dart';
 import '../domain/entities/dictation_stage.dart';
+import '../domain/synthesis_provider.dart';
+import '../domain/usecases/synthesis_usecases.dart';
 import 'context_note_providers.dart';
 
 /// Bottom sheet to add a bitácora milestone as text or as a locally dictated
@@ -57,6 +59,8 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
   AudioPlayer? _previewPlayer;
   String? _operationId;
   bool _busy = false;
+  bool _assisting = false;
+  String? _assistNote;
 
   @override
   void dispose() {
@@ -366,6 +370,8 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
               )
             else
               _buildDictationSection(),
+            const SizedBox(height: 12),
+            _buildAssistRow(),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -399,6 +405,86 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
         ),
       ),
     );
+  }
+
+  Widget _buildAssistRow() {
+    final provider = ref.watch(synthesisProviderProvider).valueOrNull;
+    final hasDraft = _textController.text.trim().isNotEmpty;
+    if (provider == null) {
+      return Row(
+        children: [
+          const Icon(Icons.offline_bolt_outlined, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'La mejora de texto no está disponible: el modelo local no está '
+              'instalado. El hito se publica tal como lo escribiste.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        OutlinedButton.icon(
+          onPressed: _busy || !hasDraft ? null : _improveDraft,
+          icon: const Icon(Icons.auto_fix_high_outlined),
+          label: const Text('Mejorar redacción'),
+        ),
+        const SizedBox(width: 12),
+        if (_assisting)
+          const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        else if (_assistNote != null)
+          Expanded(
+            child: Text(
+              _assistNote!,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _improveDraft() async {
+    final provider = await ref.read(synthesisProviderProvider.future);
+    if (provider == null) {
+      setState(() => _assistNote = 'El modelo local no está instalado.');
+      return;
+    }
+    setState(() {
+      _assisting = true;
+      _assistNote = null;
+    });
+    final outcome = await ImproveNoteDraft(provider: provider)(
+      text: _textController.text,
+      idempotencyKey: _operationId,
+    );
+    if (!mounted) return;
+    setState(() => _assisting = false);
+    if (!outcome.hasSuggestion) {
+      setState(() => _assistNote = _assistMessageFor(outcome.errorCode));
+      return;
+    }
+    // The suggestion is a draft: the author keeps editing before confirming.
+    _textController.text = outcome.suggestion!;
+    setState(() => _assistNote = 'Revisa la sugerencia antes de confirmar.');
+  }
+
+  String _assistMessageFor(String? code) {
+    return switch (code) {
+      SynthesisErrorCode.unavailable => 'El modelo local no está disponible.',
+      SynthesisErrorCode.timeout => 'La mejora local tardó demasiado.',
+      SynthesisErrorCode.tooLong => 'La sugerencia era demasiado larga.',
+      SynthesisErrorCode.cancelled => 'Mejora cancelada.',
+      SynthesisErrorCode.malformed => 'La mejora local no se pudo interpretar.',
+      SynthesisErrorCode.internal => 'La mejora local falló.',
+      _ => 'Sin mejora local; se conserva tu texto.',
+    };
   }
 
   Widget _buildDictationSection() {
