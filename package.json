@@ -26,7 +26,7 @@
     "functions:lint": "deno lint --config supabase/functions/deno.json supabase/functions",
     "functions:test": "deno test --config supabase/functions/deno.json --lock=supabase/functions/deno.lock --frozen supabase/functions/create-practitioner/handler_test.ts",
     "functions:types:generate": "pnpm exec supabase gen types typescript --local --schema public > supabase/functions/database.types.ts",
-    "functions:typecheck": "deno check --config supabase/functions/deno.json --lock=supabase/functions/deno.lock --frozen supabase/functions/clinical-summary/index.ts supabase/functions/create-practitioner/index.ts supabase/functions/create-practitioner/handler_test.ts",
+    "functions:typecheck": "deno check --config supabase/functions/deno.json --lock=supabase/functions/deno.lock --frozen supabase/functions/create-practitioner/index.ts supabase/functions/create-practitioner/handler_test.ts",
     "functions:check": "pnpm functions:format:check && pnpm functions:lint && pnpm functions:typecheck && pnpm functions:test",
     "docs:format": "prettier --write \"**/*.{md,json,jsonc}\"",
     "docs:format:check": "prettier --check \"**/*.{md,json,jsonc}\"",

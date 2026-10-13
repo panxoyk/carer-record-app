@@ -90,17 +90,17 @@ La fotografía del baseline registra acceso, recuperación, administración y co
 
 La siguiente matriz evita interpretar objetivos académicos como comportamiento ya implementado.
 
-| Capacidad              | Definición de demostración                                                       | Clasificación documental                                                                                                             |
-| ---------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Consulta contextual    | Acceso autorizado a pacientes, ficha y timeline sintético.                       | **Confirmado** en CRA.                                                                                                               |
-| Captura textual        | Crear contexto asociado a una hospitalización y derivar autoría desde la sesión. | **Decidido** como objetivo; todavía no existe en CRA.                                                                                |
-| Captura de audio       | Grabar audio sintético local, transcribir, sintetizar y eliminar temporales.     | **Decidido** como objetivo, condicionado a spikes ASR/NER; no existe en CRA.                                                         |
-| Confirmación del autor | Escuchar audio, editar la síntesis y confirmar sin cola de revisión externa.     | **Decidido** como objetivo; todavía no existe en CRA.                                                                                |
-| Ingesta FHIR simulada  | Cargar FHIR R4 sintético, normalizar y demostrar idempotencia y procedencia.     | **Decidido** como objetivo; CRA solo tiene scaffold (`scripts/data_pipeline/main.py:14`).                                            |
-| HL7v2 simulado         | Recibir mensajes sintéticos, validar, normalizar y consultar el resultado.       | **Fuera de alcance**; no existe en CRA.                                                                                              |
-| Resumen temporal       | Sintetizar fuentes autorizadas de un intervalo como vista con caché invalidable. | **Decidido** como objetivo; la función protegida responde `501 not_implemented` (`supabase/functions/clinical-summary/index.ts:17`). |
-| Turnos y handoff       | Gestionar jornadas, RRHH, entregas o permisos dependientes del turno.            | **Fuera de alcance** según ADR-012.                                                                                                  |
-| Operación offline      | Sincronizar todo el dominio y resolver conflictos generales.                     | **Fuera de alcance**; solo se decide una outbox acotada para captura pendiente.                                                      |
+| Capacidad              | Definición de demostración                                                       | Clasificación documental                                                                                                                    |
+| ---------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Consulta contextual    | Acceso autorizado a pacientes, ficha y timeline sintético.                       | **Confirmado** en CRA.                                                                                                                      |
+| Captura textual        | Crear contexto asociado a una hospitalización y derivar autoría desde la sesión. | **Decidido** como objetivo; todavía no existe en CRA.                                                                                       |
+| Captura de audio       | Grabar audio sintético local, transcribir, sintetizar y eliminar temporales.     | **Decidido** como objetivo, condicionado a spikes ASR/NER; no existe en CRA.                                                                |
+| Confirmación del autor | Escuchar audio, editar la síntesis y confirmar sin cola de revisión externa.     | **Decidido** como objetivo; todavía no existe en CRA.                                                                                       |
+| Ingesta FHIR simulada  | Cargar FHIR R4 sintético, normalizar y demostrar idempotencia y procedencia.     | **Decidido** como objetivo; CRA solo tiene scaffold (`scripts/data_pipeline/main.py:14`).                                                   |
+| HL7v2 simulado         | Recibir mensajes sintéticos, validar, normalizar y consultar el resultado.       | **Fuera de alcance**; no existe en CRA.                                                                                                     |
+| Resumen temporal       | Sintetizar fuentes autorizadas de un intervalo como vista con caché invalidable. | **Decidido** como objetivo; sin entrega. ADR-017 retiró la Edge Function `clinical-summary` y dejó la síntesis en el dispositivo (ADR-011). |
+| Turnos y handoff       | Gestionar jornadas, RRHH, entregas o permisos dependientes del turno.            | **Fuera de alcance** según ADR-012.                                                                                                         |
+| Operación offline      | Sincronizar todo el dominio y resolver conflictos generales.                     | **Fuera de alcance**; solo se decide una outbox acotada para captura pendiente.                                                             |
 
 ## Evidencia esperada por capacidad nueva
 

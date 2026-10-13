@@ -296,14 +296,13 @@ El gateway no usa una sesión humana ni Service Role general. La credencial iden
 
 ### Generación de resúmenes
 
-La función `clinical-summary` del baseline solo validaba la existencia de un usuario y estaba intencionalmente sin implementar (`supabase/functions/clinical-summary/index.ts:3-18`). Antes de activarla debe:
+La Edge Function `clinical-summary` del baseline solo validaba la existencia de un usuario y estaba intencionalmente sin implementar. ADR-017 la retiró: hoy la síntesis corre en el dispositivo y la autorización depende por completo de RLS:
 
-- comprobar permiso sobre cada hospitalización solicitada;
-- recuperar datos mediante el contexto del llamador o una función que preserve autorización;
-- minimizar información enviada al proveedor;
-- registrar modelo, versión, fuentes, timestamp y actor;
-- marcar la salida como generada y revisable;
-- no convertir el resumen en fuente clínica ni permitir que revele filas fuera de alcance.
+- la app solo sintetiza las filas que RLS ya le devolvió;
+- el modelo local no consulta la base de datos y no tiene credenciales de servidor;
+- se registra modelo, versión, fuentes, timestamp y actor;
+- la salida se marca como generada y revisable;
+- el resumen nunca se convierte en fuente clínica ni revela filas fuera de alcance.
 
 ## Claims, caché y revocación
 

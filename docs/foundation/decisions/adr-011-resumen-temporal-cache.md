@@ -38,7 +38,7 @@ La caché usa una clave derivada de todos esos componentes. Solo un match exacto
 
 ## Evidencia
 
-- `supabase/functions/clinical-summary/index.ts:3-18` conserva una frontera autenticada, pero no implementa síntesis.
+- `supabase/functions/create-practitioner/index.ts:74-100` conserva una frontera autenticada de servidor; la síntesis ya no pasa por una Edge Function (ADR-017).
 - `supabase/migrations/20260910000000_initial_clinical_schema.sql:28-39` registra `occurred_at` e índice temporal.
 - `supabase/migrations/20260910110000_clinical_timeline.sql:45-51` exige resumen fuente en payload.
 - `baseline/carer-record-app.md:123-127` registra que la UI observada no implementaba conversión de zona horaria.

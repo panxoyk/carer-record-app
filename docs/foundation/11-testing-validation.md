@@ -94,7 +94,7 @@ Inyectar repositorios, reloj, filesystem, ASR y proveedor como fakes; no usar re
 
 ## Edge Functions
 
-El baseline solo exigía formato, lint y typecheck (`package.json:21-26`), y `clinical-summary` devolvía intencionalmente 501 (`supabase/functions/clinical-summary/index.ts:3-19`). Antes de considerar implementada una función nueva se requieren tests HTTP para:
+El baseline solo exigía formato, lint y typecheck (`package.json:21-26`). La Edge Function `clinical-summary` solo autenticaba y devolvía `501`, y ADR-017 la retiró al dejar la síntesis en el dispositivo; `create-practitioner` es hoy la única función y ya tiene tests de handler. Antes de considerar implementada una función nueva se requieren tests HTTP para:
 
 - método, content type, cuerpo ausente/malformado/sobredimensionado;
 - JWT ausente, inválido, expirado y usuario inexistente;

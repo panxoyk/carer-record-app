@@ -52,7 +52,7 @@ La evidencia local de fase 5 conserva estos límites: EXPLAIN estimado prueba ú
 ## Riesgos aceptados temporalmente en el baseline
 
 - La matriz de permisos es estática. Se acepta solo para datos sintéticos y lectura actual, respaldada por pgTAP (`supabase/tests/patients_rls.test.sql:56-130`).
-- La función de resumen devuelve 501 (`supabase/functions/clinical-summary/index.ts:17-18`); no se considera una degradación silenciosa porque la capacidad no está entregada.
+- La síntesis de periodo no está entregada: ADR-017 retiró la Edge Function `clinical-summary` y la síntesis corre en el dispositivo; el resumen cacheado sigue sin implementación (ADR-011).
 - Los tests Edge son estáticos (`package.json:21-26`). Se acepta mientras no existan nuevos flujos privilegiados; V2/V5/V6 requieren tests HTTP.
 - El RUT completo llegaba al cliente en el baseline histórico; Flutter actual no lo solicita ni lo presenta. No habilitar identificadores completos sin nueva decisión y contrato.
 

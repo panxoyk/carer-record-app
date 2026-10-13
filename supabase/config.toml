@@ -33,8 +33,8 @@ enable_confirmations = false
 enabled = true
 policy = "per_worker"
 
-[functions.clinical-summary]
-verify_jwt = true
+# The cloud synthesis function was retired by ADR-017: there is no Edge Function
+# for synthesis anymore, and the model runs on the device.
 
 [functions.create-practitioner]
 verify_jwt = true

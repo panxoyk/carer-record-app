@@ -54,8 +54,29 @@ export type Database = {
             foreignKeyName: "audit_events_actor_membership_fk";
             columns: ["organization_id", "actor_membership_id"];
             isOneToOne: false;
+            referencedRelation: "iam_assignment_eligible_members";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "audit_events_actor_membership_fk";
+            columns: ["organization_id", "actor_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_member_directory";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "audit_events_actor_membership_fk";
+            columns: ["organization_id", "actor_membership_id"];
+            isOneToOne: false;
             referencedRelation: "organization_memberships";
             referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "audit_events_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["organization_id"];
           },
           {
             foreignKeyName: "audit_events_organization_id_fkey";
@@ -111,6 +132,20 @@ export type Database = {
             foreignKeyName: "care_assignments_creator_fk";
             columns: ["organization_id", "created_by_membership_id"];
             isOneToOne: false;
+            referencedRelation: "iam_assignment_eligible_members";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "care_assignments_creator_fk";
+            columns: ["organization_id", "created_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_member_directory";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "care_assignments_creator_fk";
+            columns: ["organization_id", "created_by_membership_id"];
+            isOneToOne: false;
             referencedRelation: "organization_memberships";
             referencedColumns: ["organization_id", "id"];
           },
@@ -137,11 +172,46 @@ export type Database = {
             referencedColumns: ["organization_id", "id"];
           },
           {
+            foreignKeyName: "care_assignments_episode_fk";
+            columns: ["organization_id", "hospitalization_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_assignment_hospitalizations";
+            referencedColumns: ["organization_id", "hospitalization_id"];
+          },
+          {
+            foreignKeyName: "care_assignments_membership_fk";
+            columns: ["organization_id", "membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_assignment_eligible_members";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "care_assignments_membership_fk";
+            columns: ["organization_id", "membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_member_directory";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
             foreignKeyName: "care_assignments_membership_fk";
             columns: ["organization_id", "membership_id"];
             isOneToOne: false;
             referencedRelation: "organization_memberships";
             referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "care_assignments_revoker_fk";
+            columns: ["organization_id", "revoked_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_assignment_eligible_members";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "care_assignments_revoker_fk";
+            columns: ["organization_id", "revoked_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_member_directory";
+            referencedColumns: ["organization_id", "membership_id"];
           },
           {
             foreignKeyName: "care_assignments_revoker_fk";
@@ -232,6 +302,87 @@ export type Database = {
           },
         ];
       };
+      context_notes: {
+        Row: {
+          author_id: string;
+          client_event_id: string;
+          confirmed_at: string;
+          content: string | null;
+          created_at: string;
+          hospitalization_id: string;
+          id: string;
+          input_method: string;
+          occurred_at: string;
+          organization_id: string;
+          patient_id: string;
+          status: string;
+          transcription_metadata: Json | null;
+        };
+        Insert: {
+          author_id?: string;
+          client_event_id: string;
+          confirmed_at?: string;
+          content?: string | null;
+          created_at?: string;
+          hospitalization_id: string;
+          id?: string;
+          input_method: string;
+          occurred_at?: string;
+          organization_id: string;
+          patient_id: string;
+          status?: string;
+          transcription_metadata?: Json | null;
+        };
+        Update: {
+          author_id?: string;
+          client_event_id?: string;
+          confirmed_at?: string;
+          content?: string | null;
+          created_at?: string;
+          hospitalization_id?: string;
+          id?: string;
+          input_method?: string;
+          occurred_at?: string;
+          organization_id?: string;
+          patient_id?: string;
+          status?: string;
+          transcription_metadata?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "context_notes_episode_patient_tenant_fk";
+            columns: ["organization_id", "hospitalization_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "clinical_census_by_hospitalization";
+            referencedColumns: [
+              "organization_id",
+              "hospitalization_id",
+              "patient_id",
+            ];
+          },
+          {
+            foreignKeyName: "context_notes_episode_patient_tenant_fk";
+            columns: ["organization_id", "hospitalization_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "hospitalizations";
+            referencedColumns: ["organization_id", "id", "patient_id"];
+          },
+          {
+            foreignKeyName: "context_notes_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["organization_id"];
+          },
+          {
+            foreignKeyName: "context_notes_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       hospitalization_locations: {
         Row: {
           bed_label: string | null;
@@ -287,6 +438,13 @@ export type Database = {
             referencedColumns: ["organization_id", "id"];
           },
           {
+            foreignKeyName: "hospitalization_locations_episode_fk";
+            columns: ["organization_id", "hospitalization_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_assignment_hospitalizations";
+            referencedColumns: ["organization_id", "hospitalization_id"];
+          },
+          {
             foreignKeyName: "hospitalization_locations_unit_fk";
             columns: ["organization_id", "unit_id"];
             isOneToOne: false;
@@ -324,6 +482,13 @@ export type Database = {
           status?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "hospitalizations_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["organization_id"];
+          },
           {
             foreignKeyName: "hospitalizations_organization_id_fkey";
             columns: ["organization_id"];
@@ -379,8 +544,29 @@ export type Database = {
             foreignKeyName: "organization_memberships_organization_id_fkey";
             columns: ["organization_id"];
             isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["organization_id"];
+          },
+          {
+            foreignKeyName: "organization_memberships_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "organization_memberships_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["profile_id"];
+          },
+          {
+            foreignKeyName: "organization_memberships_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_member_directory";
+            referencedColumns: ["profile_id"];
           },
           {
             foreignKeyName: "organization_memberships_profile_id_fkey";
@@ -465,6 +651,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "patients_organization_fk";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["organization_id"];
+          },
           {
             foreignKeyName: "patients_organization_fk";
             columns: ["organization_id"];
@@ -606,8 +799,36 @@ export type Database = {
             foreignKeyName: "role_assignments_created_by_membership_tenant_fk";
             columns: ["organization_id", "created_by_membership_id"];
             isOneToOne: false;
+            referencedRelation: "iam_assignment_eligible_members";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "role_assignments_created_by_membership_tenant_fk";
+            columns: ["organization_id", "created_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_member_directory";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "role_assignments_created_by_membership_tenant_fk";
+            columns: ["organization_id", "created_by_membership_id"];
+            isOneToOne: false;
             referencedRelation: "organization_memberships";
             referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "role_assignments_membership_tenant_fk";
+            columns: ["organization_id", "membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_assignment_eligible_members";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "role_assignments_membership_tenant_fk";
+            columns: ["organization_id", "membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_member_directory";
+            referencedColumns: ["organization_id", "membership_id"];
           },
           {
             foreignKeyName: "role_assignments_membership_tenant_fk";
@@ -620,8 +841,29 @@ export type Database = {
             foreignKeyName: "role_assignments_revoked_by_membership_tenant_fk";
             columns: ["organization_id", "revoked_by_membership_id"];
             isOneToOne: false;
+            referencedRelation: "iam_assignment_eligible_members";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "role_assignments_revoked_by_membership_tenant_fk";
+            columns: ["organization_id", "revoked_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_member_directory";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "role_assignments_revoked_by_membership_tenant_fk";
+            columns: ["organization_id", "revoked_by_membership_id"];
+            isOneToOne: false;
             referencedRelation: "organization_memberships";
             referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "role_assignments_role_tenant_fk";
+            columns: ["organization_id", "role_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_role_directory";
+            referencedColumns: ["organization_id", "role_id"];
           },
           {
             foreignKeyName: "role_assignments_role_tenant_fk";
@@ -659,6 +901,20 @@ export type Database = {
             foreignKeyName: "role_permissions_granted_by_membership_tenant_fk";
             columns: ["organization_id", "granted_by_membership_id"];
             isOneToOne: false;
+            referencedRelation: "iam_assignment_eligible_members";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "role_permissions_granted_by_membership_tenant_fk";
+            columns: ["organization_id", "granted_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_member_directory";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "role_permissions_granted_by_membership_tenant_fk";
+            columns: ["organization_id", "granted_by_membership_id"];
+            isOneToOne: false;
             referencedRelation: "organization_memberships";
             referencedColumns: ["organization_id", "id"];
           },
@@ -666,8 +922,29 @@ export type Database = {
             foreignKeyName: "role_permissions_permission_code_fkey";
             columns: ["permission_code"];
             isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["permission_code"];
+          },
+          {
+            foreignKeyName: "role_permissions_permission_code_fkey";
+            columns: ["permission_code"];
+            isOneToOne: false;
+            referencedRelation: "iam_role_directory";
+            referencedColumns: ["permission_code"];
+          },
+          {
+            foreignKeyName: "role_permissions_permission_code_fkey";
+            columns: ["permission_code"];
+            isOneToOne: false;
             referencedRelation: "permission_catalog";
             referencedColumns: ["code"];
+          },
+          {
+            foreignKeyName: "role_permissions_role_tenant_fk";
+            columns: ["organization_id", "role_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_role_directory";
+            referencedColumns: ["organization_id", "role_id"];
           },
           {
             foreignKeyName: "role_permissions_role_tenant_fk";
@@ -720,8 +997,29 @@ export type Database = {
             foreignKeyName: "roles_created_by_membership_tenant_fk";
             columns: ["organization_id", "created_by_membership_id"];
             isOneToOne: false;
+            referencedRelation: "iam_assignment_eligible_members";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "roles_created_by_membership_tenant_fk";
+            columns: ["organization_id", "created_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_member_directory";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "roles_created_by_membership_tenant_fk";
+            columns: ["organization_id", "created_by_membership_id"];
+            isOneToOne: false;
             referencedRelation: "organization_memberships";
             referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "roles_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["organization_id"];
           },
           {
             foreignKeyName: "roles_organization_id_fkey";
@@ -762,6 +1060,13 @@ export type Database = {
             foreignKeyName: "units_organization_id_fkey";
             columns: ["organization_id"];
             isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["organization_id"];
+          },
+          {
+            foreignKeyName: "units_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
@@ -784,6 +1089,13 @@ export type Database = {
           unit_id: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "hospitalizations_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["organization_id"];
+          },
           {
             foreignKeyName: "hospitalizations_organization_id_fkey";
             columns: ["organization_id"];
@@ -814,6 +1126,13 @@ export type Database = {
             foreignKeyName: "hospitalizations_organization_id_fkey";
             columns: ["organization_id"];
             isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["organization_id"];
+          },
+          {
+            foreignKeyName: "hospitalizations_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
@@ -824,64 +1143,184 @@ export type Database = {
           created_at: string | null;
           event_id: string | null;
           hospitalization_id: string | null;
-          kind: Database["public"]["Enums"]["clinical_event_kind"] | null;
+          kind: string | null;
           occurred_at: string | null;
           organization_id: string | null;
           patient_id: string | null;
+          source_kind: string | null;
           summary: string | null;
         };
-        Insert: {
-          created_at?: string | null;
-          event_id?: string | null;
-          hospitalization_id?: string | null;
-          kind?: Database["public"]["Enums"]["clinical_event_kind"] | null;
-          occurred_at?: string | null;
-          organization_id?: string | null;
-          patient_id?: string | null;
-          summary?: string | null;
-        };
-        Update: {
-          created_at?: string | null;
-          event_id?: string | null;
-          hospitalization_id?: string | null;
-          kind?: Database["public"]["Enums"]["clinical_event_kind"] | null;
-          occurred_at?: string | null;
-          organization_id?: string | null;
-          patient_id?: string | null;
-          summary?: string | null;
+        Relationships: [];
+      };
+      iam_assignment_eligible_members: {
+        Row: {
+          display_name: string | null;
+          membership_id: string | null;
+          organization_id: string | null;
         };
         Relationships: [
           {
-            foreignKeyName: "clinical_events_episode_patient_tenant_fk";
-            columns: ["organization_id", "hospitalization_id", "patient_id"];
+            foreignKeyName: "organization_memberships_organization_id_fkey";
+            columns: ["organization_id"];
             isOneToOne: false;
-            referencedRelation: "clinical_census_by_hospitalization";
-            referencedColumns: [
-              "organization_id",
-              "hospitalization_id",
-              "patient_id",
-            ];
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["organization_id"];
           },
           {
-            foreignKeyName: "clinical_events_episode_patient_tenant_fk";
-            columns: ["organization_id", "hospitalization_id", "patient_id"];
+            foreignKeyName: "organization_memberships_organization_id_fkey";
+            columns: ["organization_id"];
             isOneToOne: false;
-            referencedRelation: "hospitalizations";
-            referencedColumns: ["organization_id", "id", "patient_id"];
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      iam_assignment_hospitalizations: {
+        Row: {
+          admitted_at: string | null;
+          assignee_display_name: string | null;
+          assignee_membership_status: string | null;
+          assignment_id: string | null;
+          assignment_valid_from: string | null;
+          assignment_valid_until: string | null;
+          discharged_at: string | null;
+          hospitalization_id: string | null;
+          hospitalization_status: string | null;
+          membership_id: string | null;
+          organization_id: string | null;
+          revoked_at: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "hospitalizations_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["organization_id"];
           },
           {
-            foreignKeyName: "clinical_events_patient_id_fkey";
-            columns: ["patient_id"];
+            foreignKeyName: "hospitalizations_organization_id_fkey";
+            columns: ["organization_id"];
             isOneToOne: false;
-            referencedRelation:
-              "clinical_patient_demographics_by_hospitalization";
-            referencedColumns: ["patient_id"];
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      iam_current_context: {
+        Row: {
+          display_name: string | null;
+          membership_id: string | null;
+          membership_status: string | null;
+          organization_id: string | null;
+          organization_name: string | null;
+          permission_code: string | null;
+          profile_id: string | null;
+          profile_status: string | null;
+        };
+        Relationships: [];
+      };
+      iam_member_directory: {
+        Row: {
+          display_name: string | null;
+          membership_id: string | null;
+          membership_status: string | null;
+          organization_id: string | null;
+          profile_id: string | null;
+          profile_status: string | null;
+          valid_from: string | null;
+          valid_until: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_memberships_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["organization_id"];
           },
           {
-            foreignKeyName: "clinical_events_patient_id_fkey";
-            columns: ["patient_id"];
+            foreignKeyName: "organization_memberships_organization_id_fkey";
+            columns: ["organization_id"];
             isOneToOne: false;
-            referencedRelation: "patients";
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      iam_member_role_assignments: {
+        Row: {
+          assignment_id: string | null;
+          membership_id: string | null;
+          organization_id: string | null;
+          protected_kind: string | null;
+          revoked_at: string | null;
+          role_id: string | null;
+          role_name: string | null;
+          valid_from: string | null;
+          valid_until: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "role_assignments_membership_tenant_fk";
+            columns: ["organization_id", "membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_assignment_eligible_members";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "role_assignments_membership_tenant_fk";
+            columns: ["organization_id", "membership_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_member_directory";
+            referencedColumns: ["organization_id", "membership_id"];
+          },
+          {
+            foreignKeyName: "role_assignments_membership_tenant_fk";
+            columns: ["organization_id", "membership_id"];
+            isOneToOne: false;
+            referencedRelation: "organization_memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "role_assignments_role_tenant_fk";
+            columns: ["organization_id", "role_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_role_directory";
+            referencedColumns: ["organization_id", "role_id"];
+          },
+          {
+            foreignKeyName: "role_assignments_role_tenant_fk";
+            columns: ["organization_id", "role_id"];
+            isOneToOne: false;
+            referencedRelation: "roles";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
+      iam_role_directory: {
+        Row: {
+          description: string | null;
+          organization_id: string | null;
+          permission_code: string | null;
+          protected_kind: string | null;
+          role_id: string | null;
+          role_name: string | null;
+          role_status: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "roles_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "iam_current_context";
+            referencedColumns: ["organization_id"];
+          },
+          {
+            foreignKeyName: "roles_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
         ];
