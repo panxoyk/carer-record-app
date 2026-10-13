@@ -78,9 +78,8 @@ void main() {
       ClinicalColors.mintDark,
     );
     expect(
-      Theme.of(
-        context,
-      ).textButtonTheme.style!.foregroundColor!.resolve(const {}),
+      Theme.of(context).textButtonTheme.style!.foregroundColor!
+          .resolve(const {}),
       ClinicalColors.mintText,
     );
   });

@@ -237,7 +237,7 @@ class _TimelineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final marker = event.isDictatedMilestone ? 'Dictado local' : event.kind;
-    final subtitle = '$marker \u00b7 ${formatClinicalDateTime(event.occurredAt)}';
+    final subtitle = '$marker · ${formatClinicalDateTime(event.occurredAt)}';
     return ListTile(
       leading: event.isMilestone ? const Icon(Icons.flag_outlined) : null,
       title: Text(event.summary),

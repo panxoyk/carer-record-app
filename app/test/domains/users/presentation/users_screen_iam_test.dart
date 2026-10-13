@@ -127,8 +127,9 @@ void main() {
     final titleRect = tester.getRect(appBarTitle);
     final backRect = tester.getRect(find.byTooltip('Volver a Ajustes'));
     final searchRect = tester.getRect(find.byType(TextField));
-    final cardRects =
-        tester.widgetList<ClinicalCard>(find.byType(ClinicalCard)).toList();
+    final cardRects = tester
+        .widgetList<ClinicalCard>(find.byType(ClinicalCard))
+        .toList();
     expect(cardRects, hasLength(2));
     final firstCardRect = tester.getRect(find.byType(ClinicalCard).first);
     expect(titleRect.center.dy, closeTo(backRect.center.dy, 0.1));
@@ -193,8 +194,9 @@ void main() {
       final selector = tester.widget<AnchoredSelector<String>>(
         find.byKey(ValueKey('role-${_other.membershipId}')),
       );
-      final offeredRoleIds =
-          selector.options.map((option) => option.value).toSet();
+      final offeredRoleIds = selector.options
+          .map((option) => option.value)
+          .toSet();
       expect(offeredRoleIds, contains(_otherRole.id));
       expect(offeredRoleIds, isNot(contains(_role.id)));
     },
@@ -433,10 +435,9 @@ void main() {
   testWidgets(
     'a granted role stops being offered and leaves no stale selection',
     (tester) async {
-      final fake =
-          _FakeIamRepository()
-            ..grantsAppearInAssignments = true
-            ..failNextOperations.remove('grantRole');
+      final fake = _FakeIamRepository()
+        ..grantsAppearInAssignments = true
+        ..failNextOperations.remove('grantRole');
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -1136,20 +1137,19 @@ void main() {
   testWidgets('care cards distinguish admitted and discharged status', (
     tester,
   ) async {
-    final fake =
-        _FakeIamRepository()
-          ..careRows = [
-            CareAssignmentRecord(
-              hospitalizationId: 'episode-admitted',
-              status: 'admitted',
-              admittedAt: DateTime.utc(2026, 10, 1),
-            ),
-            CareAssignmentRecord(
-              hospitalizationId: 'episode-discharged',
-              status: 'discharged',
-              admittedAt: DateTime.utc(2026, 10, 1),
-            ),
-          ];
+    final fake = _FakeIamRepository()
+      ..careRows = [
+        CareAssignmentRecord(
+          hospitalizationId: 'episode-admitted',
+          status: 'admitted',
+          admittedAt: DateTime.utc(2026, 10, 1),
+        ),
+        CareAssignmentRecord(
+          hospitalizationId: 'episode-discharged',
+          status: 'discharged',
+          admittedAt: DateTime.utc(2026, 10, 1),
+        ),
+      ];
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1178,15 +1178,14 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final fake =
-        _FakeIamRepository()
-          ..careRows = [
-            CareAssignmentRecord(
-              hospitalizationId: 'episode-long-status',
-              status: 'temporarily_absent',
-              admittedAt: DateTime.utc(2026, 10, 1),
-            ),
-          ];
+    final fake = _FakeIamRepository()
+      ..careRows = [
+        CareAssignmentRecord(
+          hospitalizationId: 'episode-long-status',
+          status: 'temporarily_absent',
+          admittedAt: DateTime.utc(2026, 10, 1),
+        ),
+      ];
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1363,16 +1362,15 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final fake =
-        _FakeIamRepository()
-          ..careRows = [
-            for (final id in ['episode-one-${'a' * 48}', 'episode-two'])
-              CareAssignmentRecord(
-                hospitalizationId: id,
-                status: 'admitted',
-                admittedAt: DateTime.utc(2026, 10, 1),
-              ),
-          ];
+    final fake = _FakeIamRepository()
+      ..careRows = [
+        for (final id in ['episode-one-${'a' * 48}', 'episode-two'])
+          CareAssignmentRecord(
+            hospitalizationId: id,
+            status: 'admitted',
+            admittedAt: DateTime.utc(2026, 10, 1),
+          ),
+      ];
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1500,29 +1498,28 @@ void main() {
   testWidgets('reassigned user shows chronological periods under one name', (
     tester,
   ) async {
-    final fake =
-        _FakeIamRepository()
-          ..careRows = [
-            CareAssignmentRecord(
-              hospitalizationId: 'episode-reassignment',
-              status: 'admitted',
-              admittedAt: DateTime.utc(2026, 10, 1),
-              assignmentId: 'care-current',
-              membershipId: 'same-member',
-              assigneeDisplayName: 'Profesional recurrente',
-              validFrom: DateTime.utc(2026, 10, 3, 12),
-            ),
-            CareAssignmentRecord(
-              hospitalizationId: 'episode-reassignment',
-              status: 'admitted',
-              admittedAt: DateTime.utc(2026, 10, 1),
-              assignmentId: 'care-old',
-              membershipId: 'same-member',
-              assigneeDisplayName: 'Profesional recurrente',
-              validFrom: DateTime.utc(2026, 10, 1, 12),
-              revokedAt: DateTime.utc(2026, 10, 2, 12),
-            ),
-          ];
+    final fake = _FakeIamRepository()
+      ..careRows = [
+        CareAssignmentRecord(
+          hospitalizationId: 'episode-reassignment',
+          status: 'admitted',
+          admittedAt: DateTime.utc(2026, 10, 1),
+          assignmentId: 'care-current',
+          membershipId: 'same-member',
+          assigneeDisplayName: 'Profesional recurrente',
+          validFrom: DateTime.utc(2026, 10, 3, 12),
+        ),
+        CareAssignmentRecord(
+          hospitalizationId: 'episode-reassignment',
+          status: 'admitted',
+          admittedAt: DateTime.utc(2026, 10, 1),
+          assignmentId: 'care-old',
+          membershipId: 'same-member',
+          assigneeDisplayName: 'Profesional recurrente',
+          validFrom: DateTime.utc(2026, 10, 1, 12),
+          revokedAt: DateTime.utc(2026, 10, 2, 12),
+        ),
+      ];
     fake.failNextOperations.remove('revokeCareAssignment');
     await tester.pumpWidget(
       ProviderScope(
@@ -1564,29 +1561,28 @@ void main() {
   testWidgets('one user action can revoke an older unrevoked period', (
     tester,
   ) async {
-    final fake =
-        _FakeIamRepository()
-          ..careRows = [
-            CareAssignmentRecord(
-              hospitalizationId: 'episode-history',
-              status: 'admitted',
-              admittedAt: DateTime.utc(2026, 10, 1),
-              assignmentId: 'care-current',
-              membershipId: 'same-member',
-              assigneeDisplayName: 'Usuario con historial',
-              validFrom: DateTime.utc(2026, 10, 3, 12),
-            ),
-            CareAssignmentRecord(
-              hospitalizationId: 'episode-history',
-              status: 'admitted',
-              admittedAt: DateTime.utc(2026, 10, 1),
-              assignmentId: 'care-older',
-              membershipId: 'same-member',
-              assigneeDisplayName: 'Usuario con historial',
-              validFrom: DateTime.utc(2026, 10, 1, 12),
-              validUntil: DateTime.utc(2026, 10, 2, 12),
-            ),
-          ];
+    final fake = _FakeIamRepository()
+      ..careRows = [
+        CareAssignmentRecord(
+          hospitalizationId: 'episode-history',
+          status: 'admitted',
+          admittedAt: DateTime.utc(2026, 10, 1),
+          assignmentId: 'care-current',
+          membershipId: 'same-member',
+          assigneeDisplayName: 'Usuario con historial',
+          validFrom: DateTime.utc(2026, 10, 3, 12),
+        ),
+        CareAssignmentRecord(
+          hospitalizationId: 'episode-history',
+          status: 'admitted',
+          admittedAt: DateTime.utc(2026, 10, 1),
+          assignmentId: 'care-older',
+          membershipId: 'same-member',
+          assigneeDisplayName: 'Usuario con historial',
+          validFrom: DateTime.utc(2026, 10, 1, 12),
+          validUntil: DateTime.utc(2026, 10, 2, 12),
+        ),
+      ];
     fake.failNextOperations.remove('revokeCareAssignment');
     await tester.pumpWidget(
       ProviderScope(

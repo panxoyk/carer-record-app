@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design_system/clinical_design_system.dart';
 import '../../../core/design_system/anchored_selector.dart';
 import '../../../core/time/clinical_time.dart';
+
 import 'package:go_router/go_router.dart';
 
 import '../../institutional/data/iam_models.dart';
@@ -84,13 +85,12 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                 child: iam.when(
                   skipLoadingOnRefresh: false,
                   skipError: false,
-                  loading:
-                      () => const Center(child: CircularProgressIndicator()),
-                  error:
-                      (_, __) => _retry(
-                        () => invalidateAuthorizationAndData(ref),
-                        'No fue posible validar permisos.',
-                      ),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (_, __) => _retry(
+                    () => invalidateAuthorizationAndData(ref),
+                    'No fue posible validar permisos.',
+                  ),
                   data: (ctx) {
                     if (ctx == null || !ctx.allows('iam.membership.read')) {
                       return const Center(
@@ -102,90 +102,72 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                     return members.when(
                       skipLoadingOnRefresh: false,
                       skipError: false,
-                      loading:
-                          () =>
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (_, __) => _retry(
+                        () => ref.invalidate(iamMembersProvider),
+                        'No fue posible cargar los miembros.',
+                      ),
+                      data: (items) => roles.when(
+                        skipLoadingOnRefresh: false,
+                        skipError: false,
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        error: (_, __) => _retry(
+                          () => ref.invalidate(iamRolesProvider),
+                          'No fue posible cargar los roles.',
+                        ),
+                        data: (availableRoles) => assignments.when(
+                          skipLoadingOnRefresh: false,
+                          skipError: false,
+                          loading: () =>
                               const Center(child: CircularProgressIndicator()),
-                      error:
-                          (_, __) => _retry(
-                            () => ref.invalidate(iamMembersProvider),
-                            'No fue posible cargar los miembros.',
+                          error: (_, __) => _retry(
+                            () => ref.invalidate(iamRoleAssignmentsProvider),
+                            'No fue posible cargar las asignaciones de rol.',
                           ),
-                      data:
-                          (items) => roles.when(
-                            skipLoadingOnRefresh: false,
-                            skipError: false,
-                            loading:
-                                () => const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                            error:
-                                (_, __) => _retry(
-                                  () => ref.invalidate(iamRolesProvider),
-                                  'No fue posible cargar los roles.',
-                                ),
-                            data:
-                                (availableRoles) => assignments.when(
-                                  skipLoadingOnRefresh: false,
-                                  skipError: false,
-                                  loading:
-                                      () => const Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                  error:
-                                      (_, __) => _retry(
-                                        () => ref.invalidate(
-                                          iamRoleAssignmentsProvider,
-                                        ),
-                                        'No fue posible cargar las asignaciones de rol.',
-                                      ),
-                                  data: (byMember) {
-                                    final query = _query.trim().toLowerCase();
-                                    final visible =
-                                        items
-                                            .where(
-                                              (m) =>
-                                                  m.membershipId !=
-                                                      ctx.membershipId &&
-                                                  isVisibleInMemberDirectory(
-                                                    m,
-                                                  ) &&
-                                                  (query.isEmpty ||
-                                                      m.displayName
-                                                          .toLowerCase()
-                                                          .contains(query)),
-                                            )
-                                            .toList();
-                                    return ListView(
-                                      padding: EdgeInsets.zero,
-                                      children: [
-                                        for (final member in visible)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: ClinicalSpacing.item,
-                                            ),
-                                            child: _MemberTile(
-                                              member: member,
-                                              roles: availableRoles,
-                                              assignments:
-                                                  byMember[member
-                                                      .membershipId] ??
-                                                  [],
-                                              context: ctx,
-                                            ),
-                                          ),
-                                        if (visible.isEmpty)
-                                          ListTile(
-                                            title: Text(
-                                              _query.trim().isEmpty
-                                                  ? 'No hay miembros disponibles.'
-                                                  : 'Ningún miembro coincide con la búsqueda.',
-                                            ),
-                                          ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                          ),
+                          data: (byMember) {
+                            final query = _query.trim().toLowerCase();
+                            final visible = items
+                                .where(
+                                  (m) =>
+                                      m.membershipId != ctx.membershipId &&
+                                      isVisibleInMemberDirectory(m) &&
+                                      (query.isEmpty ||
+                                          m.displayName.toLowerCase().contains(
+                                            query,
+                                          )),
+                                )
+                                .toList();
+                            return ListView(
+                              padding: EdgeInsets.zero,
+                              children: [
+                                for (final member in visible)
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      bottom: ClinicalSpacing.item,
+                                    ),
+                                    child: _MemberTile(
+                                      member: member,
+                                      roles: availableRoles,
+                                      assignments:
+                                          byMember[member.membershipId] ?? [],
+                                      context: ctx,
+                                    ),
+                                  ),
+                                if (visible.isEmpty)
+                                  ListTile(
+                                    title: Text(
+                                      _query.trim().isEmpty
+                                          ? 'No hay miembros disponibles.'
+                                          : 'Ningún miembro coincide con la búsqueda.',
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -266,53 +248,48 @@ class _MemberTile extends ConsumerWidget {
                 dense: true,
                 title: Text(assignment.roleName),
                 subtitle: Text(_roleAssignmentHistory(assignment)),
-                trailing:
-                    canAssign && assignment.revokedAt == null
-                        ? IconButton(
-                          tooltip: 'Revocar rol',
-                          icon: const Icon(Icons.remove_circle_outline),
-                          onPressed:
-                              () => _mutate(
-                                context,
-                                ref,
-                                (attempt) => ref
-                                    .read(iamRepositoryProvider)
-                                    .revokeRole(
-                                      organizationId:
-                                          this.context.organizationId,
-                                      assignmentId: assignment.assignmentId,
-                                      attempt: attempt,
-                                    ),
+                trailing: canAssign && assignment.revokedAt == null
+                    ? IconButton(
+                        tooltip: 'Revocar rol',
+                        icon: const Icon(Icons.remove_circle_outline),
+                        onPressed: () => _mutate(
+                          context,
+                          ref,
+                          (attempt) => ref
+                              .read(iamRepositoryProvider)
+                              .revokeRole(
+                                organizationId: this.context.organizationId,
+                                assignmentId: assignment.assignmentId,
+                                attempt: attempt,
                               ),
-                        )
-                        : null,
+                        ),
+                      )
+                    : null,
               ),
           ],
           if (canManage) ...[
             if (roleRows.isNotEmpty && !showRolePicker)
               const SizedBox(height: ClinicalSpacing.item),
             SizedBox(
-              height:
-                  showRolePicker
-                      ? ClinicalSpacing.compact
-                      : ClinicalSpacing.item,
+              height: showRolePicker
+                  ? ClinicalSpacing.compact
+                  : ClinicalSpacing.item,
             ),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
-                onPressed:
-                    () => _mutate(
-                      context,
-                      ref,
-                      (attempt) => ref
-                          .read(iamRepositoryProvider)
-                          .updateMembership(
-                            organizationId: this.context.organizationId,
-                            membershipId: member.membershipId,
-                            status: active ? 'suspended' : 'active',
-                            attempt: attempt,
-                          ),
-                    ),
+                onPressed: () => _mutate(
+                  context,
+                  ref,
+                  (attempt) => ref
+                      .read(iamRepositoryProvider)
+                      .updateMembership(
+                        organizationId: this.context.organizationId,
+                        membershipId: member.membershipId,
+                        status: active ? 'suspended' : 'active',
+                        attempt: attempt,
+                      ),
+                ),
                 child: Text(
                   active ? 'Suspender membresía' : 'Activar membresía',
                 ),
@@ -375,8 +352,8 @@ class _RoleGrantPickerState extends ConsumerState<_RoleGrantPicker> {
       key: ValueKey('role-${widget.membershipId}'),
       selectedValue:
           selected != null && widget.roles.any((role) => role.id == selected)
-              ? selected
-              : null,
+          ? selected
+          : null,
       labelText: 'Seleccionar rol',
       options: [
         for (final role in widget.roles)
@@ -425,9 +402,8 @@ Future<void> _mutate(
     if (!context.mounted) return;
     if (result.success) {
       invalidateAuthorizationAndData(ref);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Cambio aplicado.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Cambio aplicado.')));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No fue posible aplicar el cambio.')),
@@ -440,14 +416,13 @@ Future<void> _mutate(
           content: Text('No fue posible aplicar el cambio. Puedes reintentar.'),
           action: SnackBarAction(
             label: 'Reintentar',
-            onPressed:
-                () => _mutate(
-                  context,
-                  ref,
-                  action,
-                  attempt: attempt,
-                  usesValidFrom: usesValidFrom,
-                ),
+            onPressed: () => _mutate(
+              context,
+              ref,
+              action,
+              attempt: attempt,
+              usesValidFrom: usesValidFrom,
+            ),
           ),
         ),
       );
@@ -473,12 +448,11 @@ Future<void> _createMember(BuildContext context, WidgetRef ref) async {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder:
-        (sheetContext) => _CreateUserSheet(
-          parentContext: context,
-          organizationId: iam.organizationId,
-          roles: roles,
-        ),
+    builder: (sheetContext) => _CreateUserSheet(
+      parentContext: context,
+      organizationId: iam.organizationId,
+      roles: roles,
+    ),
   );
 }
 
@@ -563,21 +537,20 @@ class _CreateUserSheetState extends ConsumerState<_CreateUserSheet> {
   Future<void> _confirmDiscard() async {
     final discard = await showDialog<bool>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: const Text('Descartar los datos'),
-            content: const Text('Lo que ingresaste se perderá.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Seguir editando'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('Descartar'),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Descartar los datos'),
+        content: const Text('Lo que ingresaste se perderá.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Seguir editando'),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Descartar'),
+          ),
+        ],
+      ),
     );
     if (discard != true || !mounted) return;
     setState(() => _discarding = true);
@@ -607,9 +580,8 @@ class _CreateUserSheetState extends ConsumerState<_CreateUserSheet> {
       if (!mounted) return;
       Navigator.of(context).pop();
       if (widget.parentContext.mounted) {
-        ScaffoldMessenger.of(
-          widget.parentContext,
-        ).showSnackBar(const SnackBar(content: Text('Usuario agregado.')));
+        ScaffoldMessenger.of(widget.parentContext)
+            .showSnackBar(const SnackBar(content: Text('Usuario agregado.')));
       }
     } catch (_) {
       if (mounted) {
@@ -697,19 +669,17 @@ class _CreateUserSheetState extends ConsumerState<_CreateUserSheet> {
                           labelText: 'Contraseña inicial',
                           helperText: 'Mínimo 12 caracteres',
                           suffixIcon: IconButton(
-                            tooltip:
-                                _passwordVisible
-                                    ? 'Ocultar contraseña'
-                                    : 'Mostrar contraseña',
+                            tooltip: _passwordVisible
+                                ? 'Ocultar contraseña'
+                                : 'Mostrar contraseña',
                             icon: Icon(
                               _passwordVisible
                                   ? Icons.visibility_off_outlined
                                   : Icons.visibility_outlined,
                             ),
-                            onPressed:
-                                () => setState(
-                                  () => _passwordVisible = !_passwordVisible,
-                                ),
+                            onPressed: () => setState(
+                              () => _passwordVisible = !_passwordVisible,
+                            ),
                           ),
                         ),
                         textInputAction: TextInputAction.done,
@@ -728,11 +698,8 @@ class _CreateUserSheetState extends ConsumerState<_CreateUserSheet> {
                             ),
                         ],
                         onSelected: (value) => setState(() => _roleId = value),
-                        validator:
-                            (value) =>
-                                value == null
-                                    ? 'Selecciona el rol inicial.'
-                                    : null,
+                        validator: (value) =>
+                            value == null ? 'Selecciona el rol inicial.' : null,
                       ),
                       if (_submissionError != null)
                         Padding(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/design_system/clinical_design_system.dart';
 import '../../../core/design_system/anchored_selector.dart';
 import '../../institutional/data/iam_models.dart';
@@ -24,11 +25,10 @@ class RolesPermissionsScreen extends ConsumerWidget {
         skipLoadingOnRefresh: false,
         skipError: false,
         loading: () => const Center(child: CircularProgressIndicator()),
-        error:
-            (_, __) => _retry(
-              () => invalidateAuthorizationAndData(ref),
-              'No fue posible validar el acceso.',
-            ),
+        error: (_, __) => _retry(
+          () => invalidateAuthorizationAndData(ref),
+          'No fue posible validar el acceso.',
+        ),
         data: (context) {
           if (context == null ||
               !context.allows('iam.role.read') ||
@@ -57,40 +57,37 @@ class _RolePermissionsBody extends ConsumerWidget {
       skipLoadingOnRefresh: false,
       skipError: false,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (_, __) => _retry(
-            () => ref.invalidate(iamRolesProvider),
-            'No fue posible cargar los roles.',
-          ),
-      data:
-          (items) => catalog.when(
-            skipLoadingOnRefresh: false,
-            skipError: false,
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error:
-                (_, __) => _retry(
-                  () => ref.invalidate(iamDelegablePermissionsProvider),
-                  'No fue posible cargar el catálogo.',
-                ),
-            data: (permissions) {
-              final ordinary = items.where((role) => !role.protected).toList();
-              final fingerprint = [
-                ...ordinary.map(
-                  (role) =>
-                      '${role.id}:${role.name}:${role.description}:${role.permissions.toList()..sort()}',
-                ),
-                ...permissions.map(
-                  (item) => '${item.code}:${item.family}:${item.description}',
-                ),
-              ].join('|');
-              return _RoleEditor(
-                key: ValueKey('${iamContext.organizationId}:$fingerprint'),
-                iamContext: iamContext,
-                roles: ordinary,
-                catalog: permissions,
-              );
-            },
-          ),
+      error: (_, __) => _retry(
+        () => ref.invalidate(iamRolesProvider),
+        'No fue posible cargar los roles.',
+      ),
+      data: (items) => catalog.when(
+        skipLoadingOnRefresh: false,
+        skipError: false,
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => _retry(
+          () => ref.invalidate(iamDelegablePermissionsProvider),
+          'No fue posible cargar el catálogo.',
+        ),
+        data: (permissions) {
+          final ordinary = items.where((role) => !role.protected).toList();
+          final fingerprint = [
+            ...ordinary.map(
+              (role) =>
+                  '${role.id}:${role.name}:${role.description}:${role.permissions.toList()..sort()}',
+            ),
+            ...permissions.map(
+              (item) => '${item.code}:${item.family}:${item.description}',
+            ),
+          ].join('|');
+          return _RoleEditor(
+            key: ValueKey('${iamContext.organizationId}:$fingerprint'),
+            iamContext: iamContext,
+            roles: ordinary,
+            catalog: permissions,
+          );
+        },
+      ),
     );
   }
 }
@@ -146,13 +143,12 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
       return const Center(child: Text('No hay roles ordinarios activos.'));
     }
     final query = _permissionQuery.trim().toLowerCase();
-    final visible =
-        catalog.where((permission) {
-          if (query.isEmpty) return true;
-          return permission.code.toLowerCase().contains(query) ||
-              permission.family.toLowerCase().contains(query) ||
-              permission.description.toLowerCase().contains(query);
-        }).toList();
+    final visible = catalog.where((permission) {
+      if (query.isEmpty) return true;
+      return permission.code.toLowerCase().contains(query) ||
+          permission.family.toLowerCase().contains(query) ||
+          permission.description.toLowerCase().contains(query);
+    }).toList();
     final groups = <String, List<IamPermission>>{};
     for (final permission in visible) {
       (groups[permission.family] ??= []).add(permission);
@@ -183,8 +179,8 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
                     hintText: 'Nombre o descripción',
                     prefixIcon: const Icon(Icons.search),
                   ),
-                  onChanged:
-                      (value) => setState(() => _permissionQuery = value),
+                  onChanged: (value) =>
+                      setState(() => _permissionQuery = value),
                 ),
                 if (hidden)
                   const Padding(
@@ -205,14 +201,13 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
                       title: Text(permission.code),
                       subtitle: Text(permission.description),
                       controlAffinity: ListTileControlAffinity.leading,
-                      onChanged:
-                          _saving
-                              ? null
-                              : (checked) => setState(() {
-                                checked == true
-                                    ? _draft.add(permission.code)
-                                    : _draft.remove(permission.code);
-                              }),
+                      onChanged: _saving
+                          ? null
+                          : (checked) => setState(() {
+                              checked == true
+                                  ? _draft.add(permission.code)
+                                  : _draft.remove(permission.code);
+                            }),
                     ),
                 ],
                 if (visible.isEmpty)
@@ -231,10 +226,9 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed:
-                      _saving || !_dirty || hidden
-                          ? null
-                          : () => _save(context),
+                  onPressed: _saving || !_dirty || hidden
+                      ? null
+                      : () => _save(context),
                   child: Text(_saving ? 'Guardando…' : 'Guardar'),
                 ),
               ),
@@ -337,12 +331,11 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
           content: const Text('No fue posible guardar los permisos.'),
           action: SnackBarAction(
             label: 'Reintentar',
-            onPressed:
-                () => _save(
-                  context,
-                  retrySnapshot: failedSnapshot,
-                  alreadyConfirmed: true,
-                ),
+            onPressed: () => _save(
+              context,
+              retrySnapshot: failedSnapshot,
+              alreadyConfirmed: true,
+            ),
           ),
         ),
       );
@@ -363,21 +356,20 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
 Future<bool> _confirm(BuildContext context, String message) async =>
     await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Confirmar cambio'),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancelar'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Confirmar'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar cambio'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
     ) ??
     false;
 

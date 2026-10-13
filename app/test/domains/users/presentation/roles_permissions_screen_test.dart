@@ -374,10 +374,7 @@ void main() {
       await _select(tester, 'Equipo');
       await tester.tap(find.byType(CheckboxListTile).first);
       await tester.pump();
-      await tester.ensureVisible(find.text('Guardar'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Guardar'));
-      await tester.pumpAndSettle();
+      await _tapSave(tester);
       await tester.tap(find.text('Confirmar'));
       await tester.pumpAndSettle();
       final first = fake.calls.first;
@@ -394,10 +391,7 @@ void main() {
       await tester.tap(find.byType(CheckboxListTile).at(1));
       await tester.pump();
       await tester.pumpAndSettle(const Duration(seconds: 5));
-      await tester.ensureVisible(find.text('Guardar'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Guardar'));
-      await tester.pumpAndSettle();
+      await _tapSave(tester);
       await tester.tap(find.text('Confirmar'));
       await tester.pumpAndSettle();
       expect(
@@ -513,7 +507,7 @@ Future<void> _mount(
 }) async {
   // The role/permission body grows with the catalog; a taller surface keeps the
   // save button inside the viewport instead of clipped at its bottom edge.
-  tester.view.physicalSize = const Size(1200, 2000);
+  tester.view.physicalSize = const Size(1400, 3000);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(() {
     tester.view.resetPhysicalSize();
@@ -544,6 +538,20 @@ Future<void> _select(WidgetTester tester, String name) async {
   await tester.tap(find.byType(AnchoredSelector<String>));
   await tester.pumpAndSettle();
   await tester.tap(find.text(name).last);
+  await tester.pumpAndSettle();
+}
+
+/// Taps the save button wherever the layout puts it.
+///
+/// `ensureVisible` aligns the widget flush against the viewport edge, so its
+/// centre can land exactly on that boundary and miss the hit test. Nudging the
+/// tap inside the button keeps the gesture reliable without depending on how
+/// tall the permission catalog renders.
+Future<void> _tapSave(WidgetTester tester) async {
+  final save = find.widgetWithText(FilledButton, 'Guardar');
+  await tester.ensureVisible(save);
+  await tester.pumpAndSettle();
+  await tester.tapAt(tester.getCenter(save) - const Offset(0, 18));
   await tester.pumpAndSettle();
 }
 

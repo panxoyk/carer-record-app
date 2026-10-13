@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/design_system/clinical_design_system.dart';
 import '../../../core/design_system/anchored_selector.dart';
 import '../../../core/time/clinical_time.dart';
@@ -81,38 +82,29 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
                 skipLoadingOnRefresh: false,
                 skipError: false,
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error:
-                    (_, __) => _error(
-                      ref,
-                      'No fue posible cargar las hospitalizaciones.',
-                    ),
-                data:
-                    (items) => eligible.when(
-                      skipLoadingOnRefresh: false,
-                      skipError: false,
-                      loading:
-                          () =>
-                              const Center(child: CircularProgressIndicator()),
-                      error:
-                          (_, __) => _error(
-                            ref,
-                            'No fue posible cargar profesionales elegibles.',
-                          ),
-                      data: (members) {
-                        final names = ref.watch(
-                          careAssignmentPatientNamesProvider,
-                        );
-                        return _AssignmentList(
-                          items: items,
-                          members: members,
-                          patientNames:
-                              names is AsyncData<Map<String, String>>
-                                  ? names.value
-                                  : const {},
-                          patientQuery: _patientQuery,
-                        );
-                      },
-                    ),
+                error: (_, __) =>
+                    _error(ref, 'No fue posible cargar las hospitalizaciones.'),
+                data: (items) => eligible.when(
+                  skipLoadingOnRefresh: false,
+                  skipError: false,
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (_, __) => _error(
+                    ref,
+                    'No fue posible cargar profesionales elegibles.',
+                  ),
+                  data: (members) {
+                    final names = ref.watch(careAssignmentPatientNamesProvider);
+                    return _AssignmentList(
+                      items: items,
+                      members: members,
+                      patientNames: names is AsyncData<Map<String, String>>
+                          ? names.value
+                          : const {},
+                      patientQuery: _patientQuery,
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -202,23 +194,19 @@ class _HospitalizationCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final episode = rows.first;
     final now = DateTime.now().toUtc();
-    final activeMemberships =
-        rows
-            .where((row) {
-              return row.assignmentId != null &&
-                  row.membershipId != null &&
-                  row.revokedAt == null &&
-                  (row.validFrom == null ||
-                      !row.validFrom!.toUtc().isAfter(now)) &&
-                  (row.validUntil == null ||
-                      row.validUntil!.toUtc().isAfter(now));
-            })
-            .map((row) => row.membershipId)
-            .toSet();
-    final targets =
-        members
-            .where((member) => !activeMemberships.contains(member.membershipId))
-            .toList();
+    final activeMemberships = rows
+        .where((row) {
+          return row.assignmentId != null &&
+              row.membershipId != null &&
+              row.revokedAt == null &&
+              (row.validFrom == null || !row.validFrom!.toUtc().isAfter(now)) &&
+              (row.validUntil == null || row.validUntil!.toUtc().isAfter(now));
+        })
+        .map((row) => row.membershipId)
+        .toSet();
+    final targets = members
+        .where((member) => !activeMemberships.contains(member.membershipId))
+        .toList();
     final assignmentsByMember = <String, List<CareAssignmentRecord>>{};
     for (final row in rows.where((row) => row.assignmentId != null)) {
       assignmentsByMember
@@ -259,15 +247,13 @@ class _HospitalizationCard extends ConsumerWidget {
               children: [
                 Text(
                   'Admisión ${formatClinicalDateTime(episode.admittedAt)}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: ClinicalColors.secondary,
-                  ),
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: ClinicalColors.secondary),
                 ),
                 Text(
                   _hospitalizationStatusLabel(episode.status),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: ClinicalColors.secondary,
-                  ),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: ClinicalColors.secondary),
                 ),
               ],
             ),
@@ -276,18 +262,15 @@ class _HospitalizationCard extends ConsumerWidget {
                 Expanded(
                   child: SelectableText(
                     hospitalizationId,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(fontFamily: 'monospace'),
                   ),
                 ),
                 IconButton(
                   tooltip: 'Copiar identificador del episodio',
                   icon: const Icon(Icons.copy),
-                  onPressed:
-                      () => Clipboard.setData(
-                        ClipboardData(text: hospitalizationId),
-                      ),
+                  onPressed: () =>
+                      Clipboard.setData(ClipboardData(text: hospitalizationId)),
                 ),
               ],
             ),
@@ -309,8 +292,8 @@ class _HospitalizationCard extends ConsumerWidget {
             OutlinedButton.icon(
               icon: const Icon(Icons.person_add_alt_1),
               label: const Text('Asignar profesional'),
-              onPressed:
-                  () => _grant(context, ref, organizationId, episode, targets),
+              onPressed: () =>
+                  _grant(context, ref, organizationId, episode, targets),
             ),
           ],
         ),
@@ -358,9 +341,8 @@ class _MemberAssignmentHistory extends ConsumerWidget {
                 children: [
                   Text(
                     name,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: Theme.of(context).textTheme.bodyLarge
+                        ?.copyWith(fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: ClinicalSpacing.compact),
                   for (final (index, row) in history.indexed) ...[
@@ -373,9 +355,8 @@ class _MemberAssignmentHistory extends ConsumerWidget {
                   ))
                     Text(
                       'Sin acceso · Membresía suspendida',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: ClinicalColors.secondary,
-                      ),
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: ClinicalColors.secondary),
                     ),
                 ],
               ),
@@ -427,8 +408,8 @@ Widget _revokeButton(
   tooltip: 'Quitar acceso',
   icon: const Icon(Icons.person_remove_outlined),
   style: IconButton.styleFrom(foregroundColor: ClinicalColors.destructive),
-  onPressed:
-      () => _confirmRevoke(context, ref, organizationId, revocable, name),
+  onPressed: () =>
+      _confirmRevoke(context, ref, organizationId, revocable, name),
 );
 
 Future<void> _confirmRevoke(
@@ -442,58 +423,56 @@ Future<void> _confirmRevoke(
   if (revocable.length > 1) {
     final selected = await showDialog<CareAssignmentRecord>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: const Text('Seleccionar asignación'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final candidate in revocable.reversed)
-                    ListTile(
-                      title: Text(
-                        candidate.validFrom == null
-                            ? 'Asignación sin fecha'
-                            : 'Asignado el ${formatClinicalDateTime(candidate.validFrom!)}',
-                      ),
-                      onTap: () => Navigator.pop(dialogContext, candidate),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancelar'),
-              ),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Seleccionar asignación'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final candidate in revocable.reversed)
+                ListTile(
+                  title: Text(
+                    candidate.validFrom == null
+                        ? 'Asignación sin fecha'
+                        : 'Asignado el ${formatClinicalDateTime(candidate.validFrom!)}',
+                  ),
+                  onTap: () => Navigator.pop(dialogContext, candidate),
+                ),
             ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
     );
     if (selected == null || !context.mounted) return;
     row = selected;
   }
   final confirmed = await showDialog<bool>(
     context: context,
-    builder:
-        (dialogContext) => AlertDialog(
-          title: const Text('Quitar acceso'),
-          content: Text(
-            'Se revocará la asignación de $name iniciada el ${row.validFrom == null ? 'día no registrado' : formatClinicalDateTime(row.validFrom!)}. Si está vigente, se quitará el acceso a la información de esta hospitalización que concede esta asignación.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: ClinicalColors.destructive,
-              ),
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Quitar acceso'),
-            ),
-          ],
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Quitar acceso'),
+      content: Text(
+        'Se revocará la asignación de $name iniciada el ${row.validFrom == null ? 'día no registrado' : formatClinicalDateTime(row.validFrom!)}. Si está vigente, se quitará el acceso a la información de esta hospitalización que concede esta asignación.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancelar'),
         ),
+        TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: ClinicalColors.destructive,
+          ),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Quitar acceso'),
+        ),
+      ],
+    ),
   );
   if (confirmed != true || !context.mounted) return;
   await _apply(
@@ -533,46 +512,44 @@ Future<void> _grant(
   var selected = members.first.membershipId;
   final accepted = await showDialog<bool>(
     context: context,
-    builder:
-        (dialogContext) => StatefulBuilder(
-          builder:
-              (dialogContext, setState) => AlertDialog(
-                scrollable: true,
-                title: const Text('Asignar profesional'),
-                content: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 440),
-                  child: SizedBox(
-                    width: (MediaQuery.sizeOf(dialogContext).width - 80).clamp(
-                      200.0,
-                      440.0,
-                    ),
-                    child: AnchoredSelector<String>(
-                      selectedValue: selected,
-                      labelText: 'Profesional',
-                      options: [
-                        for (final member in members)
-                          AnchoredSelectorOption(
-                            value: member.membershipId,
-                            label: member.displayName,
-                          ),
-                      ],
-                      onSelected: (value) => setState(() => selected = value),
-                      decoration: clinicalInputDecoration(),
-                    ),
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) => AlertDialog(
+        scrollable: true,
+        title: const Text('Asignar profesional'),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: SizedBox(
+            width: (MediaQuery.sizeOf(dialogContext).width - 80).clamp(
+              200.0,
+              440.0,
+            ),
+            child: AnchoredSelector<String>(
+              selectedValue: selected,
+              labelText: 'Profesional',
+              options: [
+                for (final member in members)
+                  AnchoredSelectorOption(
+                    value: member.membershipId,
+                    label: member.displayName,
                   ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext, false),
-                    child: const Text('Cancelar'),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(dialogContext, true),
-                    child: const Text('Asignar'),
-                  ),
-                ],
-              ),
+              ],
+              onSelected: (value) => setState(() => selected = value),
+              decoration: clinicalInputDecoration(),
+            ),
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Asignar'),
+          ),
+        ],
+      ),
+    ),
   );
   if (accepted != true || !context.mounted) return;
   await _apply(
