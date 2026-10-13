@@ -451,7 +451,9 @@ void main() {
     expect(find.byIcon(Icons.add_task_outlined), findsNothing);
   });
 
-  testWidgets('milestone sheet offers text and audio forms', (tester) async {
+  testWidgets('milestone sheet offers text and dictation forms', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       screen(const PatientDetailScreen(hospitalizationId: hospitalizationId), [
         patientProvider(hospitalizationId).overrideWith((ref) async => episode),
@@ -469,12 +471,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Agregar hito a la bitácora'), findsOneWidget);
     expect(find.text('Texto'), findsOneWidget);
-    expect(find.text('Audio'), findsOneWidget);
-    expect(find.text('Guardar hito'), findsOneWidget);
+    expect(find.text('Dictado'), findsOneWidget);
+    expect(find.text('Confirmar hito'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('audio milestone row shows duration and play control', (
+  testWidgets('dictated milestone row shows the confirmed text and no player', (
     tester,
   ) async {
     final event = ClinicalEvent(
@@ -485,10 +487,8 @@ void main() {
       kind: 'milestone_audio',
       occurredAt: DateTime.utc(2026),
       createdAt: DateTime.utc(2026),
-      summary: 'Hito de audio',
+      summary: 'Texto que la autora confirmó tras el dictado local.',
       sourceKind: 'context_note',
-      audioStoragePath: '$hospitalizationId/audio.m4a',
-      audioDurationMs: 83000,
     );
     await tester.pumpWidget(
       screen(const PatientDetailScreen(hospitalizationId: hospitalizationId), [
@@ -500,9 +500,12 @@ void main() {
       ]),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Hito de audio'), findsOneWidget);
-    expect(find.textContaining('1:23'), findsOneWidget);
-    expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+    expect(
+      find.text('Texto que la autora confirmó tras el dictado local.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Dictado local'), findsOneWidget);
+    expect(find.byIcon(Icons.play_arrow), findsNothing);
     expect(find.byIcon(Icons.flag_outlined), findsOneWidget);
   });
 

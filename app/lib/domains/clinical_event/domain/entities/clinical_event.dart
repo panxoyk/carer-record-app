@@ -9,8 +9,6 @@ class ClinicalEvent {
     required this.createdAt,
     required this.summary,
     this.sourceKind = 'clinical_event',
-    this.audioStoragePath,
-    this.audioDurationMs,
   });
 
   final String organizationId;
@@ -25,11 +23,12 @@ class ClinicalEvent {
   /// Origin of the row in the timeline view: `clinical_event` or
   /// `context_note` (bitácora milestone).
   final String sourceKind;
-  final String? audioStoragePath;
-  final int? audioDurationMs;
 
-  bool get isStoredAudioMilestone =>
-      sourceKind == 'context_note' &&
-      audioStoragePath != null &&
-      audioStoragePath!.isNotEmpty;
+  /// Milestone authored by dictation. The published row is the text its author
+  /// confirmed after local transcription; the audio itself is never stored
+  /// (ADR-016), so the timeline shows text for every milestone.
+  bool get isDictatedMilestone =>
+      sourceKind == 'context_note' && kind == 'milestone_audio';
+
+  bool get isMilestone => sourceKind == 'context_note';
 }

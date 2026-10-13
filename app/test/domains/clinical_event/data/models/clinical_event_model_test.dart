@@ -30,24 +30,35 @@ void main() {
   test('defaults legacy clinical rows to the clinical_event source', () {
     final event = ClinicalEventModel.fromJson(row);
     expect(event.sourceKind, 'clinical_event');
-    expect(event.audioStoragePath, isNull);
-    expect(event.audioDurationMs, isNull);
-    expect(event.isStoredAudioMilestone, isFalse);
+    expect(event.isMilestone, isFalse);
+    expect(event.isDictatedMilestone, isFalse);
   });
 
-  test('parses stored-audio milestone fields from the timeline view', () {
+  test('parses a dictated milestone from its confirmed text only', () {
+    final event = ClinicalEventModel.fromJson({
+      ...row,
+      'kind': 'milestone_audio',
+      'source_kind': 'context_note',
+      'summary': 'Texto que la autora confirmó tras la transcripción local.',
+    });
+    expect(event.sourceKind, 'context_note');
+    expect(event.kind, 'milestone_audio');
+    expect(event.isMilestone, isTrue);
+    expect(event.isDictatedMilestone, isTrue);
+    expect(
+      event.summary,
+      'Texto que la autora confirmó tras la transcripción local.',
+    );
+  });
+
+  test('ignores any legacy audio column that reappears on the wire', () {
     final event = ClinicalEventModel.fromJson({
       ...row,
       'source_kind': 'context_note',
       'audio_storage_path': '00000000-0000-4000-8000-000000000002/audio.m4a',
       'audio_duration_ms': 83000,
     });
-    expect(event.sourceKind, 'context_note');
-    expect(
-      event.audioStoragePath,
-      '00000000-0000-4000-8000-000000000002/audio.m4a',
-    );
-    expect(event.audioDurationMs, 83000);
-    expect(event.isStoredAudioMilestone, isTrue);
+    expect(event.isMilestone, isTrue);
+    expect(event.isDictatedMilestone, isFalse);
   });
 }

@@ -4,16 +4,24 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../patient/domain/entities/patient.dart';
+import '../data/draft_vault.dart';
+import '../domain/asr_engine.dart';
 import '../domain/entities/context_note.dart';
+import '../domain/entities/dictation_stage.dart';
 import 'context_note_providers.dart';
 
-/// Bottom sheet to add a bitácora milestone as text or stored audio.
-/// Saving the sheet is the author's confirmation; RLS remains the
-/// authorization authority on the server.
+/// Bottom sheet to add a bitácora milestone as text or as a locally dictated
+/// note.
+///
+/// The audio branch follows ADR-016: record, transcribe on the device, let the
+/// author listen and correct the draft, and only then persist the text the
+/// author confirmed. The recording and the raw transcription are deleted on
+/// every exit path, and nothing about them ever leaves the device.
 Future<void> showMilestoneEditorSheet(
   BuildContext context, {
   required Patient patient,
@@ -43,12 +51,11 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
 
   MilestoneInputMethod _mode = MilestoneInputMethod.text;
   final TextEditingController _textController = TextEditingController();
-  String? _recordingPath;
-  Duration _elapsed = Duration.zero;
+  DictationSession _session = const DictationSession();
   Timer? _ticker;
   AudioRecorder? _recorder;
   AudioPlayer? _previewPlayer;
-  bool _recording = false;
+  String? _operationId;
   bool _busy = false;
 
   @override
@@ -57,8 +64,6 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
     _textController.dispose();
     _previewPlayer?.dispose();
     _recorder?.dispose();
-    final path = _recordingPath;
-    if (path != null) File(path).delete().ignore();
     super.dispose();
   }
 
@@ -69,34 +74,63 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _patch(DictationSession next) {
+    if (mounted) setState(() => _session = next);
+  }
+
+  // -- capture ------------------------------------------------------------
+
   Future<void> _toggleRecording() async {
-    if (_recording) {
+    if (_session.stage == DictationStage.recording) {
       await _stopRecording();
+      return;
+    }
+    final engine = await ref.read(asrEngineProvider.future);
+    if (engine == null) {
+      _showError(
+        'El ASR local no está disponible en este dispositivo. '
+        'Escribe el hito en texto.',
+      );
       return;
     }
     final recorder = AudioRecorder();
     _recorder = recorder;
-    final allowed = await recorder.hasPermission();
-    if (!allowed) {
+    if (!await recorder.hasPermission()) {
       await recorder.dispose();
       _recorder = null;
       _showError('El micrófono está bloqueado. Revisa el permiso del sistema.');
       return;
     }
     try {
-      final directory = await Directory.systemTemp.createTemp('cra_milestone_');
-      final path = '${directory.path}/${_uuid.v4()}.m4a';
+      final operationId = _uuid.v4();
+      final root = (await getTemporaryDirectory()).path;
+      final directory = DraftVault.recordingDirectory(root, operationId);
+      await directory.create(recursive: true);
+      final path =
+          '${directory.path}${Platform.pathSeparator}'
+          '${DraftVault.recordingFileName(operationId)}';
+      // PCM16 with headers: sherpa-onnx decodes this container directly, so no
+      // lossy re-encode sits between the microphone and the recognizer.
       await recorder.start(
-        const RecordConfig(encoder: AudioEncoder.aacLc),
+        const RecordConfig(
+          encoder: AudioEncoder.pcm16bits,
+          sampleRate: 16000,
+          numChannels: 1,
+        ),
         path: path,
       );
-      _recordingPath = path;
-      _recording = true;
-      _elapsed = Duration.zero;
-      _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-        setState(() => _elapsed += const Duration(seconds: 1));
-      });
-      setState(() {});
+      _operationId = operationId;
+      _patch(
+        _session.copyWith(
+          stage: DictationStage.recording,
+          recordingPath: path,
+          transcript: null,
+          draftText: '',
+          clearError: true,
+        ),
+      );
+      _textController.clear();
+      _startTicker();
     } catch (_) {
       await recorder.dispose();
       _recorder = null;
@@ -104,205 +138,305 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
     }
   }
 
+  void _startTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
   Future<void> _stopRecording() async {
     _ticker?.cancel();
     final recorder = _recorder;
+    var path = _session.recordingPath;
     if (recorder != null) {
       try {
-        final path = await recorder.stop();
-        if (path != null && path.isNotEmpty) _recordingPath = path;
+        final stopped = await recorder.stop();
+        if (stopped != null && stopped.isNotEmpty) path = stopped;
       } finally {
         await recorder.dispose();
         _recorder = null;
       }
     }
-    setState(() => _recording = false);
-    final path = _recordingPath;
-    if (path != null) {
-      final player = AudioPlayer();
-      _previewPlayer?.dispose();
-      _previewPlayer = player;
-      try {
-        await player.setFilePath(path);
-        _elapsed = player.duration ?? _elapsed;
-      } catch (_) {
-        // Duration is cosmetic; the raw length is kept as fallback.
+    if (path == null) {
+      _patch(_session.copyWith(stage: DictationStage.idle));
+      return;
+    }
+    _patch(_session.copyWith(stage: DictationStage.transcribingLocal));
+    setState(() => _busy = true);
+    final engine = await ref.read(asrEngineProvider.future);
+    if (engine == null) {
+      setState(() => _busy = false);
+      _patch(
+        _session.copyWith(
+          stage: DictationStage.failed,
+          error: 'El ASR local no está disponible.',
+        ),
+      );
+      _showError('No se pudo transcribir localmente. Intenta de nuevo.');
+      return;
+    }
+    try {
+      final transcript = await engine.transcribe(path);
+      await ref
+          .read(draftVaultProvider)
+          .putDraft(
+            _operationId ?? '',
+            transcription: transcript.text,
+            recordingPath: path,
+          );
+      _patch(
+        _session.copyWith(
+          stage: DictationStage.readyToConfirm,
+          transcript: transcript,
+          draftText: transcript.text,
+          clearError: true,
+        ),
+      );
+      _textController.text = transcript.text;
+      if (transcript.isEmpty) {
+        _showError(
+          'La transcripción local quedó vacía. Vuelve a grabar o escribe el hito.',
+        );
       }
-      setState(() {});
+    } on AsrUnavailableException catch (error) {
+      _patch(
+        _session.copyWith(stage: DictationStage.failed, error: error.reason),
+      );
+      _showError(error.reason);
+    } on AsrTranscriptionException catch (error) {
+      _patch(
+        _session.copyWith(stage: DictationStage.failed, error: error.reason),
+      );
+      _showError(error.reason);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
+  // -- review -------------------------------------------------------------
+
   Future<void> _previewRecording() async {
+    final path = _session.recordingPath;
+    if (path == null) return;
     final player = _previewPlayer ??= AudioPlayer();
     try {
       if (player.playing) {
         await player.pause();
-      } else {
-        if (player.duration == null && _recordingPath != null) {
-          await player.setFilePath(_recordingPath!);
-        }
-        await player.play();
+        return;
       }
-      setState(() {});
+      if (player.duration == null) await player.setFilePath(path);
+      await player.play();
     } catch (_) {
       _showError('No se pudo reproducir la grabación.');
     }
   }
 
+  Future<void> _discardArtifacts() async {
+    final operationId = _operationId;
+    _ticker?.cancel();
+    await _previewPlayer?.stop();
+    _patch(
+      _session.copyWith(
+        stage: DictationStage.discarded,
+        recordingPath: null,
+        transcript: null,
+        draftText: null,
+        clearError: true,
+      ),
+    );
+    _textController.clear();
+    if (operationId == null) return;
+    // Purge is idempotent, so it is safe to call again from dispose-like paths.
+    await ref
+        .read(draftVaultProvider)
+        .purge(operationId, recordingPath: _session.recordingPath);
+    _operationId = null;
+  }
+
   Future<void> _cancel() async {
-    _cleanupLocalAudio();
+    await _discardArtifacts();
     if (mounted) Navigator.of(context).pop();
   }
 
-  void _cleanupLocalAudio() {
-    _ticker?.cancel();
-    _recording = false;
-    _elapsed = Duration.zero;
-    final path = _recordingPath;
-    _recordingPath = null;
-    if (path != null) File(path).delete().ignore();
-  }
+  // -- publish ------------------------------------------------------------
 
   Future<void> _save() async {
     final patient = widget.patient;
     final content = _textController.text.trim();
-    if (_mode == MilestoneInputMethod.text && content.isEmpty) {
+    if (content.isEmpty) {
       _showError('Escribe el texto del hito antes de guardarlo.');
       return;
     }
-    if (_mode == MilestoneInputMethod.audio && _recordingPath == null) {
-      _showError('Graba el audio del hito antes de guardarlo.');
+    final isAudio = _mode == MilestoneInputMethod.audio;
+    if (isAudio && _session.transcript == null) {
+      _showError(
+        'Graba y transcribe el hito antes de guardarlo, o usa el modo texto.',
+      );
       return;
     }
     setState(() => _busy = true);
-    final clientEventId = _uuid.v4();
+    _patch(_session.copyWith(stage: DictationStage.publishing));
     final milestone = ContextNoteMilestone(
       organizationId: patient.organizationId,
       hospitalizationId: patient.hospitalizationId,
       patientId: patient.patientId,
       inputMethod: _mode,
-      content: _mode == MilestoneInputMethod.text ? content : null,
-      audioStoragePath:
-          _mode == MilestoneInputMethod.audio
-              ? '${patient.hospitalizationId}/$clientEventId.m4a'
-              : null,
-      audioDurationMs:
-          _mode == MilestoneInputMethod.audio ? _elapsed.inMilliseconds : null,
-      clientEventId: clientEventId,
+      content: content,
+      transcription: _session.transcript?.metadata,
+      clientEventId: _uuid.v4(),
     );
     try {
-      await ref
-          .read(contextNoteRepositoryProvider)
-          .saveMilestone(
-            milestone,
-            audioFile:
-                _mode == MilestoneInputMethod.audio
-                    ? File(_recordingPath!)
-                    : null,
-          );
-      _cleanupLocalAudio();
+      await ref.read(contextNoteRepositoryProvider).saveMilestone(milestone);
+      _patch(_session.copyWith(stage: DictationStage.published));
+      await _discardArtifacts();
       if (mounted) {
         Navigator.of(context).pop();
         widget.onSaved();
       }
     } catch (error) {
+      _patch(
+        _session.copyWith(
+          stage: DictationStage.failed,
+          error: 'No se pudo guardar el hito.',
+        ),
+      );
       _showError('No se pudo guardar el hito: $error');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  // -- view ---------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
+    final engineState = ref.watch(asrEngineProvider);
+    final asrReady = engineState.valueOrNull != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Agregar hito a la bitácora',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          SegmentedButton<MilestoneInputMethod>(
-            segments: const [
-              ButtonSegment(
-                value: MilestoneInputMethod.text,
-                label: Text('Texto'),
-                icon: Icon(Icons.subject_outlined),
-              ),
-              ButtonSegment(
-                value: MilestoneInputMethod.audio,
-                label: Text('Audio'),
-                icon: Icon(Icons.mic_none),
-              ),
-            ],
-            selected: {_mode},
-            onSelectionChanged:
-                (selection) => setState(() => _mode = selection.first),
-          ),
-          const SizedBox(height: 16),
-          if (_mode == MilestoneInputMethod.text)
-            TextField(
-              controller: _textController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: 'Describe el hito (síntesis clínica breve).',
-                border: OutlineInputBorder(),
-              ),
-            )
-          else
-            _buildAudioSection(),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _busy ? null : _cancel,
-                  child: const Text('Descartar'),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Agregar hito a la bitácora',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            SegmentedButton<MilestoneInputMethod>(
+              segments: [
+                const ButtonSegment(
+                  value: MilestoneInputMethod.text,
+                  label: Text('Texto'),
+                  icon: Icon(Icons.subject_outlined),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  onPressed: _busy ? null : _save,
-                  child:
-                      _busy
-                          ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                          : const Text('Guardar hito'),
+                ButtonSegment(
+                  value: MilestoneInputMethod.audio,
+                  label: const Text('Dictado'),
+                  icon: Icon(
+                    asrReady ? Icons.mic_none : Icons.mic_off_outlined,
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+              selected: {_mode},
+              onSelectionChanged:
+                  _busy
+                      ? null
+                      : (selection) => setState(() => _mode = selection.first),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              asrReady
+                  ? 'La transcripción ocurre en este dispositivo y el audio no '
+                      'sale del teléfono.'
+                  : 'El reconocimiento de voz local no está disponible; '
+                      'el hito de texto sigue funcionando.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            if (_mode == MilestoneInputMethod.text)
+              TextField(
+                controller: _textController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: 'Describe el hito (síntesis clínica breve).',
+                  border: OutlineInputBorder(),
+                ),
+              )
+            else
+              _buildDictationSection(),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : _cancel,
+                    child: const Text('Descartar'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed:
+                        _busy ||
+                                (_mode == MilestoneInputMethod.text &&
+                                    _textController.text.trim().isEmpty)
+                            ? null
+                            : _save,
+                    child:
+                        _busy
+                            ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Text('Confirmar hito'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildAudioSection() {
+  Widget _buildDictationSection() {
+    final stage = _session.stage;
+    final transcript = _session.transcript;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              _formatDuration(_elapsed),
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600),
+            IconButton.filledTonal(
+              onPressed:
+                  _busy || stage == DictationStage.transcribingLocal
+                      ? null
+                      : _toggleRecording,
+              tooltip:
+                  stage == DictationStage.recording
+                      ? 'Detener grabación'
+                      : 'Grabar dictado',
+              icon: Icon(
+                stage == DictationStage.recording ? Icons.stop : Icons.mic_none,
+              ),
             ),
             const SizedBox(width: 12),
-            IconButton.filledTonal(
-              onPressed: _busy ? null : _toggleRecording,
-              tooltip: _recording ? 'Detener grabación' : 'Grabar audio',
-              icon: Icon(_recording ? Icons.stop : Icons.mic_none),
-            ),
+            if (stage == DictationStage.recording)
+              const Text('Grabando localmente…')
+            else if (stage == DictationStage.transcribingLocal)
+              const Text('Transcribiendo en el dispositivo…')
+            else if (stage == DictationStage.readyToConfirm)
+              const Text('Revisa la transcripción antes de confirmar.')
+            else
+              const Text('Graba el hito con voz.'),
           ],
         ),
-        if (_recordingPath != null && !_recording)
+        if (_session.canListen)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -310,16 +444,54 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
                 onPressed: _busy ? null : _previewRecording,
                 icon: const Icon(Icons.play_arrow),
               ),
-              const Text('Preescuchar grabación'),
+              const Text('Escuchar la grabación local'),
             ],
           ),
+        if (transcript != null) ...[
+          const SizedBox(height: 8),
+          TextField(
+            controller: _textController,
+            maxLines: 4,
+            decoration: InputDecoration(
+              labelText: 'Texto del hito (editable)',
+              helperText:
+                  transcript.hasUncertainSegments
+                      ? 'Revisa los tramos marcados: la confianza local fue baja.'
+                      : 'Corrige lo que el reconocimiento local no entendió.',
+              border: const OutlineInputBorder(),
+            ),
+            onChanged:
+                (value) => _patch(
+                  _session.copyWith(
+                    draftText: value,
+                    stage: DictationStage.readyToConfirm,
+                  ),
+                ),
+          ),
+          const SizedBox(height: 8),
+          _ProvenanceChip(metadata: transcript.metadata),
+        ],
       ],
     );
   }
+}
 
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+class _ProvenanceChip extends StatelessWidget {
+  const _ProvenanceChip({required this.metadata});
+
+  final TranscriptionMetadata metadata;
+
+  @override
+  Widget build(BuildContext context) {
+    final engine = metadata.engine;
+    final model = metadata.model;
+    final label =
+        model == null || model.isEmpty
+            ? 'Transcrito localmente con $engine'
+            : 'Transcrito localmente · $engine · $model';
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+    );
   }
 }

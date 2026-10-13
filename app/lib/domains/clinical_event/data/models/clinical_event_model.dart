@@ -11,8 +11,6 @@ class ClinicalEventModel extends ClinicalEvent {
     required super.createdAt,
     required super.summary,
     super.sourceKind,
-    super.audioStoragePath,
-    super.audioDurationMs,
   });
 
   factory ClinicalEventModel.fromJson(Map<String, dynamic> json) {
@@ -39,8 +37,6 @@ class ClinicalEventModel extends ClinicalEvent {
       patientId: json['patient_id'] as String,
       createdAt: DateTime.parse(json['created_at'] as String).toUtc(),
       sourceKind: (json['source_kind'] as String?) ?? 'clinical_event',
-      audioStoragePath: json['audio_storage_path'] as String?,
-      audioDurationMs: json['audio_duration_ms'] as int?,
     );
   }
 }
