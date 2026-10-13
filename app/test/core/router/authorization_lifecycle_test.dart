@@ -53,11 +53,10 @@ void main() {
         routes: [
           GoRoute(
             path: location,
-            builder:
-                (_, __) => administrativeEntryForLocation(
-                  location,
-                  const _ContextConsumer(),
-                ),
+            builder: (_, __) => administrativeEntryForLocation(
+              location,
+              const _ContextConsumer(),
+            ),
           ),
         ],
       );
@@ -160,21 +159,18 @@ void main() {
         routes: [
           GoRoute(
             path: '/patients',
-            builder:
-                (_, __) =>
-                    const ClinicalEntryRefresh(child: _ClinicalConsumer()),
+            builder: (_, __) =>
+                const ClinicalEntryRefresh(child: _ClinicalConsumer()),
           ),
           GoRoute(
             path: '/hospitalizations/:id',
-            builder:
-                (_, __) =>
-                    const ClinicalEntryRefresh(child: _ClinicalConsumer()),
+            builder: (_, __) =>
+                const ClinicalEntryRefresh(child: _ClinicalConsumer()),
           ),
           GoRoute(
             path: '/hospitalizations/:id/details',
-            builder:
-                (_, __) =>
-                    const ClinicalEntryRefresh(child: _ClinicalConsumer()),
+            builder: (_, __) =>
+                const ClinicalEntryRefresh(child: _ClinicalConsumer()),
           ),
         ],
       );

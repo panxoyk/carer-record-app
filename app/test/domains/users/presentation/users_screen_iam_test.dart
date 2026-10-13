@@ -599,8 +599,8 @@ void main() {
   testWidgets('suspended membership remains visible and can be reactivated', (
     tester,
   ) async {
-    final fake =
-        _FakeIamRepository()..failNextOperations.remove('updateMembership');
+    final fake = _FakeIamRepository()
+      ..failNextOperations.remove('updateMembership');
     const suspended = IamMember(
       membershipId: 'membership-suspended',
       profileId: 'profile-suspended',
@@ -1102,15 +1102,14 @@ void main() {
   testWidgets('inactive targets are absent from care-assignment choices', (
     tester,
   ) async {
-    final fake =
-        _FakeIamRepository()
-          ..careRows = [
-            CareAssignmentRecord(
-              hospitalizationId: 'episode-synthetic',
-              status: 'admitted',
-              admittedAt: DateTime.utc(2026, 10, 1),
-            ),
-          ];
+    final fake = _FakeIamRepository()
+      ..careRows = [
+        CareAssignmentRecord(
+          hospitalizationId: 'episode-synthetic',
+          status: 'admitted',
+          admittedAt: DateTime.utc(2026, 10, 1),
+        ),
+      ];
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1210,23 +1209,22 @@ void main() {
   testWidgets(
     'episode groups assignments and keeps add/revoke scoped by episode',
     (tester) async {
-      final fake =
-          _FakeIamRepository()
-            ..careRows = [
-              CareAssignmentRecord(
-                hospitalizationId: 'episode-a',
-                status: 'admitted',
-                admittedAt: DateTime.utc(2026, 10, 1),
-                assignmentId: 'care-one',
-                membershipId: 'member-one',
-                validFrom: DateTime.utc(2026, 10, 1),
-              ),
-              CareAssignmentRecord(
-                hospitalizationId: 'episode-b',
-                status: 'admitted',
-                admittedAt: DateTime.utc(2026, 10, 1),
-              ),
-            ];
+      final fake = _FakeIamRepository()
+        ..careRows = [
+          CareAssignmentRecord(
+            hospitalizationId: 'episode-a',
+            status: 'admitted',
+            admittedAt: DateTime.utc(2026, 10, 1),
+            assignmentId: 'care-one',
+            membershipId: 'member-one',
+            validFrom: DateTime.utc(2026, 10, 1),
+          ),
+          CareAssignmentRecord(
+            hospitalizationId: 'episode-b',
+            status: 'admitted',
+            admittedAt: DateTime.utc(2026, 10, 1),
+          ),
+        ];
       final members = const [
         EligibleMember(
           membershipId: 'member-one',
@@ -1313,16 +1311,15 @@ void main() {
   testWidgets(
     'patient name requires both effective clinical read permissions',
     (tester) async {
-      final fake =
-          _FakeIamRepository()
-            ..careRows = [
-              CareAssignmentRecord(
-                hospitalizationId: 'episode-1000',
-                status: 'admitted',
-                admittedAt: DateTime.utc(2026, 10, 1),
-              ),
-            ]
-            ..patientNames = {'episode-1000': 'Ada Lovelace'};
+      final fake = _FakeIamRepository()
+        ..careRows = [
+          CareAssignmentRecord(
+            hospitalizationId: 'episode-1000',
+            status: 'admitted',
+            admittedAt: DateTime.utc(2026, 10, 1),
+          ),
+        ]
+        ..patientNames = {'episode-1000': 'Ada Lovelace'};
       var reads = 0;
       var scopeKey = 0;
       fake.onCensusRead = () => reads++;
@@ -1631,26 +1628,25 @@ void main() {
   testWidgets(
     'care history preserves the assignee name and filters displayed episodes locally',
     (tester) async {
-      final fake =
-          _FakeIamRepository()
-            ..careRows = [
-              CareAssignmentRecord(
-                hospitalizationId: 'episode-with-name',
-                status: 'admitted',
-                admittedAt: DateTime.utc(2026, 10, 1, 12),
-                assignmentId: 'care-suspended',
-                membershipId: 'membership-suspended',
-                validFrom: DateTime.utc(2026, 10, 1, 12),
-                assigneeDisplayName: 'Profesional histórico',
-                assigneeMembershipStatus: 'suspended',
-              ),
-              CareAssignmentRecord(
-                hospitalizationId: 'episode-without-name',
-                status: 'admitted',
-                admittedAt: DateTime.utc(2026, 10, 2, 12),
-              ),
-            ]
-            ..patientNames = {'episode-with-name': 'Ada Lovelace'};
+      final fake = _FakeIamRepository()
+        ..careRows = [
+          CareAssignmentRecord(
+            hospitalizationId: 'episode-with-name',
+            status: 'admitted',
+            admittedAt: DateTime.utc(2026, 10, 1, 12),
+            assignmentId: 'care-suspended',
+            membershipId: 'membership-suspended',
+            validFrom: DateTime.utc(2026, 10, 1, 12),
+            assigneeDisplayName: 'Profesional histórico',
+            assigneeMembershipStatus: 'suspended',
+          ),
+          CareAssignmentRecord(
+            hospitalizationId: 'episode-without-name',
+            status: 'admitted',
+            admittedAt: DateTime.utc(2026, 10, 2, 12),
+          ),
+        ]
+        ..patientNames = {'episode-with-name': 'Ada Lovelace'};
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -1703,8 +1699,8 @@ void main() {
   testWidgets('transient membership failure exposes a retry action', (
     tester,
   ) async {
-    final fake =
-        _FakeIamRepository()..failNextOperations.add('updateMembership');
+    final fake = _FakeIamRepository()
+      ..failNextOperations.add('updateMembership');
     await tester.pumpWidget(
       ProviderScope(
         overrides: [

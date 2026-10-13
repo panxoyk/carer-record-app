@@ -244,8 +244,9 @@ class ClinicalSettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        destructive ? ClinicalColors.destructive : ClinicalColors.mintDark;
+    final color = destructive
+        ? ClinicalColors.destructive
+        : ClinicalColors.mintDark;
     return Column(
       children: [
         InkWell(
@@ -327,8 +328,8 @@ AppBar clinicalBackAppBar(
   leadingWidth: 56,
   leading: IconButton(
     tooltip: tooltip,
-    onPressed:
-        () => context.canPop() ? context.pop() : context.go(fallbackLocation),
+    onPressed: () =>
+        context.canPop() ? context.pop() : context.go(fallbackLocation),
     icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
   ),
   actions: actions,

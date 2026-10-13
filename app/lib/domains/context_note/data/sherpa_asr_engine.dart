@@ -15,44 +15,42 @@ import 'asr_model_manifest.dart';
 /// claim checkable by inspection as well as by network capture.
 class SherpaAsrEngine implements AsrEngine {
   SherpaAsrEngine({
-    required AsrModelManifest manifest,
-    required Directory modelDirectory,
-    Duration loadTimeout = const Duration(seconds: 60),
-  }) : _manifest = manifest,
-       _modelDirectory = modelDirectory,
-       _loadTimeout = loadTimeout;
+    required this.manifest,
+    required this.modelDirectory,
+    this.loadTimeout = const Duration(seconds: 60),
+  });
 
-  final AsrModelManifest _manifest;
-  final Directory _modelDirectory;
-  final Duration _loadTimeout;
+  final AsrModelManifest manifest;
+  final Directory modelDirectory;
+  final Duration loadTimeout;
 
   sherpa.OfflineRecognizer? _recognizer;
   bool _bindingsReady = false;
 
   @override
-  String get engineId => _manifest.engine;
+  String get engineId => manifest.engine;
 
   @override
   bool get isAvailable => _recognizer != null;
 
   /// Short description used in error messages and the model screen.
-  String get modelId => _manifest.safeId;
+  String get modelId => manifest.safeId;
 
   /// Absolute path of a weight declared in the manifest.
   String filePath(String name) =>
-      '${_modelDirectory.path}${Platform.pathSeparator}$name';
+      '${modelDirectory.path}${Platform.pathSeparator}$name';
 
   /// Loads the recognizer. Returns false when the weights are not installed, so
   /// the caller can keep the text milestone available instead of failing.
   Future<bool> load() async {
     if (_recognizer != null) return true;
-    if (!_manifest.isUsable || !_manifest.hasRequiredParts) return false;
-    for (final file in _manifest.files) {
+    if (!manifest.isUsable || !manifest.hasRequiredParts) return false;
+    for (final file in manifest.files) {
       if (!File(filePath(file.name)).existsSync()) return false;
     }
     try {
       if (!_bindingsReady) {
-        await sherpa.initBindingsAsync().timeout(_loadTimeout);
+        await sherpa.initBindingsAsync().timeout(loadTimeout);
         _bindingsReady = true;
       }
       _recognizer = sherpa.OfflineRecognizer(
@@ -72,14 +70,14 @@ class SherpaAsrEngine implements AsrEngine {
   }
 
   sherpa.OfflineModelConfig _buildModelConfig() {
-    final part = _manifest.parts;
-    switch (_manifest.family) {
+    final part = manifest.parts;
+    switch (manifest.family) {
       case 'whisper':
         return sherpa.OfflineModelConfig(
           whisper: sherpa.OfflineWhisperModelConfig(
             encoder: filePath(part['encoder'] ?? ''),
             decoder: filePath(part['decoder'] ?? ''),
-            language: _manifest.language,
+            language: manifest.language,
             task: 'transcribe',
           ),
           tokens: filePath(part['tokens'] ?? ''),
@@ -88,13 +86,13 @@ class SherpaAsrEngine implements AsrEngine {
         );
       default:
         throw AsrUnavailableException(
-          'Familia de modelo no soportada: ${_manifest.family}',
+          'Familia de modelo no soportada: ${manifest.family}',
         );
     }
   }
 
   int get _numThreads {
-    final value = _manifest.parameters['num_threads'];
+    final value = manifest.parameters['num_threads'];
     return value is int && value > 0 ? value : 2;
   }
 
@@ -137,13 +135,14 @@ class SherpaAsrEngine implements AsrEngine {
   /// database accepts (ADR-016 decision 3).
   TranscriptionMetadata buildMetadata({required int durationMs}) {
     return TranscriptionMetadata(
-      engine: _manifest.engine,
-      model: _manifest.safeId,
-      modelVersion: _manifest.safeVersion,
-      modelChecksum:
-          _manifest.archiveSha256.isEmpty ? null : _manifest.archiveSha256,
+      engine: manifest.engine,
+      model: manifest.safeId,
+      modelVersion: manifest.safeVersion,
+      modelChecksum: manifest.archiveSha256.isEmpty
+          ? null
+          : manifest.archiveSha256,
       durationMs: durationMs,
-      parameters: Map<String, Object?>.from(_manifest.parameters),
+      parameters: Map<String, Object?>.from(manifest.parameters),
       pipelineVersion: _pipelineVersion,
     );
   }

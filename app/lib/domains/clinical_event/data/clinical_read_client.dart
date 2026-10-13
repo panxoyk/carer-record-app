@@ -31,12 +31,9 @@ class ClinicalReadQuery {
     ClinicalReadView.timeline => 'clinical_timeline_by_hospitalization',
   };
   String get columns => switch (view) {
-    ClinicalReadView.census =>
-      'organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date',
-    ClinicalReadView.demographics =>
-      'organization_id,hospitalization_id,patient_id,given_name,family_name,birth_date',
-    ClinicalReadView.timeline =>
-      'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,audio_storage_path,audio_duration_ms',
+    ClinicalReadView.census => 'organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date',
+    ClinicalReadView.demographics => 'organization_id,hospitalization_id,patient_id,given_name,family_name,birth_date',
+    ClinicalReadView.timeline => 'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,audio_storage_path,audio_duration_ms',
   };
   List<String> get filterColumns => [
     'organization_id',
@@ -95,13 +92,12 @@ class SupabaseClinicalReadClient implements ClinicalReadClient {
       if (id == null) {
         throw const FormatException('Single episode query needs ID');
       }
-      final row =
-          await _client
-              .from(query.viewName)
-              .select(query.columns)
-              .eq('organization_id', query.organizationId)
-              .eq('hospitalization_id', id)
-              .maybeSingle();
+      final row = await _client
+          .from(query.viewName)
+          .select(query.columns)
+          .eq('organization_id', query.organizationId)
+          .eq('hospitalization_id', id)
+          .maybeSingle();
       return row == null ? const [] : [Map<String, dynamic>.from(row)];
     }
     if (query.view == ClinicalReadView.timeline) {

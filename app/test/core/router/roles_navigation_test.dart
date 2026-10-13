@@ -150,14 +150,12 @@ GoRouter _router({
   VoidCallback? onSensitiveBuild,
 }) => GoRouter(
   initialLocation: initialLocation,
-  redirect:
-      (context, state) =>
-          state.matchedLocation == '/'
-              ? null
-              : permissionRedirectForLocation(
-                contextForLocation(state.matchedLocation)!,
-                state.matchedLocation,
-              ),
+  redirect: (context, state) => state.matchedLocation == '/'
+      ? null
+      : permissionRedirectForLocation(
+          contextForLocation(state.matchedLocation)!,
+          state.matchedLocation,
+        ),
   routes: [
     GoRoute(path: '/', builder: (_, __) => const ProtectedShell()),
     GoRoute(

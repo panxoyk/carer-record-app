@@ -27,10 +27,9 @@ class Patient {
   final DateTime? birthDate;
 
   String get fullName => '$givenName $familyName';
-  String get locationLabel =>
-      bedLabel?.trim().isNotEmpty == true
-          ? 'Cama $bedLabel'
-          : 'Ubicación no registrada';
+  String get locationLabel => bedLabel?.trim().isNotEmpty == true
+      ? 'Cama $bedLabel'
+      : 'Ubicación no registrada';
 
   bool matchesSearch(String query) {
     final normalized = normalizeSearchText(query);

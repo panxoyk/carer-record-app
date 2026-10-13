@@ -4,60 +4,54 @@ import 'package:carer_record_app/domains/institutional/data/iam_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test(
-    'manually entered administration routes redirect without effective permissions',
-    () {
-      final clinician = _context({
-        'clinical.census.read',
-        'clinical.patient.read',
-      });
-      expect(permissionRedirectForLocation(clinician, '/users'), '/settings');
-      expect(
-        permissionRedirectForLocation(clinician, '/assignments'),
-        '/settings',
-      );
-      expect(permissionRedirectForLocation(clinician, '/patients'), isNull);
-      expect(
-        permissionRedirectForLocation(
-          _context({'clinical.census.read'}),
-          '/patients',
-        ),
-        '/settings',
-      );
-      expect(
-        permissionRedirectForLocation(
-          clinician,
-          '/hospitalizations/fabricated',
-        ),
-        '/settings',
-      );
-      expect(
-        permissionRedirectForLocation(
-          _context({
-            'clinical.census.read',
-            'clinical.patient.read',
-            'clinical.timeline.read',
-          }),
-          '/hospitalizations/fabricated',
-        ),
-        isNull,
-      );
-      expect(
-        permissionRedirectForLocation(
-          clinician,
-          '/hospitalizations/fabricated/details',
-        ),
-        isNull,
-      );
-      expect(
-        permissionRedirectForLocation(
-          _context({'clinical.census.read', 'clinical.patient.read'}),
-          '/hospitalizations/fabricated',
-        ),
-        '/settings',
-      );
-    },
-  );
+  test('manually entered administration routes redirect without effective permissions', () {
+    final clinician = _context({
+      'clinical.census.read',
+      'clinical.patient.read',
+    });
+    expect(permissionRedirectForLocation(clinician, '/users'), '/settings');
+    expect(
+      permissionRedirectForLocation(clinician, '/assignments'),
+      '/settings',
+    );
+    expect(permissionRedirectForLocation(clinician, '/patients'), isNull);
+    expect(
+      permissionRedirectForLocation(
+        _context({'clinical.census.read'}),
+        '/patients',
+      ),
+      '/settings',
+    );
+    expect(
+      permissionRedirectForLocation(clinician, '/hospitalizations/fabricated'),
+      '/settings',
+    );
+    expect(
+      permissionRedirectForLocation(
+        _context({
+          'clinical.census.read',
+          'clinical.patient.read',
+          'clinical.timeline.read',
+        }),
+        '/hospitalizations/fabricated',
+      ),
+      isNull,
+    );
+    expect(
+      permissionRedirectForLocation(
+        clinician,
+        '/hospitalizations/fabricated/details',
+      ),
+      isNull,
+    );
+    expect(
+      permissionRedirectForLocation(
+        _context({'clinical.census.read', 'clinical.patient.read'}),
+        '/hospitalizations/fabricated',
+      ),
+      '/settings',
+    );
+  });
 
   test('effective IAM permissions determine institutional route access', () {
     final administrator = _context({
@@ -98,9 +92,8 @@ void main() {
         ['/roles', '/assignments'],
       );
       expect(
-        administrationNavigationFor(
-          _context({'iam.role.read'}),
-        ).map((item) => item.location),
+        administrationNavigationFor(_context({'iam.role.read'}))
+            .map((item) => item.location),
         isEmpty,
       );
     },
@@ -140,60 +133,54 @@ void main() {
     },
   );
 
-  test(
-    'multiple organizations require selection and route permissions stay scoped',
-    () {
-      final hospitalAdmin = _context({
-        'iam.membership.read',
-      }, organizationId: 'org-a');
-      final clinician = _context({
-        'clinical.census.read',
-        'clinical.patient.read',
-      }, organizationId: 'org-b');
-      final contexts = [hospitalAdmin, clinician];
+  test('multiple organizations require selection and route permissions stay scoped', () {
+    final hospitalAdmin = _context({
+      'iam.membership.read',
+    }, organizationId: 'org-a');
+    final clinician = _context({
+      'clinical.census.read',
+      'clinical.patient.read',
+    }, organizationId: 'org-b');
+    final contexts = [hospitalAdmin, clinician];
 
-      expect(
-        organizationSelectionRedirect(contexts, null, 'user-1', '/patients'),
+    expect(
+      organizationSelectionRedirect(contexts, null, 'user-1', '/patients'),
+      '/select-organization',
+    );
+    expect(
+      organizationSelectionRedirect(
+        contexts,
+        null,
+        'user-1',
         '/select-organization',
-      );
-      expect(
-        organizationSelectionRedirect(
-          contexts,
-          null,
-          'user-1',
-          '/select-organization',
-        ),
-        isNull,
-      );
-      const selection = OrganizationSelection(
-        userId: 'user-1',
-        organizationId: 'org-a',
-      );
-      final selected = contextForOrganizationSelection(
+      ),
+      isNull,
+    );
+    const selection = OrganizationSelection(
+      userId: 'user-1',
+      organizationId: 'org-a',
+    );
+    final selected = contextForOrganizationSelection(
+      contexts,
+      selection,
+      'user-1',
+    );
+    expect(selected?.organizationId, 'org-a');
+    expect(permissionRedirectForLocation(selected!, '/patients'), '/settings');
+    expect(
+      organizationSelectionRedirect(
         contexts,
         selection,
-        'user-1',
-      );
-      expect(selected?.organizationId, 'org-a');
-      expect(
-        permissionRedirectForLocation(selected!, '/patients'),
-        '/settings',
-      );
-      expect(
-        organizationSelectionRedirect(
-          contexts,
-          selection,
-          'other-user',
-          '/patients',
-        ),
-        '/select-organization',
-      );
-      expect(
-        organizationSelectionRedirect(contexts, selection, 'user-1', '/users'),
-        isNull,
-      );
-    },
-  );
+        'other-user',
+        '/patients',
+      ),
+      '/select-organization',
+    );
+    expect(
+      organizationSelectionRedirect(contexts, selection, 'user-1', '/users'),
+      isNull,
+    );
+  });
 }
 
 IamContext _context(Set<String> permissions, {String organizationId = 'org'}) =>

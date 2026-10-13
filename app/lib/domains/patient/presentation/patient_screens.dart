@@ -55,19 +55,17 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
               skipLoadingOnRefresh: false,
               skipError: false,
               loading: () => const Center(child: CircularProgressIndicator()),
-              error:
-                  (_, __) => const Center(
-                    child: Text('No fue posible cargar las hospitalizaciones.'),
-                  ),
+              error: (_, __) => const Center(
+                child: Text('No fue posible cargar las hospitalizaciones.'),
+              ),
               data: (items) {
-                final visible =
-                    items.where((item) => item.matchesSearch(query)).toList();
+                final visible = items
+                    .where((item) => item.matchesSearch(query))
+                    .toList();
                 if (visible.isEmpty) {
                   return RefreshIndicator(
-                    onRefresh:
-                        () => ref
-                            .refresh(patientsProvider.future)
-                            .then<void>((_) {}),
+                    onRefresh: () =>
+                        ref.refresh(patientsProvider.future).then<void>((_) {}),
                     child: ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       children: [
@@ -86,10 +84,8 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
                   );
                 }
                 return RefreshIndicator(
-                  onRefresh:
-                      () => ref
-                          .refresh(patientsProvider.future)
-                          .then<void>((_) {}),
+                  onRefresh: () =>
+                      ref.refresh(patientsProvider.future).then<void>((_) {}),
                   child: ListView(
                     children: [
                       for (final item in visible)
@@ -137,43 +133,38 @@ class PatientDetailScreen extends ConsumerWidget {
       appBar: clinicalBackAppBar(
         context,
         title: 'Bitácora',
-        actions:
-            canAddMilestone && patient.valueOrNull != null
-                ? [
-                  IconButton(
-                    tooltip: 'Agregar hito',
-                    icon: const Icon(Icons.add_task_outlined),
-                    onPressed: () {
-                      final item = patient.valueOrNull;
-                      if (item == null) return;
-                      showMilestoneEditorSheet(
-                        context,
-                        patient: item,
-                        onSaved:
-                            () => ref.invalidate(
-                              hospitalizationClinicalEventsProvider(
-                                hospitalizationId,
-                              ),
-                            ),
-                      );
-                    },
-                  ),
-                ]
-                : null,
+        actions: canAddMilestone && patient.valueOrNull != null
+            ? [
+                IconButton(
+                  tooltip: 'Agregar hito',
+                  icon: const Icon(Icons.add_task_outlined),
+                  onPressed: () {
+                    final item = patient.valueOrNull;
+                    if (item == null) return;
+                    showMilestoneEditorSheet(
+                      context,
+                      patient: item,
+                      onSaved: () => ref.invalidate(
+                        hospitalizationClinicalEventsProvider(
+                          hospitalizationId,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ]
+            : null,
       ),
       body: patient.when(
         skipLoadingOnRefresh: false,
         skipError: false,
         loading: () => const Center(child: CircularProgressIndicator()),
-        error:
-            (_, __) => const Center(
-              child: Text('No fue posible cargar la hospitalización.'),
-            ),
-        data:
-            (item) =>
-                item == null
-                    ? const Center(child: Text('Paciente no encontrado.'))
-                    : _HospitalizationTimeline(patient: item),
+        error: (_, __) => const Center(
+          child: Text('No fue posible cargar la hospitalización.'),
+        ),
+        data: (item) => item == null
+            ? const Center(child: Text('Paciente no encontrado.'))
+            : _HospitalizationTimeline(patient: item),
       ),
     );
   }
@@ -192,9 +183,8 @@ class _HospitalizationTimeline extends ConsumerWidget {
         await Future.wait([
           ref.refresh(patientProvider(patient.hospitalizationId).future),
           ref.refresh(
-            hospitalizationClinicalEventsProvider(
-              patient.hospitalizationId,
-            ).future,
+            hospitalizationClinicalEventsProvider(patient.hospitalizationId)
+                .future,
           ),
         ]);
       },
@@ -204,10 +194,9 @@ class _HospitalizationTimeline extends ConsumerWidget {
           ListTile(
             title: Text(patient.fullName),
             subtitle: Text(patient.locationLabel),
-            onTap:
-                () => context.go(
-                  '/hospitalizations/${patient.hospitalizationId}/details',
-                ),
+            onTap: () => context.go(
+              '/hospitalizations/${patient.hospitalizationId}/details',
+            ),
           ),
           const Padding(
             padding: EdgeInsets.all(16),
@@ -217,24 +206,20 @@ class _HospitalizationTimeline extends ConsumerWidget {
             skipLoadingOnRefresh: false,
             skipError: false,
             loading: () => const Center(child: CircularProgressIndicator()),
-            error:
-                (_, __) => const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Text('No fue posible cargar los eventos.'),
-                ),
-            data:
-                (items) =>
-                    items.isEmpty
-                        ? const Padding(
-                          padding: EdgeInsets.all(20),
-                          child: Text('No hay eventos clínicos disponibles.'),
-                        )
-                        : Column(
-                          children: [
-                            for (final event in items)
-                              _TimelineRow(event: event),
-                          ],
-                        ),
+            error: (_, __) => const Padding(
+              padding: EdgeInsets.all(20),
+              child: Text('No fue posible cargar los eventos.'),
+            ),
+            data: (items) => items.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text('No hay eventos clínicos disponibles.'),
+                  )
+                : Column(
+                    children: [
+                      for (final event in items) _TimelineRow(event: event),
+                    ],
+                  ),
           ),
         ],
       ),
@@ -273,35 +258,28 @@ class PatientInformationScreen extends ConsumerWidget {
         skipLoadingOnRefresh: false,
         skipError: false,
         loading: () => const Center(child: CircularProgressIndicator()),
-        error:
-            (_, __) => const Center(
-              child: Text('No fue posible cargar la información.'),
-            ),
-        data:
-            (item) =>
-                item == null
-                    ? const Center(child: Text('Paciente no encontrado.'))
-                    : RefreshIndicator(
-                      onRefresh:
-                          () => ref
-                              .refresh(
-                                patientProvider(hospitalizationId).future,
-                              )
-                              .then<void>((_) {}),
-                      child: ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        children: [
-                          ListTile(
-                            title: Text(item.fullName),
-                            subtitle: Text(item.locationLabel),
-                          ),
-                          ListTile(
-                            title: const Text('Nacimiento'),
-                            subtitle: Text(formatClinicalDate(item.birthDate)),
-                          ),
-                        ],
-                      ),
+        error: (_, __) =>
+            const Center(child: Text('No fue posible cargar la información.')),
+        data: (item) => item == null
+            ? const Center(child: Text('Paciente no encontrado.'))
+            : RefreshIndicator(
+                onRefresh: () => ref
+                    .refresh(patientProvider(hospitalizationId).future)
+                    .then<void>((_) {}),
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    ListTile(
+                      title: Text(item.fullName),
+                      subtitle: Text(item.locationLabel),
                     ),
+                    ListTile(
+                      title: const Text('Nacimiento'),
+                      subtitle: Text(formatClinicalDate(item.birthDate)),
+                    ),
+                  ],
+                ),
+              ),
       ),
     );
   }
@@ -318,9 +296,8 @@ class SettingsScreen extends ConsumerWidget {
       appBar: clinicalAppBar(title: 'Ajustes'),
       body: iam.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error:
-            (_, __) =>
-                const Center(child: Text('No fue posible cargar el perfil.')),
+        error: (_, __) =>
+            const Center(child: Text('No fue posible cargar el perfil.')),
         data: (profile) {
           if (profile == null) {
             return const Center(
@@ -339,9 +316,9 @@ class SettingsScreen extends ConsumerWidget {
                 subtitle: profile.organizationName,
                 status:
                     profile.profileStatus == 'active' &&
-                            profile.membershipStatus == 'active'
-                        ? 'Activo'
-                        : 'Suspendido',
+                        profile.membershipStatus == 'active'
+                    ? 'Activo'
+                    : 'Suspendido',
               ),
               if (administrationDestinations.isNotEmpty) ...[
                 const SizedBox(height: 18),
@@ -357,10 +334,8 @@ class SettingsScreen extends ConsumerWidget {
                           _ => Icons.assignment_ind_outlined,
                         },
                         isLast: i == administrationDestinations.length - 1,
-                        onTap:
-                            () => context.go(
-                              administrationDestinations[i].location,
-                            ),
+                        onTap: () =>
+                            context.go(administrationDestinations[i].location),
                       ),
                   ],
                 ),
@@ -419,10 +394,9 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-String _initials(String name) =>
-    name
-        .split(' ')
-        .where((part) => part.isNotEmpty)
-        .take(2)
-        .map((part) => part[0])
-        .join();
+String _initials(String name) => name
+    .split(' ')
+    .where((part) => part.isNotEmpty)
+    .take(2)
+    .map((part) => part[0])
+    .join();

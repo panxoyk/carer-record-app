@@ -94,22 +94,20 @@ class AsrModelManifest {
       sourceUrl: json['source_url'] as String? ?? '',
       archiveSha256: (json['archive_sha256'] as String? ?? '').toLowerCase(),
       archiveBytes: (json['archive_bytes'] as num?)?.toInt() ?? 0,
-      parts:
-          parts is Map<Object?, Object?>
-              ? parts.map(
-                (key, value) => MapEntry(key.toString(), value.toString()),
-              )
-              : const <String, String>{},
-      files:
-          files is List
-              ? files
-                  .whereType<Map<Object?, Object?>>()
-                  .map(
-                    (item) =>
-                        AsrModelFile.fromJson(Map<String, Object?>.from(item)),
-                  )
-                  .toList(growable: false)
-              : const <AsrModelFile>[],
+      parts: parts is Map<Object?, Object?>
+          ? parts.map(
+              (key, value) => MapEntry(key.toString(), value.toString()),
+            )
+          : const <String, String>{},
+      files: files is List
+          ? files
+                .whereType<Map<Object?, Object?>>()
+                .map(
+                  (item) =>
+                      AsrModelFile.fromJson(Map<String, Object?>.from(item)),
+                )
+                .toList(growable: false)
+          : const <AsrModelFile>[],
       parameters: Map<String, Object?>.from(
         (json['parameters'] as Map<Object?, Object?>?) ??
             const <String, Object?>{},

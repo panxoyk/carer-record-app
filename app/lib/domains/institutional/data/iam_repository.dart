@@ -122,9 +122,9 @@ class IamRepository {
         .select()
         .eq('organization_id', organizationId)
         .order('display_name');
-    return List<Map<String, dynamic>>.from(
-      rows,
-    ).map(IamMember.fromJson).toList();
+    return List<Map<String, dynamic>>.from(rows)
+        .map(IamMember.fromJson)
+        .toList();
   }
 
   Future<List<IamRole>> roles(String organizationId) async {
@@ -280,9 +280,9 @@ class IamRepository {
         )
         .eq('organization_id', organizationId)
         .order('admitted_at', ascending: false);
-    return List<Map<String, dynamic>>.from(
-      rows,
-    ).map(CareAssignmentRecord.fromJson).toList();
+    return List<Map<String, dynamic>>.from(rows)
+        .map(CareAssignmentRecord.fromJson)
+        .toList();
   }
 
   Future<Map<String, String>> censusPatientNames(String organizationId) async {
@@ -303,9 +303,9 @@ class IamRepository {
         .select()
         .eq('organization_id', organizationId)
         .order('display_name');
-    return List<Map<String, dynamic>>.from(
-      rows,
-    ).map(EligibleMember.fromJson).toList();
+    return List<Map<String, dynamic>>.from(rows)
+        .map(EligibleMember.fromJson)
+        .toList();
   }
 
   Future<AdminOperationResult> grantCareAssignment({

@@ -76,25 +76,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/users',
-        builder:
-            (_, __) =>
-                administrativeEntryForLocation('/users', const UsersScreen()),
+        builder: (_, __) =>
+            administrativeEntryForLocation('/users', const UsersScreen()),
       ),
       GoRoute(
         path: '/assignments',
-        builder:
-            (_, __) => administrativeEntryForLocation(
-              '/assignments',
-              const AssignmentsScreen(),
-            ),
+        builder: (_, __) => administrativeEntryForLocation(
+          '/assignments',
+          const AssignmentsScreen(),
+        ),
       ),
       GoRoute(
         path: '/roles',
-        builder:
-            (_, __) => administrativeEntryForLocation(
-              '/roles',
-              const RolesPermissionsScreen(),
-            ),
+        builder: (_, __) => administrativeEntryForLocation(
+          '/roles',
+          const RolesPermissionsScreen(),
+        ),
       ),
       GoRoute(
         path: '/patients',
@@ -103,21 +100,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       GoRoute(
         path: '/hospitalizations/:hospitalizationId',
-        builder:
-            (_, state) => ClinicalEntryRefresh(
-              child: PatientDetailScreen(
-                hospitalizationId: state.pathParameters['hospitalizationId']!,
-              ),
-            ),
+        builder: (_, state) => ClinicalEntryRefresh(
+          child: PatientDetailScreen(
+            hospitalizationId: state.pathParameters['hospitalizationId']!,
+          ),
+        ),
       ),
       GoRoute(
         path: '/hospitalizations/:hospitalizationId/details',
-        builder:
-            (_, state) => ClinicalEntryRefresh(
-              child: PatientInformationScreen(
-                hospitalizationId: state.pathParameters['hospitalizationId']!,
-              ),
-            ),
+        builder: (_, state) => ClinicalEntryRefresh(
+          child: PatientInformationScreen(
+            hospitalizationId: state.pathParameters['hospitalizationId']!,
+          ),
+        ),
       ),
     ],
   );
@@ -200,26 +195,24 @@ class OrganizationSelectionScreen extends ConsumerWidget {
       appBar: clinicalAppBar(title: 'Seleccionar organización'),
       body: contexts.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error:
-            (_, __) => const Center(
-              child: Text('No fue posible cargar tus organizaciones.'),
-            ),
-        data:
-            (items) => ListView(
-              children: [
-                for (final item in items)
-                  ListTile(
-                    title: Text(item.organizationName),
-                    onTap: () {
-                      ref
-                          .read(selectedOrganizationProvider.notifier)
-                          .select(item.organizationId);
-                      invalidateAuthorizationAndData(ref);
-                      context.go('/');
-                    },
-                  ),
-              ],
-            ),
+        error: (_, __) => const Center(
+          child: Text('No fue posible cargar tus organizaciones.'),
+        ),
+        data: (items) => ListView(
+          children: [
+            for (final item in items)
+              ListTile(
+                title: Text(item.organizationName),
+                onTap: () {
+                  ref
+                      .read(selectedOrganizationProvider.notifier)
+                      .select(item.organizationId);
+                  invalidateAuthorizationAndData(ref);
+                  context.go('/');
+                },
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -344,49 +337,47 @@ class ProtectedShell extends ConsumerWidget {
         child: iam.when(
           loading: () => const CircularProgressIndicator(),
           error: (_, __) => const Text('No fue posible cargar tu perfil.'),
-          data:
-              (p) => Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Sesión activa: ${p?.displayName ?? ''}'),
-                  if ((ref.read(iamContextsProvider).valueOrNull?.length ?? 0) >
-                      1)
-                    TextButton(
-                      onPressed: () => context.go('/select-organization'),
-                      child: Text(
-                        'Organización: ${p?.organizationName ?? ''} · Cambiar',
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  const Text('Consulta pacientes autorizados desde tu cuenta.'),
-                  if (p?.allows('clinical.census.read') == true &&
-                      p?.allows('clinical.patient.read') == true)
-                    TextButton(
-                      onPressed: () => context.go('/patients'),
-                      child: const Text('Ver pacientes'),
-                    ),
-                  if (p?.allows('iam.membership.read') ?? false)
-                    TextButton(
-                      onPressed: () => context.go('/users'),
-                      child: const Text('Gestionar usuarios'),
-                    ),
-                  if (p?.allows('iam.role.read') == true &&
-                      p?.allows('iam.role.manage') == true)
-                    TextButton(
-                      onPressed: () => context.go('/roles'),
-                      child: const Text('Roles y permisos'),
-                    ),
-                  if (p?.allows('clinical.assignment.manage') ?? false)
-                    TextButton(
-                      onPressed: () => context.go('/assignments'),
-                      child: const Text('Gestionar asignaciones'),
-                    ),
-                  TextButton(
-                    onPressed: () => ref.read(authRepositoryProvider).signOut(),
-                    child: const Text('Cerrar sesión'),
+          data: (p) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Sesión activa: ${p?.displayName ?? ''}'),
+              if ((ref.read(iamContextsProvider).valueOrNull?.length ?? 0) > 1)
+                TextButton(
+                  onPressed: () => context.go('/select-organization'),
+                  child: Text(
+                    'Organización: ${p?.organizationName ?? ''} · Cambiar',
                   ),
-                ],
+                ),
+              const SizedBox(height: 8),
+              const Text('Consulta pacientes autorizados desde tu cuenta.'),
+              if (p?.allows('clinical.census.read') == true &&
+                  p?.allows('clinical.patient.read') == true)
+                TextButton(
+                  onPressed: () => context.go('/patients'),
+                  child: const Text('Ver pacientes'),
+                ),
+              if (p?.allows('iam.membership.read') ?? false)
+                TextButton(
+                  onPressed: () => context.go('/users'),
+                  child: const Text('Gestionar usuarios'),
+                ),
+              if (p?.allows('iam.role.read') == true &&
+                  p?.allows('iam.role.manage') == true)
+                TextButton(
+                  onPressed: () => context.go('/roles'),
+                  child: const Text('Roles y permisos'),
+                ),
+              if (p?.allows('clinical.assignment.manage') ?? false)
+                TextButton(
+                  onPressed: () => context.go('/assignments'),
+                  child: const Text('Gestionar asignaciones'),
+                ),
+              TextButton(
+                onPressed: () => ref.read(authRepositoryProvider).signOut(),
+                child: const Text('Cerrar sesión'),
               ),
+            ],
+          ),
         ),
       ),
     );

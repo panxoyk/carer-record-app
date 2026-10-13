@@ -38,18 +38,16 @@ class PatientModel extends Patient {
       patientId: json['patient_id'] as String,
       hospitalizationStatus: json['hospitalization_status'] as String,
       admittedAt: DateTime.parse(json['admitted_at'] as String).toUtc(),
-      dischargedAt:
-          json['discharged_at'] == null
-              ? null
-              : DateTime.parse(json['discharged_at'] as String).toUtc(),
+      dischargedAt: json['discharged_at'] == null
+          ? null
+          : DateTime.parse(json['discharged_at'] as String).toUtc(),
       unitId: json['unit_id'] as String?,
       bedLabel: json['bed_label'] as String?,
       givenName: json['given_name'] as String,
       familyName: json['family_name'] as String,
-      birthDate:
-          json['birth_date'] == null
-              ? null
-              : DateTime.parse(json['birth_date'] as String),
+      birthDate: json['birth_date'] == null
+          ? null
+          : DateTime.parse(json['birth_date'] as String),
     );
   }
 }

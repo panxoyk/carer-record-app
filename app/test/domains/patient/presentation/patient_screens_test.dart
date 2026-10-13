@@ -115,15 +115,13 @@ void main() {
         GoRoute(path: '/patients', builder: (_, __) => const PatientsScreen()),
         GoRoute(
           path: '/hospitalizations/:hospitalizationId',
-          builder:
-              (_, state) =>
-                  Text('episode:${state.pathParameters['hospitalizationId']}'),
+          builder: (_, state) =>
+              Text('episode:${state.pathParameters['hospitalizationId']}'),
         ),
         GoRoute(
           path: '/hospitalizations/:hospitalizationId/details',
-          builder:
-              (_, state) =>
-                  Text('details:${state.pathParameters['hospitalizationId']}'),
+          builder: (_, state) =>
+              Text('details:${state.pathParameters['hospitalizationId']}'),
         ),
       ],
     );
@@ -155,9 +153,8 @@ void main() {
         GoRoute(path: '/patients', builder: (_, __) => const PatientsScreen()),
         GoRoute(
           path: '/hospitalizations/:hospitalizationId/details',
-          builder:
-              (_, state) =>
-                  Text('details:${state.pathParameters['hospitalizationId']}'),
+          builder: (_, state) =>
+              Text('details:${state.pathParameters['hospitalizationId']}'),
         ),
       ],
     );
@@ -232,9 +229,8 @@ void main() {
     await tester.pumpWidget(
       screen(const PatientDetailScreen(hospitalizationId: hospitalizationId), [
         patientProvider(hospitalizationId).overrideWith((ref) async => episode),
-        hospitalizationClinicalEventsProvider(
-          hospitalizationId,
-        ).overrideWith((ref) async => [event, olderEvent]),
+        hospitalizationClinicalEventsProvider(hospitalizationId)
+            .overrideWith((ref) async => [event, olderEvent]),
         iamContextProvider.overrideWith((ref) async => _iam(const {})),
       ]),
     );
@@ -279,9 +275,8 @@ void main() {
           hospitalizationId: '00000000-0000-4000-8000-000000000088',
         ),
         [
-          patientProvider(
-            '00000000-0000-4000-8000-000000000088',
-          ).overrideWith((ref) async => null),
+          patientProvider('00000000-0000-4000-8000-000000000088')
+              .overrideWith((ref) async => null),
         ],
       ),
     );
@@ -295,9 +290,8 @@ void main() {
     final pending = Completer<Patient?>();
     await tester.pumpWidget(
       screen(PatientDetailScreen(hospitalizationId: hospitalizationId), [
-        patientProvider(
-          hospitalizationId,
-        ).overrideWith((ref) => pending.future),
+        patientProvider(hospitalizationId)
+            .overrideWith((ref) => pending.future),
         iamContextProvider.overrideWith((ref) async => _iam(const {})),
       ]),
     );
@@ -319,9 +313,8 @@ void main() {
     await tester.pumpWidget(
       screen(PatientDetailScreen(hospitalizationId: hospitalizationId), [
         patientProvider(hospitalizationId).overrideWith((ref) async => episode),
-        hospitalizationClinicalEventsProvider(
-          hospitalizationId,
-        ).overrideWith((ref) => pending.future),
+        hospitalizationClinicalEventsProvider(hospitalizationId)
+            .overrideWith((ref) => pending.future),
         iamContextProvider.overrideWith((ref) async => _iam(const {})),
       ]),
     );
@@ -338,9 +331,8 @@ void main() {
     await tester.pumpWidget(
       screen(PatientDetailScreen(hospitalizationId: hospitalizationId), [
         patientProvider(hospitalizationId).overrideWith((ref) async => episode),
-        hospitalizationClinicalEventsProvider(
-          hospitalizationId,
-        ).overrideWith((ref) async => const []),
+        hospitalizationClinicalEventsProvider(hospitalizationId)
+            .overrideWith((ref) async => const []),
         iamContextProvider.overrideWith((ref) async => _iam(const {})),
       ]),
     );
@@ -395,12 +387,11 @@ void main() {
     await tester.pumpWidget(
       screen(PatientDetailScreen(hospitalizationId: hospitalizationId), [
         patientProvider(hospitalizationId).overrideWith((ref) async => episode),
-        hospitalizationClinicalEventsProvider(hospitalizationId).overrideWith((
-          ref,
-        ) {
-          calls++;
-          return calls == 1 ? Future.value([event]) : pending.future;
-        }),
+        hospitalizationClinicalEventsProvider(hospitalizationId)
+            .overrideWith((ref) {
+              calls++;
+              return calls == 1 ? Future.value([event]) : pending.future;
+            }),
         iamContextProvider.overrideWith((ref) async => _iam(const {})),
       ]),
     );
@@ -423,9 +414,8 @@ void main() {
     await tester.pumpWidget(
       screen(const PatientDetailScreen(hospitalizationId: hospitalizationId), [
         patientProvider(hospitalizationId).overrideWith((ref) async => episode),
-        hospitalizationClinicalEventsProvider(
-          hospitalizationId,
-        ).overrideWith((ref) async => const []),
+        hospitalizationClinicalEventsProvider(hospitalizationId)
+            .overrideWith((ref) async => const []),
         iamContextProvider.overrideWith(
           (ref) async =>
               _iam(const {'context.note.create', 'context.note.confirm'}),
@@ -439,9 +429,8 @@ void main() {
     await tester.pumpWidget(
       screen(const PatientDetailScreen(hospitalizationId: hospitalizationId), [
         patientProvider(hospitalizationId).overrideWith((ref) async => episode),
-        hospitalizationClinicalEventsProvider(
-          hospitalizationId,
-        ).overrideWith((ref) async => const []),
+        hospitalizationClinicalEventsProvider(hospitalizationId)
+            .overrideWith((ref) async => const []),
         iamContextProvider.overrideWith(
           (ref) async => _iam(const {'context.note.create'}),
         ),
@@ -457,9 +446,8 @@ void main() {
     await tester.pumpWidget(
       screen(const PatientDetailScreen(hospitalizationId: hospitalizationId), [
         patientProvider(hospitalizationId).overrideWith((ref) async => episode),
-        hospitalizationClinicalEventsProvider(
-          hospitalizationId,
-        ).overrideWith((ref) async => const []),
+        hospitalizationClinicalEventsProvider(hospitalizationId)
+            .overrideWith((ref) async => const []),
         iamContextProvider.overrideWith(
           (ref) async =>
               _iam(const {'context.note.create', 'context.note.confirm'}),
@@ -493,9 +481,8 @@ void main() {
     await tester.pumpWidget(
       screen(const PatientDetailScreen(hospitalizationId: hospitalizationId), [
         patientProvider(hospitalizationId).overrideWith((ref) async => episode),
-        hospitalizationClinicalEventsProvider(
-          hospitalizationId,
-        ).overrideWith((ref) async => [event]),
+        hospitalizationClinicalEventsProvider(hospitalizationId)
+            .overrideWith((ref) async => [event]),
         iamContextProvider.overrideWith((ref) async => _iam(const {})),
       ]),
     );

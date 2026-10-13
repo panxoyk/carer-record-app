@@ -49,32 +49,30 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           ),
         const SizedBox(height: 20),
         FilledButton(
-          onPressed:
-              _busy
-                  ? null
-                  : () async {
-                    setState(() {
-                      _busy = true;
-                      _error = null;
-                    });
-                    try {
-                      await ref
-                          .read(authRepositoryProvider)
-                          .signIn(email: _email.text, password: _password.text);
-                    } catch (_) {
-                      if (mounted) {
-                        setState(
-                          () =>
-                              _error =
-                                  'No fue posible acceder. Revisa tus credenciales.',
-                        );
-                      }
-                    } finally {
-                      if (mounted) {
-                        setState(() => _busy = false);
-                      }
+          onPressed: _busy
+              ? null
+              : () async {
+                  setState(() {
+                    _busy = true;
+                    _error = null;
+                  });
+                  try {
+                    await ref
+                        .read(authRepositoryProvider)
+                        .signIn(email: _email.text, password: _password.text);
+                  } catch (_) {
+                    if (mounted) {
+                      setState(
+                        () => _error =
+                            'No fue posible acceder. Revisa tus credenciales.',
+                      );
                     }
-                  },
+                  } finally {
+                    if (mounted) {
+                      setState(() => _busy = false);
+                    }
+                  }
+                },
           child: Text(_busy ? 'Accediendo…' : 'Acceder'),
         ),
         TextButton(
@@ -116,37 +114,32 @@ class _RecoverPasswordScreenState extends ConsumerState<RecoverPasswordScreen> {
         ),
         const SizedBox(height: 20),
         FilledButton(
-          onPressed:
-              _busy
-                  ? null
-                  : () async {
-                    setState(() {
-                      _busy = true;
-                      _error = null;
-                    });
-                    try {
-                      await ref
-                          .read(authRepositoryProvider)
-                          .sendPasswordRecovery(_email.text);
-                      if (mounted) {
-                        setState(
-                          () =>
-                              _message =
-                                  'Si el correo existe, recibirás las instrucciones de recuperación.',
-                        );
-                      }
-                    } catch (_) {
-                      if (mounted) {
-                        setState(
-                          () =>
-                              _error =
-                                  'No fue posible enviar las instrucciones. Inténtalo nuevamente.',
-                        );
-                      }
-                    } finally {
-                      if (mounted) setState(() => _busy = false);
+          onPressed: _busy
+              ? null
+              : () async {
+                  setState(() {
+                    _busy = true;
+                    _error = null;
+                  });
+                  try {
+                    await ref
+                        .read(authRepositoryProvider)
+                        .sendPasswordRecovery(_email.text);
+                    if (mounted) {
+                      setState(
+                        () => _message = 'Si el correo existe, recibirás las instrucciones de recuperación.',
+                      );
                     }
-                  },
+                  } catch (_) {
+                    if (mounted) {
+                      setState(
+                        () => _error = 'No fue posible enviar las instrucciones. Inténtalo nuevamente.',
+                      );
+                    }
+                  } finally {
+                    if (mounted) setState(() => _busy = false);
+                  }
+                },
           child: Text(_busy ? 'Enviando…' : 'Enviar instrucciones'),
         ),
         if (_error != null)

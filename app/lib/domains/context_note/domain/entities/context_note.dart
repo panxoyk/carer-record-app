@@ -128,17 +128,16 @@ class TranscriptionMetadata {
             const <String, Object?>{},
       ),
       pipelineVersion: json['pipeline_version'] as String? ?? '',
-      lowConfidenceSegments:
-          segments is List
-              ? segments
-                  .whereType<Map<Object?, Object?>>()
-                  .map(
-                    (item) => LowConfidenceSegment.fromJson(
-                      Map<String, Object?>.from(item),
-                    ),
-                  )
-                  .toList(growable: false)
-              : const <LowConfidenceSegment>[],
+      lowConfidenceSegments: segments is List
+          ? segments
+                .whereType<Map<Object?, Object?>>()
+                .map(
+                  (item) => LowConfidenceSegment.fromJson(
+                    Map<String, Object?>.from(item),
+                  ),
+                )
+                .toList(growable: false)
+          : const <LowConfidenceSegment>[],
     );
   }
 
@@ -158,8 +157,9 @@ class TranscriptionMetadata {
     put('mean_confidence', meanConfidence);
     if (parameters.isNotEmpty) json['asr_parameters'] = parameters;
     if (lowConfidenceSegments.isNotEmpty) {
-      json['low_confidence_segments'] =
-          lowConfidenceSegments.map((segment) => segment.toJson()).toList();
+      json['low_confidence_segments'] = lowConfidenceSegments
+          .map((segment) => segment.toJson())
+          .toList();
     }
     return json;
   }

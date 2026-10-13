@@ -6,6 +6,7 @@ import 'package:carer_record_app/core/design_system/anchored_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
 import 'dart:async';
 
 void main() {
@@ -373,6 +374,8 @@ void main() {
       await _select(tester, 'Equipo');
       await tester.tap(find.byType(CheckboxListTile).first);
       await tester.pump();
+      await tester.ensureVisible(find.text('Guardar'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Guardar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Confirmar'));
@@ -508,6 +511,14 @@ Future<void> _mount(
   _FakeRepository repository, {
   required List<IamRole> roles,
 }) async {
+  // The role/permission body grows with the catalog; a taller surface keeps the
+  // save button inside the viewport instead of clipped at its bottom edge.
+  tester.view.physicalSize = const Size(1200, 2000);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
   await tester.pumpWidget(
     ProviderScope(
       key: ValueKey(identityHashCode(repository)),

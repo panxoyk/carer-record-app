@@ -341,18 +341,17 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
                 ),
               ],
               selected: {_mode},
-              onSelectionChanged:
-                  _busy
-                      ? null
-                      : (selection) => setState(() => _mode = selection.first),
+              onSelectionChanged: _busy
+                  ? null
+                  : (selection) => setState(() => _mode = selection.first),
             ),
             const SizedBox(height: 8),
             Text(
               asrReady
                   ? 'La transcripción ocurre en este dispositivo y el audio no '
-                      'sale del teléfono.'
+                        'sale del teléfono.'
                   : 'El reconocimiento de voz local no está disponible; '
-                      'el hito de texto sigue funcionando.',
+                        'el hito de texto sigue funcionando.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 16),
@@ -381,18 +380,17 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
                   child: FilledButton(
                     onPressed:
                         _busy ||
-                                (_mode == MilestoneInputMethod.text &&
-                                    _textController.text.trim().isEmpty)
-                            ? null
-                            : _save,
-                    child:
-                        _busy
-                            ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                            : const Text('Confirmar hito'),
+                            (_mode == MilestoneInputMethod.text &&
+                                _textController.text.trim().isEmpty)
+                        ? null
+                        : _save,
+                    child: _busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Confirmar hito'),
                   ),
                 ),
               ],
@@ -413,14 +411,12 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             IconButton.filledTonal(
-              onPressed:
-                  _busy || stage == DictationStage.transcribingLocal
-                      ? null
-                      : _toggleRecording,
-              tooltip:
-                  stage == DictationStage.recording
-                      ? 'Detener grabación'
-                      : 'Grabar dictado',
+              onPressed: _busy || stage == DictationStage.transcribingLocal
+                  ? null
+                  : _toggleRecording,
+              tooltip: stage == DictationStage.recording
+                  ? 'Detener grabación'
+                  : 'Grabar dictado',
               icon: Icon(
                 stage == DictationStage.recording ? Icons.stop : Icons.mic_none,
               ),
@@ -454,19 +450,17 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
             maxLines: 4,
             decoration: InputDecoration(
               labelText: 'Texto del hito (editable)',
-              helperText:
-                  transcript.hasUncertainSegments
-                      ? 'Revisa los tramos marcados: la confianza local fue baja.'
-                      : 'Corrige lo que el reconocimiento local no entendió.',
+              helperText: transcript.hasUncertainSegments
+                  ? 'Revisa los tramos marcados: la confianza local fue baja.'
+                  : 'Corrige lo que el reconocimiento local no entendió.',
               border: const OutlineInputBorder(),
             ),
-            onChanged:
-                (value) => _patch(
-                  _session.copyWith(
-                    draftText: value,
-                    stage: DictationStage.readyToConfirm,
-                  ),
-                ),
+            onChanged: (value) => _patch(
+              _session.copyWith(
+                draftText: value,
+                stage: DictationStage.readyToConfirm,
+              ),
+            ),
           ),
           const SizedBox(height: 8),
           _ProvenanceChip(metadata: transcript.metadata),
@@ -485,10 +479,9 @@ class _ProvenanceChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final engine = metadata.engine;
     final model = metadata.model;
-    final label =
-        model == null || model.isEmpty
-            ? 'Transcrito localmente con $engine'
-            : 'Transcrito localmente · $engine · $model';
+    final label = model == null || model.isEmpty
+        ? 'Transcrito localmente con $engine'
+        : 'Transcrito localmente · $engine · $model';
     return Align(
       alignment: Alignment.centerLeft,
       child: Text(label, style: Theme.of(context).textTheme.bodySmall),

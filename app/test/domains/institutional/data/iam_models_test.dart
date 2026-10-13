@@ -7,11 +7,10 @@ void main() {
   test(
     'IAM context combines permission rows without transport identity fields',
     () {
-      final context =
-          IamContext.fromRows([
-            _contextRow('iam.membership.read'),
-            _contextRow('clinical.assignment.manage'),
-          ]).single;
+      final context = IamContext.fromRows([
+        _contextRow('iam.membership.read'),
+        _contextRow('clinical.assignment.manage'),
+      ]).single;
       expect(context.organizationId, 'org-1');
       expect(context.membershipStatus, 'active');
       expect(context.allows('iam.membership.read'), isTrue);
@@ -133,31 +132,25 @@ void main() {
     },
   );
 
-  test(
-    'directory visibility requires an active profile and active or suspended membership',
-    () {
-      IamMember member(String profile, String membership) => IamMember(
-        membershipId: 'membership',
-        profileId: 'profile',
-        displayName: 'Persona',
-        profileStatus: profile,
-        membershipStatus: membership,
-      );
+  test('directory visibility requires an active profile and active or suspended membership', () {
+    IamMember member(String profile, String membership) => IamMember(
+      membershipId: 'membership',
+      profileId: 'profile',
+      displayName: 'Persona',
+      profileStatus: profile,
+      membershipStatus: membership,
+    );
 
-      expect(isVisibleInMemberDirectory(member('active', 'active')), isTrue);
-      expect(isVisibleInMemberDirectory(member('active', 'suspended')), isTrue);
-      expect(isVisibleInMemberDirectory(member('active', 'invited')), isFalse);
-      expect(isVisibleInMemberDirectory(member('active', 'ended')), isFalse);
-      expect(
-        isVisibleInMemberDirectory(member('suspended', 'active')),
-        isFalse,
-      );
-      expect(
-        isVisibleInMemberDirectory(member('suspended', 'suspended')),
-        isFalse,
-      );
-    },
-  );
+    expect(isVisibleInMemberDirectory(member('active', 'active')), isTrue);
+    expect(isVisibleInMemberDirectory(member('active', 'suspended')), isTrue);
+    expect(isVisibleInMemberDirectory(member('active', 'invited')), isFalse);
+    expect(isVisibleInMemberDirectory(member('active', 'ended')), isFalse);
+    expect(isVisibleInMemberDirectory(member('suspended', 'active')), isFalse);
+    expect(
+      isVisibleInMemberDirectory(member('suspended', 'suspended')),
+      isFalse,
+    );
+  });
 
   test('role assignment parses its role ID for grant eligibility', () {
     final assignment = IamRoleAssignment.fromJson({

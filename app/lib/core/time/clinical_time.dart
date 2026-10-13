@@ -31,8 +31,9 @@ String formatAssignmentTimeRange({
   DateTime? revokedAt,
   DateTime? now,
 }) {
-  final assignedAt =
-      validFrom == null ? 'No registrada' : formatClinicalDateTime(validFrom);
+  final assignedAt = validFrom == null
+      ? 'No registrada'
+      : formatClinicalDateTime(validFrom);
   if (revokedAt != null) {
     return 'Revocado · $assignedAt → ${formatClinicalDateTime(revokedAt)}';
   }

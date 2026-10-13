@@ -158,8 +158,7 @@ void main() {
         (request) => request.url.path.endsWith('/iam_role_directory'),
       );
       expect(directory.url.queryParameters, {
-        'select':
-            'organization_id,role_id,role_name,description,role_status,protected_kind,permission_code',
+        'select': 'organization_id,role_id,role_name,description,role_status,protected_kind,permission_code',
         'organization_id': 'eq.org-1',
         'role_status': 'eq.active',
         'order': 'role_name.asc.nullslast',
@@ -345,10 +344,9 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
-      final codes =
-          (await container.read(
-            iamDelegablePermissionsProvider.future,
-          )).map((permission) => permission.code).toSet();
+      final codes = (await container.read(
+        iamDelegablePermissionsProvider.future,
+      )).map((permission) => permission.code).toSet();
       expect(codes, {'iam.role.read', 'iam.role.manage'});
       expect(remote.catalogCalls, 1);
     },

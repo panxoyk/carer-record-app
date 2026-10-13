@@ -29,14 +29,15 @@ final StateNotifierProvider<
   OrganizationSelectionController,
   OrganizationSelection?
 >
-selectedOrganizationProvider = StateNotifierProvider<
-  OrganizationSelectionController,
-  OrganizationSelection?
->((ref) {
-  return OrganizationSelectionController(
-    ref.watch(currentSessionUserIdProvider),
-  );
-});
+selectedOrganizationProvider =
+    StateNotifierProvider<
+      OrganizationSelectionController,
+      OrganizationSelection?
+    >((ref) {
+      return OrganizationSelectionController(
+        ref.watch(currentSessionUserIdProvider),
+      );
+    });
 
 class OrganizationSelectionController
     extends StateNotifier<OrganizationSelection?> {
@@ -94,8 +95,9 @@ iamDelegablePermissionsProvider = FutureProvider.autoDispose((ref) async {
       !context.allows('iam.role.manage')) {
     return const [];
   }
-  final permissions =
-      await ref.watch(iamRepositoryProvider).delegablePermissions();
+  final permissions = await ref
+      .watch(iamRepositoryProvider)
+      .delegablePermissions();
   return permissions
       .where((permission) => context.allows(permission.code))
       .toList();

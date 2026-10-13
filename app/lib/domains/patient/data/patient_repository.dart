@@ -35,8 +35,9 @@ class PatientRepository {
     if (demographicsRows.length > 1) {
       throw const FormatException('Expected one demographics row');
     }
-    final demographics =
-        demographicsRows.isEmpty ? null : demographicsRows.first;
+    final demographics = demographicsRows.isEmpty
+        ? null
+        : demographicsRows.first;
     if (demographics == null) return null;
     _validateEpisodeRow(demographics, organizationId, hospitalizationId);
     if (row['patient_id'] != demographics['patient_id']) {

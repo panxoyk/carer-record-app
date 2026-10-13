@@ -34,8 +34,9 @@ class IamContext {
     OrganizationSelection? selection,
     String sessionUserId,
   ) {
-    final organizationId =
-        selection?.userId == sessionUserId ? selection?.organizationId : null;
+    final organizationId = selection?.userId == sessionUserId
+        ? selection?.organizationId
+        : null;
     return select(contexts, organizationId);
   }
 
@@ -86,11 +87,10 @@ class IamContext {
       profileStatus: first['profile_status'] as String,
       membershipId: first['membership_id'] as String,
       membershipStatus: first['membership_status'] as String,
-      permissions:
-          rows
-              .map((row) => row['permission_code'] as String?)
-              .whereType<String>()
-              .toSet(),
+      permissions: rows
+          .map((row) => row['permission_code'] as String?)
+          .whereType<String>()
+          .toSet(),
     );
   }
 }
@@ -137,10 +137,9 @@ class IamMember {
     profileStatus: row['profile_status'] as String,
     membershipStatus: row['membership_status'] as String,
     validFrom: DateTime.parse(row['valid_from'] as String),
-    validUntil:
-        row['valid_until'] == null
-            ? null
-            : DateTime.parse(row['valid_until'] as String),
+    validUntil: row['valid_until'] == null
+        ? null
+        : DateTime.parse(row['valid_until'] as String),
   );
 }
 
@@ -240,18 +239,15 @@ class CareAssignmentRecord {
         admittedAt: DateTime.parse(row['admitted_at'] as String),
         assignmentId: row['assignment_id'] as String?,
         membershipId: row['membership_id'] as String?,
-        validFrom:
-            row['assignment_valid_from'] == null
-                ? null
-                : DateTime.parse(row['assignment_valid_from'] as String),
-        validUntil:
-            row['assignment_valid_until'] == null
-                ? null
-                : DateTime.parse(row['assignment_valid_until'] as String),
-        revokedAt:
-            row['revoked_at'] == null
-                ? null
-                : DateTime.parse(row['revoked_at'] as String),
+        validFrom: row['assignment_valid_from'] == null
+            ? null
+            : DateTime.parse(row['assignment_valid_from'] as String),
+        validUntil: row['assignment_valid_until'] == null
+            ? null
+            : DateTime.parse(row['assignment_valid_until'] as String),
+        revokedAt: row['revoked_at'] == null
+            ? null
+            : DateTime.parse(row['revoked_at'] as String),
         assigneeDisplayName: row['assignee_display_name'] as String?,
         assigneeMembershipStatus: row['assignee_membership_status'] as String?,
       );
@@ -294,14 +290,12 @@ class IamRoleAssignment {
         roleName: row['role_name'] as String,
         protected: row['protected_kind'] != null,
         validFrom: DateTime.parse(row['valid_from'] as String),
-        validUntil:
-            row['valid_until'] == null
-                ? null
-                : DateTime.parse(row['valid_until'] as String),
-        revokedAt:
-            row['revoked_at'] == null
-                ? null
-                : DateTime.parse(row['revoked_at'] as String),
+        validUntil: row['valid_until'] == null
+            ? null
+            : DateTime.parse(row['valid_until'] as String),
+        revokedAt: row['revoked_at'] == null
+            ? null
+            : DateTime.parse(row['revoked_at'] as String),
       );
 }
 
@@ -314,17 +308,16 @@ List<IamRole> eligibleRolesForGrant({
   required DateTime now,
 }) {
   final nowUtc = now.toUtc();
-  final alreadyAssigned =
-      assignments
-          .where(
-            (assignment) =>
-                assignment.membershipId == membershipId &&
-                assignment.revokedAt == null &&
-                (assignment.validUntil == null ||
-                    assignment.validUntil!.toUtc().isAfter(nowUtc)),
-          )
-          .map((assignment) => assignment.roleId)
-          .toSet();
+  final alreadyAssigned = assignments
+      .where(
+        (assignment) =>
+            assignment.membershipId == membershipId &&
+            assignment.revokedAt == null &&
+            (assignment.validUntil == null ||
+                assignment.validUntil!.toUtc().isAfter(nowUtc)),
+      )
+      .map((assignment) => assignment.roleId)
+      .toSet();
   return roles.where((role) => !alreadyAssigned.contains(role.id)).toList();
 }
 

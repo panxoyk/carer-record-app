@@ -16,50 +16,47 @@ const organizationB = '00000000-0000-4000-8000-000000000009';
 const episodeId = '00000000-0000-4000-8000-000000000002';
 
 void main() {
-  test(
-    'same episode ID on organization change rereads and never reuses tenant data',
-    () async {
-      var currentContext = _context(organizationA, {
-        'clinical.census.read',
-        'clinical.patient.read',
-      });
-      final fake = TenantClinicalReadClient();
-      final container = ProviderContainer(
-        overrides: [
-          sessionProvider.overrideWith((ref) => _session),
-          iamContextProvider.overrideWith((ref) async => currentContext),
-          clinicalReadClientProvider.overrideWith((ref) => fake),
-        ],
-      );
-      addTearDown(container.dispose);
-      final subscription = container.listen(
-        patientProvider(episodeId),
-        (_, __) {},
-      );
-      addTearDown(subscription.close);
-      expect(
-        (await container.read(patientProvider(episodeId).future))?.fullName,
-        'Tenant A Synthetic',
-      );
+  test('same episode ID on organization change rereads and never reuses tenant data', () async {
+    var currentContext = _context(organizationA, {
+      'clinical.census.read',
+      'clinical.patient.read',
+    });
+    final fake = TenantClinicalReadClient();
+    final container = ProviderContainer(
+      overrides: [
+        sessionProvider.overrideWith((ref) => _session),
+        iamContextProvider.overrideWith((ref) async => currentContext),
+        clinicalReadClientProvider.overrideWith((ref) => fake),
+      ],
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(
+      patientProvider(episodeId),
+      (_, __) {},
+    );
+    addTearDown(subscription.close);
+    expect(
+      (await container.read(patientProvider(episodeId).future))?.fullName,
+      'Tenant A Synthetic',
+    );
 
-      currentContext = _context(organizationB, {
-        'clinical.census.read',
-        'clinical.patient.read',
-      });
-      container.invalidate(iamContextProvider);
-      expect(container.read(patientProvider(episodeId)).isLoading, isTrue);
-      expect(
-        (await container.read(patientProvider(episodeId).future))?.fullName,
-        'Tenant B Synthetic',
-      );
-      expect(fake.organizationReads, [
-        organizationA,
-        organizationA,
-        organizationB,
-        organizationB,
-      ]);
-    },
-  );
+    currentContext = _context(organizationB, {
+      'clinical.census.read',
+      'clinical.patient.read',
+    });
+    container.invalidate(iamContextProvider);
+    expect(container.read(patientProvider(episodeId)).isLoading, isTrue);
+    expect(
+      (await container.read(patientProvider(episodeId).future))?.fullName,
+      'Tenant B Synthetic',
+    );
+    expect(fake.organizationReads, [
+      organizationA,
+      organizationA,
+      organizationB,
+      organizationB,
+    ]);
+  });
 
   testWidgets(
     'manipulated hospitalization path is neutral and performs no query',
@@ -191,8 +188,9 @@ class TenantClinicalReadClient implements ClinicalReadClient {
   @override
   Future<List<Map<String, dynamic>>> execute(ClinicalReadQuery query) async {
     organizationReads.add(query.organizationId);
-    final name =
-        query.organizationId == organizationA ? 'Tenant A' : 'Tenant B';
+    final name = query.organizationId == organizationA
+        ? 'Tenant A'
+        : 'Tenant B';
     if (query.view == ClinicalReadView.census) {
       return [_census(query.organizationId, name)];
     }
