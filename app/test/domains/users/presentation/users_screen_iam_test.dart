@@ -3,12 +3,31 @@ import 'package:carer_record_app/domains/institutional/data/iam_repository.dart'
 import 'package:carer_record_app/domains/institutional/presentation/iam_providers.dart';
 import 'package:carer_record_app/domains/users/presentation/users_screen.dart';
 import 'package:carer_record_app/domains/users/presentation/assignments_screen.dart';
+import 'package:carer_record_app/core/design_system/anchored_selector.dart';
+import 'package:carer_record_app/core/design_system/clinical_design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'assignment permission denial keeps the administrative title without clinical help',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            iamContextProvider.overrideWith((ref) async => _context(const {})),
+          ],
+          child: const MaterialApp(home: AssignmentsScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Profesionales por hospitalización'), findsOneWidget);
+      expect(find.textContaining('La asignación es necesaria'), findsNothing);
+    },
+  );
+
   testWidgets(
     'permission denial does not render member directory or create action',
     (tester) async {
@@ -27,7 +46,7 @@ void main() {
         find.text('No tienes permiso para administrar miembros.'),
         findsOneWidget,
       );
-      expect(find.text('Agregar miembro'), findsNothing);
+      expect(find.byTooltip('Agregar usuario'), findsNothing);
     },
   );
 
@@ -53,9 +72,86 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Otra persona'), findsOneWidget);
       expect(find.text('Yo'), findsNothing);
-      expect(find.text('Agregar miembro'), findsOneWidget);
+      expect(find.byTooltip('Agregar usuario'), findsOneWidget);
     },
   );
+
+  testWidgets('aligns heading and search with always-visible member cards', (
+    tester,
+  ) async {
+    final fake = _FakeIamRepository();
+    const second = IamMember(
+      membershipId: 'membership-second',
+      profileId: 'profile-second',
+      displayName: 'Segunda persona',
+      profileStatus: 'active',
+      membershipStatus: 'active',
+    );
+    fake.assignmentsByMember = {
+      _other.membershipId: [
+        IamRoleAssignment(
+          assignmentId: 'geometry-role',
+          membershipId: _other.membershipId,
+          roleId: _role.id,
+          roleName: _role.name,
+          protected: false,
+          validFrom: DateTime.utc(2026),
+        ),
+      ],
+    };
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          iamContextProvider.overrideWith(
+            (ref) async =>
+                _context({'iam.membership.read', 'iam.membership.manage'}),
+          ),
+          iamRolesProvider.overrideWith((ref) async => [_role, _otherRole]),
+          iamRepositoryProvider.overrideWithValue(fake),
+          iamMembersProvider.overrideWith((ref) async => [_other, second]),
+          iamRolesProvider.overrideWith((ref) async => [_role, _otherRole]),
+          iamRoleAssignmentsProvider.overrideWith(
+            (ref) async => fake.assignmentsByMember,
+          ),
+        ],
+        child: const MaterialApp(home: UsersScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Gestión de usuarios'), findsOneWidget);
+    expect(find.byType(ClinicalCard), findsNWidgets(2));
+    final appBarTitle = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.text('Gestión de usuarios'),
+    );
+    final titleRect = tester.getRect(appBarTitle);
+    final backRect = tester.getRect(find.byTooltip('Volver a Ajustes'));
+    final searchRect = tester.getRect(find.byType(TextField));
+    final cardRects =
+        tester.widgetList<ClinicalCard>(find.byType(ClinicalCard)).toList();
+    expect(cardRects, hasLength(2));
+    final firstCardRect = tester.getRect(find.byType(ClinicalCard).first);
+    expect(titleRect.center.dy, closeTo(backRect.center.dy, 0.1));
+    expect(searchRect.left, closeTo(firstCardRect.left, 0.1));
+    expect(
+      searchRect.top - tester.getRect(find.byType(AppBar)).bottom,
+      greaterThan(0),
+    );
+    expect(find.text('Gestión de usuarios'), findsOneWidget);
+    expect(find.text('Otra persona'), findsOneWidget);
+    expect(find.text('Segunda persona'), findsOneWidget);
+    expect(find.byType(ExpansionTile), findsNothing);
+    expect(find.text('ROLES ASIGNADOS'), findsOneWidget);
+    expect(find.text('Suspender membresía'), findsAtLeastNWidgets(1));
+    final sectionRect = tester.getRect(find.text('ROLES ASIGNADOS'));
+    expect(sectionRect.left, greaterThan(firstCardRect.left));
+    expect(
+      tester
+          .widgetList<Material>(find.byType(Material))
+          .any((material) => material.color == Colors.white),
+      isTrue,
+    );
+  });
 
   testWidgets(
     'role selector excludes a role already assigned to the active member',
@@ -77,8 +173,11 @@ void main() {
         ProviderScope(
           overrides: [
             iamContextProvider.overrideWith(
-              (ref) async =>
-                  _context({'iam.membership.read', 'iam.role.assign'}),
+              (ref) async => _context({
+                'iam.membership.read',
+                'iam.role.assign',
+                'iam.role.read',
+              }),
             ),
             iamMembersProvider.overrideWith((ref) async => [_other]),
             iamRolesProvider.overrideWith((ref) async => [_role, _otherRole]),
@@ -91,16 +190,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(ValueKey(_other.membershipId)));
-      await tester.pumpAndSettle();
-
-      final selector = tester.widget<DropdownButton<String>>(
-        find.descendant(
-          of: find.byKey(ValueKey('role-${_other.membershipId}')),
-          matching: find.byType(DropdownButton<String>),
-        ),
+      final selector = tester.widget<AnchoredSelector<String>>(
+        find.byKey(ValueKey('role-${_other.membershipId}')),
       );
-      final offeredRoleIds = selector.items!.map((item) => item.value).toSet();
+      final offeredRoleIds =
+          selector.options.map((option) => option.value).toSet();
       expect(offeredRoleIds, contains(_otherRole.id));
       expect(offeredRoleIds, isNot(contains(_role.id)));
     },
@@ -129,24 +223,21 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Agregar miembro'));
+      await tester.tap(find.byTooltip('Agregar usuario'));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.widgetWithText(TextField, 'Nombre visible'),
+        find.widgetWithText(TextFormField, 'Nombre visible'),
         'Nuevo sintético',
       );
       await tester.enterText(
-        find.widgetWithText(TextField, 'Correo'),
+        find.widgetWithText(TextFormField, 'Correo'),
         'new@example.test',
       );
       await tester.enterText(
-        find.widgetWithText(
-          TextField,
-          'Contraseña inicial (mínimo 12 caracteres)',
-        ),
+        find.widgetWithText(TextFormField, 'Contraseña inicial'),
         'password-synthetic',
       );
-      await tester.tap(find.text('Crear'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Agregar usuario'));
       await tester.pumpAndSettle();
       expect(fake.created, isNotNull);
       expect(fake.created!['organizationId'], 'org-1');
@@ -164,6 +255,346 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'created user joins the directory with the selected initial role',
+    (tester) async {
+      final fake = _FakeIamRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            iamContextProvider.overrideWith(
+              (ref) async => _context({
+                'iam.membership.read',
+                'iam.membership.manage',
+                'iam.role.assign',
+              }),
+            ),
+            iamRolesProvider.overrideWith((ref) async => [_role, _otherRole]),
+            iamRoleAssignmentsProvider.overrideWith(
+              (ref) async => fake.assignmentsByMember,
+            ),
+            iamRepositoryProvider.overrideWithValue(fake),
+          ],
+          child: const MaterialApp(home: UsersScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Nueva incorporada'), findsNothing);
+
+      await tester.tap(find.byTooltip('Agregar usuario'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nombre visible'),
+        'Nueva incorporada',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Correo'),
+        'nueva@example.test',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Contraseña inicial'),
+        'password-synthetic',
+      );
+      await tester.tap(find.byType(AnchoredSelector<String>).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Personal adicional').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Agregar usuario'));
+      await tester.pumpAndSettle();
+
+      expect(fake.created!['roleId'], _otherRole.id);
+      expect(fake.created!['displayName'], 'Nueva incorporada');
+      expect(find.text('Usuario agregado.'), findsOneWidget);
+
+      expect(find.text('Suspender membresía'), findsAtLeastNWidgets(1));
+    },
+  );
+
+  testWidgets('incomplete user data never reaches the server', (tester) async {
+    final fake = _FakeIamRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          iamContextProvider.overrideWith(
+            (ref) async => _context({
+              'iam.membership.read',
+              'iam.membership.manage',
+              'iam.role.assign',
+            }),
+          ),
+          iamRolesProvider.overrideWith((ref) async => [_role]),
+          iamRepositoryProvider.overrideWithValue(fake),
+        ],
+        child: const MaterialApp(home: UsersScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Agregar usuario'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Correo'),
+      'no-es-un-correo',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Contraseña inicial'),
+      'corta',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Agregar usuario'));
+    await tester.pumpAndSettle();
+
+    expect(fake.createAttempts, isEmpty);
+    expect(find.text('Ingresa el nombre visible.'), findsOneWidget);
+    expect(find.text('Ingresa un correo válido.'), findsOneWidget);
+    expect(
+      find.text('La contraseña debe tener al menos 12 caracteres.'),
+      findsOneWidget,
+    );
+    expect(
+      find.widgetWithText(FilledButton, 'Agregar usuario'),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Nombre visible'),
+      'Persona válida',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Correo'),
+      'valida@example.test',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Contraseña inicial'),
+      'password-synthetic',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Agregar usuario'));
+    await tester.pumpAndSettle();
+    expect(fake.createAttempts, hasLength(1));
+    expect(find.text('Ingresa el nombre visible.'), findsNothing);
+  });
+
+  testWidgets('a failed creation is retried with the same idempotency key', (
+    tester,
+  ) async {
+    final fake = _FakeIamRepository()..createFailures = 1;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          iamContextProvider.overrideWith(
+            (ref) async => _context({
+              'iam.membership.read',
+              'iam.membership.manage',
+              'iam.role.assign',
+            }),
+          ),
+          iamRolesProvider.overrideWith((ref) async => [_role]),
+          iamRepositoryProvider.overrideWithValue(fake),
+        ],
+        child: const MaterialApp(home: UsersScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Agregar usuario'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Nombre visible'),
+      'Reintento sintético',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Correo'),
+      'reintento@example.test',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Contraseña inicial'),
+      'password-synthetic',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Agregar usuario'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.widgetWithText(FilledButton, 'Agregar usuario'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('No fue posible agregar el usuario. Puedes reintentar.'),
+      findsOneWidget,
+    );
+    expect(fake.memberRows, hasLength(1));
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Agregar usuario'));
+    await tester.pumpAndSettle();
+    expect(fake.createAttempts, hasLength(2));
+    expect(fake.createAttempts.first, fake.createAttempts.last);
+    expect(find.text('Usuario agregado.'), findsOneWidget);
+
+    expect(find.text('Suspender membresía'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets(
+    'a granted role stops being offered and leaves no stale selection',
+    (tester) async {
+      final fake =
+          _FakeIamRepository()
+            ..grantsAppearInAssignments = true
+            ..failNextOperations.remove('grantRole');
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            iamContextProvider.overrideWith(
+              (ref) async => _context({
+                'iam.membership.read',
+                'iam.membership.manage',
+                'iam.role.assign',
+              }),
+            ),
+            iamMembersProvider.overrideWith((ref) async => [_other]),
+            iamRolesProvider.overrideWith((ref) async => [_role, _otherRole]),
+            iamRoleAssignmentsProvider.overrideWith(
+              (ref) async => fake.assignmentsByMember,
+            ),
+            iamRepositoryProvider.overrideWithValue(fake),
+          ],
+          child: const MaterialApp(home: UsersScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(AnchoredSelector<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(_otherRole.name).last);
+      await tester.pumpAndSettle();
+
+      expect(fake.lastGrantedRoleId, _otherRole.id);
+      expect(tester.takeException(), isNull);
+
+      final selector = tester.widget<AnchoredSelector<String>>(
+        find.byKey(ValueKey('role-${_other.membershipId}')),
+      );
+      expect(selector.selectedValue, isNull);
+      expect(
+        selector.options.map((option) => option.value),
+        isNot(contains(_otherRole.id)),
+      );
+      expect(find.text(_otherRole.name), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('a panel with written data is never discarded without consent', (
+    tester,
+  ) async {
+    final fake = _FakeIamRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          iamContextProvider.overrideWith(
+            (ref) async => _context({
+              'iam.membership.read',
+              'iam.membership.manage',
+              'iam.role.assign',
+            }),
+          ),
+          iamRolesProvider.overrideWith((ref) async => [_role]),
+          iamRepositoryProvider.overrideWithValue(fake),
+        ],
+        child: const MaterialApp(home: UsersScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Agregar usuario'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nuevo usuario'), findsNothing);
+    expect(find.text('Descartar los datos'), findsNothing);
+
+    await tester.tap(find.byTooltip('Agregar usuario'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Nombre visible'),
+      'Escrito a medias',
+    );
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Descartar los datos'), findsOneWidget);
+
+    await tester.tap(find.text('Seguir editando'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nuevo usuario'), findsOneWidget);
+    expect(
+      find.widgetWithText(TextFormField, 'Nombre visible'),
+      findsOneWidget,
+    );
+    expect(fake.createAttempts, isEmpty);
+
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Descartar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nuevo usuario'), findsNothing);
+    expect(fake.createAttempts, isEmpty);
+  });
+
+  testWidgets('create-user fields have spacing and fit a small viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final fake = _FakeIamRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          iamContextProvider.overrideWith(
+            (ref) async => _context({
+              'iam.membership.read',
+              'iam.membership.manage',
+              'iam.role.assign',
+            }),
+          ),
+          iamRolesProvider.overrideWith((ref) async => [_role]),
+          iamRepositoryProvider.overrideWithValue(fake),
+        ],
+        child: const MaterialApp(home: UsersScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Agregar usuario'));
+    await tester.pumpAndSettle();
+
+    Rect field(String label) =>
+        tester.getRect(find.widgetWithText(TextFormField, label));
+    expect(find.text('Mínimo 12 caracteres'), findsOneWidget);
+    final name = field('Nombre visible');
+    final email = field('Correo');
+    final password = tester.getRect(
+      find.widgetWithText(TextFormField, 'Contraseña inicial'),
+    );
+    final role = tester.getRect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is DropdownMenu<String> &&
+            (widget.label as Text?)?.data == 'Rol inicial',
+      ),
+    );
+    expect(email.top - name.bottom, greaterThanOrEqualTo(ClinicalSpacing.item));
+    expect(
+      password.top - email.bottom,
+      greaterThanOrEqualTo(ClinicalSpacing.item),
+    );
+    expect(
+      role.top - password.bottom,
+      greaterThanOrEqualTo(ClinicalSpacing.section),
+    );
+    expect(role.top, greaterThan(password.bottom));
+    expect(tester.takeException(), isNull);
+
+    await tester.ensureVisible(find.text('Agregar usuario').last);
+    await tester.tap(find.text('Agregar usuario').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Ingresa el nombre visible.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('suspended membership remains visible and can be reactivated', (
     tester,
@@ -216,17 +647,78 @@ void main() {
     expect(find.text('Organización seleccionada'), findsNothing);
     expect(find.text('Activos'), findsNothing);
     expect(find.text('Otros estados'), findsNothing);
-    await tester.tap(find.text('Persona suspendida'));
-    await tester.pumpAndSettle();
     expect(find.text('Personal histórico'), findsOneWidget);
     expect(find.byTooltip('Revocar rol'), findsOneWidget);
-    expect(find.text('Asignar rol ordinario'), findsNothing);
+    expect(find.text('Seleccionar rol'), findsNothing);
     expect(find.text('Activar membresía'), findsOneWidget);
     await tester.tap(find.text('Activar membresía'));
     await tester.pumpAndSettle();
     expect(fake.lastMembershipStatus, 'active');
     expect(fake.attempts['updateMembership'], hasLength(1));
   });
+
+  testWidgets(
+    'role picker precedes assigned-role history with separate dates',
+    (tester) async {
+      final fake = _FakeIamRepository();
+      fake.assignmentsByMember = {
+        _other.membershipId: [
+          IamRoleAssignment(
+            assignmentId: 'revoked-role',
+            membershipId: _other.membershipId,
+            roleId: _role.id,
+            roleName: 'Personal histórico',
+            protected: false,
+            validFrom: DateTime.utc(2026, 10, 1, 12),
+            revokedAt: DateTime.utc(2026, 10, 2, 12),
+          ),
+          IamRoleAssignment(
+            assignmentId: 'ended-role',
+            membershipId: _other.membershipId,
+            roleId: 'ended-role',
+            roleName: 'Rol finalizado',
+            protected: false,
+            validFrom: DateTime.utc(2026, 10, 1, 12),
+            validUntil: DateTime.utc(2026, 10, 2, 12),
+          ),
+        ],
+      };
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            iamContextProvider.overrideWith(
+              (ref) async =>
+                  _context({'iam.membership.read', 'iam.role.assign'}),
+            ),
+            iamRolesProvider.overrideWith((ref) async => [_role, _otherRole]),
+            iamRoleAssignmentsProvider.overrideWith(
+              (ref) async => fake.assignmentsByMember,
+            ),
+            iamRepositoryProvider.overrideWithValue(fake),
+          ],
+          child: const MaterialApp(home: UsersScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final picker = tester.getRect(find.text('Seleccionar rol'));
+      final heading = tester.getRect(find.text('ROLES ASIGNADOS'));
+      expect(picker.bottom, lessThan(heading.top));
+      expect(
+        find.text(
+          'Asignado el 01-10-2026 · 09:00\nRevocado el 02-10-2026 · 09:00',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'Asignado el 01-10-2026 · 09:00\nFinalizada el 02-10-2026 · 09:00',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('→'), findsNothing);
+    },
+  );
 
   testWidgets('member search filters the directory by display name', (
     tester,
@@ -264,7 +756,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Gestión de usuarios'), findsOneWidget);
-    expect(find.text('Buscar por nombre'), findsOneWidget);
+    expect(find.text('Nombre'), findsOneWidget);
     expect(find.text('Persona suspendida'), findsOneWidget);
     expect(find.text('Persona activa'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'Persona suspen');
@@ -278,6 +770,80 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'search keeps every typed character and survives an authorization reload',
+    (tester) async {
+      const other = IamMember(
+        membershipId: 'membership-keeps-typing',
+        profileId: 'profile-keeps-typing',
+        displayName: 'Otra persona',
+        profileStatus: 'active',
+        membershipStatus: 'active',
+      );
+      const second = IamMember(
+        membershipId: 'membership-not-matching',
+        profileId: 'profile-not-matching',
+        displayName: 'Alba Ruiz',
+        profileStatus: 'active',
+        membershipStatus: 'active',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            iamContextProvider.overrideWith(
+              (ref) async => _context({'iam.membership.read'}),
+            ),
+            iamMembersProvider.overrideWith((ref) async => [other, second]),
+            iamRolesProvider.overrideWith((ref) async => []),
+            iamRoleAssignmentsProvider.overrideWith(
+              (ref) async => const <String, List<IamRoleAssignment>>{},
+            ),
+          ],
+          child: const MaterialApp(home: UsersScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final field = find.byType(TextField);
+      await tester.tap(field);
+      await tester.pumpAndSettle();
+
+      // Pulsación a pulsación, no el texto completo de una vez: reproduce el
+      // defecto reportado, donde tras la primera letra el campo dejaba de
+      // aceptar más escritura.
+      var typed = '';
+      for (final character in 'Otra'.split('')) {
+        typed += character;
+        tester.testTextInput.enterText(typed);
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TextField>(field).controller?.text,
+          typed,
+          reason: 'La pulsación de "$character" debe conservarse',
+        );
+        expect(find.text('Alba Ruiz'), findsNothing);
+      }
+      expect(find.text('Otra persona'), findsOneWidget);
+
+      // La app invalida los permisos al entrar y tras cada acción administrada.
+      // Ese refresco remonta la lista, pero no debe tocar el campo de búsqueda.
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(UsersScreen)),
+      );
+      container.invalidate(iamContextProvider);
+      container.invalidate(iamMembersProvider);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<TextField>(field).controller?.text, typed);
+      expect(find.text('Otra persona'), findsOneWidget);
+      expect(
+        tester.testTextInput.hasAnyClients,
+        isTrue,
+        reason: 'El campo debe conservar el foco tras la recarga de permisos',
+      );
+    },
+  );
 
   testWidgets(
     'membership and ordinary role actions call audited operation boundaries',
@@ -316,8 +882,6 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Otra persona'));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('Suspender membresía'));
       await tester.pumpAndSettle();
       expect(find.text('Reintentar'), findsOneWidget);
@@ -325,8 +889,6 @@ void main() {
       await tester.pumpAndSettle();
       _expectSameAttempt(fake.attempts['updateMembership']!);
       await tester.pump(const Duration(seconds: 5));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Otra persona'));
       await tester.pumpAndSettle();
       final firstKey = fake.attempts['updateMembership']!.first.idempotencyKey;
       await tester.tap(find.text('Suspender membresía'));
@@ -338,8 +900,6 @@ void main() {
       expect(fake.lastMembershipStatus, 'suspended');
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Otra persona'));
-      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Revocar rol'));
       await tester.pumpAndSettle();
       expect(fake.attempts['revokeRole'], hasLength(1));
@@ -350,8 +910,6 @@ void main() {
       expect(fake.lastRevokedRoleId, 'role-assignment-1');
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Otra persona'));
-      await tester.pumpAndSettle();
       final revokeRoleKey = fake.attempts['revokeRole']!.first.idempotencyKey;
       await tester.tap(find.byTooltip('Revocar rol'));
       await tester.pumpAndSettle();
@@ -361,9 +919,7 @@ void main() {
       );
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Otra persona'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.tap(find.byType(AnchoredSelector<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Personal adicional').last);
       await tester.pumpAndSettle();
@@ -374,10 +930,8 @@ void main() {
       expect(fake.lastGrantedRoleId, 'role-additional');
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Otra persona'));
-      await tester.pumpAndSettle();
       final grantRoleKey = fake.attempts['grantRole']!.first.idempotencyKey;
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.tap(find.byType(AnchoredSelector<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Personal adicional').last);
       await tester.pumpAndSettle();
@@ -427,6 +981,21 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      final title = find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text('Profesionales por hospitalización'),
+      );
+      expect(title, findsOneWidget);
+      expect(find.text('Profesionales por hospitalización'), findsOneWidget);
+      expect(find.textContaining('La asignación es necesaria'), findsNothing);
+      final titleRect = tester.getRect(title);
+      final backRect = tester.getRect(find.byTooltip('Volver a Ajustes'));
+      expect(titleRect.center.dy, closeTo(backRect.center.dy, 0.1));
+      final searchRect = tester.getRect(find.byType(TextField));
+      final appBarRect = tester.getRect(find.byType(AppBar));
+      expect(searchRect.top, greaterThan(appBarRect.bottom));
+      final firstCardRect = tester.getRect(find.byType(ClinicalCard).first);
+      expect(searchRect.left, closeTo(firstCardRect.left, 0.1));
       expect(find.textContaining('episode-1000'), findsOneWidget);
       expect(find.textContaining('episode-2000'), findsOneWidget);
       final copyButtons = find.byTooltip('Copiar identificador del episodio');
@@ -496,7 +1065,19 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Revocar asignación'));
+      await tester.tap(find.byTooltip('Quitar acceso'));
+      await tester.pumpAndSettle();
+      expect(fake.attempts['revokeCareAssignment'], isNull);
+      expect(
+        find.textContaining('se quitará el acceso a la información'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(fake.attempts['revokeCareAssignment'], isNull);
+      await tester.tap(find.byTooltip('Quitar acceso'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Quitar acceso'));
       await tester.pumpAndSettle();
       expect(find.text('Reintentar'), findsOneWidget);
       await tester.tap(find.text('Reintentar'));
@@ -507,7 +1088,9 @@ void main() {
       await tester.pumpAndSettle();
       final revokeCareKey =
           fake.attempts['revokeCareAssignment']!.first.idempotencyKey;
-      await tester.tap(find.byTooltip('Revocar asignación'));
+      await tester.tap(find.byTooltip('Quitar acceso'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Quitar acceso'));
       await tester.pumpAndSettle();
       expect(
         fake.attempts['revokeCareAssignment']!.last.idempotencyKey,
@@ -549,6 +1132,79 @@ void main() {
     expect(find.text('Persona suspendida'), findsNothing);
     expect(find.text('No hay profesionales elegibles.'), findsOneWidget);
     expect(fake.attempts['grantCareAssignment'], isNull);
+  });
+
+  testWidgets('care cards distinguish admitted and discharged status', (
+    tester,
+  ) async {
+    final fake =
+        _FakeIamRepository()
+          ..careRows = [
+            CareAssignmentRecord(
+              hospitalizationId: 'episode-admitted',
+              status: 'admitted',
+              admittedAt: DateTime.utc(2026, 10, 1),
+            ),
+            CareAssignmentRecord(
+              hospitalizationId: 'episode-discharged',
+              status: 'discharged',
+              admittedAt: DateTime.utc(2026, 10, 1),
+            ),
+          ];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          iamContextProvider.overrideWith(
+            (ref) async => _context({'clinical.assignment.manage'}),
+          ),
+          careAssignmentsProvider.overrideWith((ref) async => fake.careRows),
+          eligibleMembersProvider.overrideWith((ref) async => const []),
+          iamRepositoryProvider.overrideWithValue(fake),
+        ],
+        child: const MaterialApp(home: AssignmentsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hospitalización vigente'), findsOneWidget);
+    expect(find.text('Hospitalización egresada'), findsOneWidget);
+    expect(find.byType(Chip), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('long care status fits a narrow viewport without overflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final fake =
+        _FakeIamRepository()
+          ..careRows = [
+            CareAssignmentRecord(
+              hospitalizationId: 'episode-long-status',
+              status: 'temporarily_absent',
+              admittedAt: DateTime.utc(2026, 10, 1),
+            ),
+          ];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          iamContextProvider.overrideWith(
+            (ref) async => _context({'clinical.assignment.manage'}),
+          ),
+          careAssignmentsProvider.overrideWith((ref) async => fake.careRows),
+          eligibleMembersProvider.overrideWith((ref) async => const []),
+          iamRepositoryProvider.overrideWithValue(fake),
+        ],
+        child: const MaterialApp(home: AssignmentsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hospitalización con ausencia temporal'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -603,11 +1259,17 @@ void main() {
 
       await pump();
       expect(find.textContaining('episode-a'), findsOneWidget);
+      await tester.drag(find.byType(ListView).last, const Offset(0, -600));
+      await tester.pumpAndSettle();
       expect(find.textContaining('episode-b'), findsOneWidget);
       expect(find.text('Asignar profesional'), findsNWidgets(2));
       expect(find.text('Profesional uno'), findsOneWidget);
 
       await tester.tap(find.text('Asignar profesional').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(AnchoredSelector<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Profesional dos').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Asignar').last);
       await tester.pumpAndSettle();
@@ -630,12 +1292,16 @@ void main() {
       await pump();
       expect(find.text('Profesional uno'), findsOneWidget);
       expect(find.text('Profesional dos'), findsOneWidget);
-      expect(find.text('Asignar profesional'), findsNWidgets(2));
-      await tester.tap(find.byTooltip('Revocar asignación').last);
+      expect(find.text('Asignar profesional'), findsAtLeastNWidgets(1));
+      await tester.tap(find.byTooltip('Quitar acceso').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Quitar acceso'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Reintentar'));
       await tester.pumpAndSettle();
       expect(fake.lastCareRevokeId, 'care-two');
+      await tester.drag(find.byType(ListView).last, const Offset(0, -600));
+      await tester.pumpAndSettle();
       expect(find.textContaining('episode-b'), findsOneWidget);
       expect(
         fake.careRows.where((row) => row.assignmentId == 'care-one'),
@@ -693,6 +1359,275 @@ void main() {
     },
   );
 
+  testWidgets('assignment title, search and episode cards share page gutter', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(375, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final fake =
+        _FakeIamRepository()
+          ..careRows = [
+            for (final id in ['episode-one-${'a' * 48}', 'episode-two'])
+              CareAssignmentRecord(
+                hospitalizationId: id,
+                status: 'admitted',
+                admittedAt: DateTime.utc(2026, 10, 1),
+              ),
+          ];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          iamContextProvider.overrideWith(
+            (ref) async => _context({'clinical.assignment.manage'}),
+          ),
+          careAssignmentsProvider.overrideWith((ref) async => fake.careRows),
+          eligibleMembersProvider.overrideWith((ref) async => const []),
+          iamRepositoryProvider.overrideWithValue(fake),
+        ],
+        child: const MaterialApp(home: AssignmentsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final titleFinder = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.text('Profesionales por hospitalización'),
+    );
+    expect(titleFinder, findsOneWidget);
+    expect(find.text('Profesionales por hospitalización'), findsOneWidget);
+    final titleRect = tester.getRect(titleFinder);
+    final backRect = tester.getRect(find.byTooltip('Volver a Ajustes'));
+    final searchRect = tester.getRect(find.byType(TextField));
+    expect(find.textContaining('Sin acceso a nombres'), findsNothing);
+    expect(titleRect.center.dy, closeTo(backRect.center.dy, 0.1));
+    expect(
+      searchRect.top,
+      greaterThan(tester.getRect(find.byType(AppBar)).bottom),
+    );
+    final cards = find.byType(ClinicalCard);
+    expect(cards, findsNWidgets(2));
+    final firstRect = tester.getRect(cards.first);
+    final secondRect = tester.getRect(cards.last);
+    expect(firstRect.left, searchRect.left);
+    expect(secondRect.left, searchRect.left);
+    expect(find.textContaining('episode-one-${'a' * 48}'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'care card uses spacing instead of badges, leading person icons and dividers',
+    (tester) async {
+      tester.view.physicalSize = const Size(375, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final rows = [
+        CareAssignmentRecord(
+          hospitalizationId: 'episode-synthetic',
+          status: 'admitted',
+          admittedAt: DateTime.utc(2026, 10, 1, 12),
+          assignmentId: 'care-active',
+          membershipId: 'member-active',
+          assigneeDisplayName: 'Profesional vigente',
+          validFrom: DateTime.utc(2026, 10, 1, 12),
+        ),
+        CareAssignmentRecord(
+          hospitalizationId: 'episode-synthetic',
+          status: 'admitted',
+          admittedAt: DateTime.utc(2026, 10, 1, 12),
+          assignmentId: 'care-revoked',
+          membershipId: 'member-revoked',
+          assigneeDisplayName: 'Profesional histórico',
+          validFrom: DateTime.utc(2026, 10, 1, 12),
+          revokedAt: DateTime.utc(2026, 10, 2, 12),
+        ),
+      ];
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            iamContextProvider.overrideWith(
+              (ref) async => _context({'clinical.assignment.manage'}),
+            ),
+            careAssignmentsProvider.overrideWith((ref) async => rows),
+            eligibleMembersProvider.overrideWith((ref) async => const []),
+          ],
+          child: const MaterialApp(home: AssignmentsScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('admitted'), findsNothing);
+      expect(find.byType(Chip), findsNothing);
+      expect(find.text('Admisión 01-10-2026 · 09:00'), findsOneWidget);
+      expect(find.text('PROFESIONALES ASIGNADOS'), findsOneWidget);
+      final admission = tester.getRect(
+        find.text('Admisión 01-10-2026 · 09:00'),
+      );
+      final episodeId = tester.getRect(
+        find.textContaining('episode-synthetic'),
+      );
+      final professionals = tester.getRect(
+        find.text('PROFESIONALES ASIGNADOS'),
+      );
+      expect(episodeId.top - admission.bottom, lessThan(40));
+      expect(professionals.top - episodeId.bottom, lessThan(40));
+      expect(find.text('Profesional vigente'), findsOneWidget);
+      expect(find.text('Profesional histórico'), findsOneWidget);
+      expect(find.text('Asignado el 01-10-2026 · 09:00'), findsNWidgets(2));
+      expect(find.text('Revocado el 02-10-2026 · 09:00'), findsOneWidget);
+      final activeName = tester.getRect(find.text('Profesional vigente'));
+      final activeAssignment = tester.getRect(
+        find.text('Asignado el 01-10-2026 · 09:00').first,
+      );
+      final nextName = tester.getRect(find.text('Profesional histórico'));
+      expect(activeAssignment.top - activeName.bottom, lessThan(16));
+      expect(nextName.top - activeAssignment.bottom, lessThan(28));
+      expect(find.textContaining('→'), findsNothing);
+      expect(find.byIcon(Icons.person_outline), findsNothing);
+      expect(find.byType(Divider), findsNothing);
+      expect(
+        find.byTooltip('Copiar identificador del episodio'),
+        findsOneWidget,
+      );
+      final revoke = find.byTooltip('Quitar acceso');
+      expect(revoke, findsOneWidget);
+      expect(find.byIcon(Icons.person_remove_outlined), findsOneWidget);
+      final revokeRect = tester.getRect(revoke);
+      expect((revokeRect.center.dy - activeName.center.dy).abs(), lessThan(16));
+      expect(find.text('Asignar profesional'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('reassigned user shows chronological periods under one name', (
+    tester,
+  ) async {
+    final fake =
+        _FakeIamRepository()
+          ..careRows = [
+            CareAssignmentRecord(
+              hospitalizationId: 'episode-reassignment',
+              status: 'admitted',
+              admittedAt: DateTime.utc(2026, 10, 1),
+              assignmentId: 'care-current',
+              membershipId: 'same-member',
+              assigneeDisplayName: 'Profesional recurrente',
+              validFrom: DateTime.utc(2026, 10, 3, 12),
+            ),
+            CareAssignmentRecord(
+              hospitalizationId: 'episode-reassignment',
+              status: 'admitted',
+              admittedAt: DateTime.utc(2026, 10, 1),
+              assignmentId: 'care-old',
+              membershipId: 'same-member',
+              assigneeDisplayName: 'Profesional recurrente',
+              validFrom: DateTime.utc(2026, 10, 1, 12),
+              revokedAt: DateTime.utc(2026, 10, 2, 12),
+            ),
+          ];
+    fake.failNextOperations.remove('revokeCareAssignment');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          iamContextProvider.overrideWith(
+            (ref) async => _context({'clinical.assignment.manage'}),
+          ),
+          careAssignmentsProvider.overrideWith((ref) async => fake.careRows),
+          eligibleMembersProvider.overrideWith((ref) async => const []),
+          iamRepositoryProvider.overrideWithValue(fake),
+        ],
+        child: const MaterialApp(home: AssignmentsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Profesional recurrente'), findsOneWidget);
+    final assignedBefore = tester.getTopLeft(
+      find.text('Asignado el 01-10-2026 · 09:00'),
+    );
+    final revoked = tester.getTopLeft(
+      find.text('Revocado el 02-10-2026 · 09:00'),
+    );
+    final assignedAgain = tester.getTopLeft(
+      find.text('Asignado el 03-10-2026 · 09:00'),
+    );
+    expect(assignedBefore.dy, lessThan(revoked.dy));
+    expect(revoked.dy, lessThan(assignedAgain.dy));
+    expect(find.byTooltip('Quitar acceso'), findsOneWidget);
+    await tester.tap(find.byTooltip('Quitar acceso'));
+    await tester.pumpAndSettle();
+    expect(fake.attempts['revokeCareAssignment'], isNull);
+    await tester.tap(find.widgetWithText(TextButton, 'Quitar acceso'));
+    await tester.pumpAndSettle();
+    expect(fake.lastCareRevokeId, 'care-current');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('one user action can revoke an older unrevoked period', (
+    tester,
+  ) async {
+    final fake =
+        _FakeIamRepository()
+          ..careRows = [
+            CareAssignmentRecord(
+              hospitalizationId: 'episode-history',
+              status: 'admitted',
+              admittedAt: DateTime.utc(2026, 10, 1),
+              assignmentId: 'care-current',
+              membershipId: 'same-member',
+              assigneeDisplayName: 'Usuario con historial',
+              validFrom: DateTime.utc(2026, 10, 3, 12),
+            ),
+            CareAssignmentRecord(
+              hospitalizationId: 'episode-history',
+              status: 'admitted',
+              admittedAt: DateTime.utc(2026, 10, 1),
+              assignmentId: 'care-older',
+              membershipId: 'same-member',
+              assigneeDisplayName: 'Usuario con historial',
+              validFrom: DateTime.utc(2026, 10, 1, 12),
+              validUntil: DateTime.utc(2026, 10, 2, 12),
+            ),
+          ];
+    fake.failNextOperations.remove('revokeCareAssignment');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          iamContextProvider.overrideWith(
+            (ref) async => _context({'clinical.assignment.manage'}),
+          ),
+          careAssignmentsProvider.overrideWith((ref) async => fake.careRows),
+          eligibleMembersProvider.overrideWith((ref) async => const []),
+          iamRepositoryProvider.overrideWithValue(fake),
+        ],
+        child: const MaterialApp(home: AssignmentsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Quitar acceso'), findsOneWidget);
+    await tester.tap(find.byTooltip('Quitar acceso'));
+    await tester.pumpAndSettle();
+    expect(find.text('Seleccionar asignación'), findsOneWidget);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(fake.attempts['revokeCareAssignment'], isNull);
+
+    await tester.tap(find.byTooltip('Quitar acceso'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Asignado el 01-10-2026 · 09:00').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('iniciada el 01-10-2026 · 09:00'),
+      findsOneWidget,
+    );
+    await tester.tap(find.widgetWithText(TextButton, 'Quitar acceso'));
+    await tester.pumpAndSettle();
+    expect(fake.lastCareRevokeId, 'care-older');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'care history preserves the assignee name and filters displayed episodes locally',
     (tester) async {
@@ -744,10 +1679,11 @@ void main() {
         find.textContaining('Asignado el 01-10-2026 · 09:00'),
         findsOneWidget,
       );
+      expect(find.textContaining('Admisión'), findsNWidgets(2));
       expect(find.textContaining('Ingreso'), findsNothing);
 
       await tester.enterText(
-        find.widgetWithText(TextField, 'Buscar por nombre del paciente'),
+        find.widgetWithText(TextField, 'Nombre o UUID de hospitalización'),
         'ada',
       );
       await tester.pump();
@@ -755,7 +1691,7 @@ void main() {
       expect(find.textContaining('episode-without-name'), findsNothing);
 
       await tester.enterText(
-        find.widgetWithText(TextField, 'Buscar por nombre del paciente'),
+        find.widgetWithText(TextField, 'Nombre o UUID de hospitalización'),
         'without-name',
       );
       await tester.pump();
@@ -782,8 +1718,6 @@ void main() {
         child: const MaterialApp(home: UsersScreen()),
       ),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Otra persona'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Suspender membresía'));
     await tester.pumpAndSettle();
@@ -843,6 +1777,11 @@ const _otherRole = IamRole(
 
 class _FakeIamRepository implements IamRepository {
   Map<String, dynamic>? created;
+  List<String> createAttempts = [];
+  int createFailures = 0;
+  List<IamMember> memberRows = [_other];
+  List<IamRole> roleCatalog = [_role, _otherRole];
+  bool grantsAppearInAssignments = false;
   Map<String, List<IamRoleAssignment>> assignmentsByMember = {};
   String? lastMembershipStatus;
   String? lastGrantedRoleId;
@@ -890,7 +1829,7 @@ class _FakeIamRepository implements IamRepository {
     _context({'iam.membership.read'}),
   ];
   @override
-  Future<List<IamMember>> members(String organizationId) async => [_other];
+  Future<List<IamMember>> members(String organizationId) async => memberRows;
   @override
   Future<List<IamRole>> roles(String organizationId) async => [_role];
   @override
@@ -914,6 +1853,21 @@ class _FakeIamRepository implements IamRepository {
       'roleId': roleId,
       'idempotencyKey': idempotencyKey,
     };
+    createAttempts.add(idempotencyKey);
+    if (createFailures > 0) {
+      createFailures--;
+      throw StateError('synthetic transient create failure');
+    }
+    memberRows = [
+      ...memberRows,
+      IamMember(
+        membershipId: 'membership-created-$idempotencyKey',
+        profileId: 'profile-created-$idempotencyKey',
+        displayName: displayName,
+        profileStatus: 'active',
+        membershipStatus: 'active',
+      ),
+    ];
   }
 
   @override
@@ -942,6 +1896,20 @@ class _FakeIamRepository implements IamRepository {
   }) async {
     _recordAttempt('grantRole', attempt);
     lastGrantedRoleId = roleId;
+    if (grantsAppearInAssignments) {
+      final granted = roleCatalog.firstWhere((role) => role.id == roleId);
+      assignmentsByMember[membershipId] = [
+        ...?assignmentsByMember[membershipId],
+        IamRoleAssignment(
+          assignmentId: 'assignment-role',
+          membershipId: membershipId,
+          roleId: roleId,
+          roleName: granted.name,
+          protected: false,
+          validFrom: attempt.validFrom ?? DateTime.utc(2026),
+        ),
+      ];
+    }
     return const AdminOperationResult(
       success: true,
       code: 'granted',

@@ -4,7 +4,7 @@
 
 El objetivo es convertir identidad, perfil, membresía, permiso, asignación asistencial, autoría y operación en una decisión consistente en Postgres y Edge Functions. La matriz global de lectura por enum está implementada; ADR-013 la sustituye para Personal clínico por un catálogo fijo, roles configurables y asignación vigente a hospitalización. Requiere migraciones aditivas y pruebas antes de habilitar notas o resúmenes.
 
-La sección "Administración institucional" de `/settings` ofrece enlaces independientes a roles/permisos, usuarios y asignaciones asistenciales según permisos efectivos. Estos enlaces no conceden autoridad: las rutas y operaciones requieren autorización propia en sus fronteras servidor/RLS.
+La sección "Administración institucional" de `/settings` ofrece enlaces independientes a roles/permisos, usuarios y «Profesionales por hospitalización» según permisos efectivos. Estos enlaces no conceden autoridad: las rutas y operaciones requieren autorización propia en sus fronteras servidor/RLS.
 
 Solo se usan datos sintéticos para desarrollar y verificar este contrato.
 

@@ -8,5 +8,5 @@ List<({String location, String label})> administrationNavigationFor(
   if (context.allows('iam.role.read') && context.allows('iam.role.manage'))
     (location: '/roles', label: 'Roles y permisos'),
   if (context.allows('clinical.assignment.manage'))
-    (location: '/assignments', label: 'Asignaciones asistenciales'),
+    (location: '/assignments', label: 'Profesionales por hospitalización'),
 ];
