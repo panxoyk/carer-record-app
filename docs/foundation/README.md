@@ -25,7 +25,8 @@ Carer Record es una capa de contexto clínico e integración para hospitalizaci�
 - limitar el acceso mediante permisos configurables por institución y unidad;
 - consultar una hospitalización y su timeline de información relevante;
 - registrar contexto mediante texto o audio con confirmación del mismo autor;
-- ejecutar ASR y NER localmente antes de solicitar síntesis cloud;
+- ejecutar ASR localmente en el dispositivo antes de permitir el hito de audio;
+- mejorar la redacción de un hito con un modelo que también corre en el dispositivo;
 - generar resúmenes temporales de fuentes autorizadas sin convertirlos en registros clínicos.
 
 `carer-record-app` es el repositorio canónico. Conserva Flutter, Supabase Auth, PostgreSQL, PostgREST, Edge Functions, RLS, migraciones y pgTAP. El repositorio hermano `../carer-record` conserva evidencia histórica y experimentos funcionales; sus decisiones inseguras o acopladas a MariaDB no se portan literalmente.
@@ -40,12 +41,12 @@ Carer Record es una capa de contexto clínico e integración para hospitalizaci�
 6. FHIR R4 es una frontera de intercambio, no el esquema interno.
 7. El primer subconjunto FHIR incluye `Organization`, `Patient`, `Encounter`, `Location`, `Condition`, `Observation`, `AllergyIntolerance` y `MedicationRequest`, más `CapabilityStatement`, `Bundle` y `OperationOutcome` como infraestructura.
 8. Los datos externos son inicialmente de solo lectura y no existe write-back a la FCE.
-9. Las notas de audio conservan el audio en el dispositivo, usan ASR y NER locales y envían solamente texto tokenizado a un proveedor cloud abstracto mediante una Edge Function.
-10. El mapa reversible nunca sale del límite confiable. La respuesta se valida, restaura localmente y es confirmada por el mismo autor.
-11. Audio, transcripción, mapa y artefactos intermedios se eliminan al confirmar, descartar o expirar.
+9. Las notas de audio conservan el audio en el dispositivo, usan ASR local y solo persisten el texto que su autor confirmó; no hay proveedor cloud de síntesis.
+10. No existe mapa reversible porque nada sale del dispositivo; la única respuesta posible es la que la persona autora revisa.
+11. Audio, transcripción, borrador y artefactos intermedios se eliminan al confirmar, descartar, cerrar sesión o expirar.
 12. Un resumen de periodo es una vista temporal con caché invalidable; nunca se publica automáticamente como nota.
 13. Gestión de turnos, RRHH, handoff formal, FHIR universal, datos reales y cumplimiento productivo quedan fuera del prototipo.
-14. Los hitos de bitácora son notas de contexto confirmadas e inmutables (texto o audio almacenado en bucket privado) que el autor publica en el timeline de su hospitalización; el audio de hito sí se persiste, a diferencia del flujo experimental de ASR (ADR-015).
+14. Los hitos de bitácora son notas de contexto confirmadas e inmutables; el hito de audio se dicta y se transcribe en el dispositivo, y solo su texto confirmado llega al servidor (ADR-016).
 
 ## Mapa de lectura
 

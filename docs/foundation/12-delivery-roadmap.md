@@ -78,49 +78,53 @@ El subcorte DB de V2 implementa IAM, hospitalizaciones/asignaciones y RLS clíni
 
 **Valor:** con audio estrictamente sintético, una persona captura una muestra, obtiene una transcripción técnica local verificable y elimina el artefacto; la experiencia final de usuario revisará audio y síntesis en V5.
 
-**Incluye:** permiso de micrófono, consentimiento/indicador, límites, archivo privado temporal, motor ASR local detrás de interfaz, procedencia del modelo, estados y borrado idempotente. No incluye nube ni persistencia clínica para el flujo experimental; el audio de hitos de bitácora no forma parte de V3 y tiene su propio contrato y bucket (ADR-015).
+**Incluye:** permiso de micrófono, consentimiento/indicador, límites, archivo privado temporal, motor ASR local detrás de interfaz, procedencia del modelo, estados y borrado idempotente. No incluye nube. El audio de hitos de bitácora ya no tiene contrato propio de bucket: ADR-016 lo retiró y V3 lo cubre de extremo a extremo (ADR-007, ADR-016).
 
-**Entidades locales:** `RecordingSession`, `AudioArtifact`, `TranscriptDraft`; no se crean tablas remotas salvo decisión posterior.
+**Entidades locales:** `DictationSession`, `AsrTranscript`, `DraftVault`; en servidor solo `context_notes` con el texto confirmado y su procedencia técnica.
 
-**Pruebas:** SP-01, permisos, interrupciones, crash/restart, espacio insuficiente, checksum de modelo y ausencia de tráfico de audio.
+**Pruebas:** SP-01, permisos, interrupciones, crash/restart, espacio insuficiente, checksum de modelo, ausencia de tráfico de audio y la prueba de privacidad de pgTAP.
 
 **Criterio de salida:** el dispositivo objetivo cumple presupuesto académico documentado; no existe fallback cloud; una operación de borrado repetida deja cero artefactos observables dentro del alcance probado.
 
-## V4 - NER y tokenización reversible
+## V4 - NER local sin tokenización
 
-**Valor:** una transcripción sintética se transforma en texto tokenizado, muestra las entidades detectadas y puede revertirse solo localmente por un actor autorizado.
+**Estado:** Decidido. La tokenización reversible quedó sustituida por ADR-017: al no salir texto del dispositivo no hay mapa que custodiar. Queda la señalización local de entidades.
 
-**Incluye:** taxonomía, offsets, token estable por documento, mapa cifrado separado, formato versionado, revisión humana y métricas. NER no se presenta como anonimización.
+**Valor:** una transcripción o un hito sintético muestran al autor las entidades que el modelo local detecta, sin modificar el texto y sin construir ningún mapa.
 
-**Entidades:** `DetectedEntity`, `TokenizedDocument`, `TokenMap`; persistencia final sujeta a threat model.
+**Incluye:** taxonomía, offsets, límites por clase y visibilidad de la incertidumbre. NER no se presenta como anonimización.
 
-**Pruebas:** SP-02/SP-03, solapamientos, Unicode, falsos negativos críticos, manipulación de token, claves ausentes y autorización de reversión.
+**Entidades:** `DetectedEntity` como resultado del puerto `SynthesisProvider`; sin `TokenizedDocument` ni `TokenMap`.
 
-**Criterio de salida:** round-trip determinista para el formato soportado, mapa ausente de logs y proveedor, limitaciones visibles y corpus íntegramente sintético.
+**Pruebas:** SP-02, solapamientos, Unicode, falsos negativos críticos y textos íntegramente sintéticos.
 
-## V5 - Síntesis cloud con proveedor abstracto
+**Criterio de salida:** el texto del autor nunca se sustituye y no existe ningún artefacto capaz de reconstruir entidades fuera del dispositivo.
 
-**Valor:** un escenario sintético produce una síntesis mediante un contrato sustituible, con fake para pruebas y un adaptador cloud en sandbox para la demostración.
+## V5 - Síntesis local con modelo en el dispositivo
 
-**Incluye:** `SynthesisProvider`, request/response internos, adapter, timeout, cancelación, errores estables, presupuesto, idempotencia y guard de procedencia sintética.
+**Estado:** Decidido e implementado en alcance local. ADR-017 sustituyó la síntesis cloud.
 
-**No incluye:** PHI/IPS real, texto clínico tokenizado proveniente de una persona real, audio ni mapa de tokens.
+**Valor:** una persona escribe un hito a mano y obtiene opcionalmente una mejor redacción generada en su propio teléfono, que siempre revisa antes de confirmar.
 
-**Pruebas:** fake contractual, adapter sandbox con fixtures sintéticos, rechazo de procedencia desconocida/no sintética, sanitización de logs y fallo del proveedor.
+**Incluye:** `SynthesisProvider` como puerto del dominio, adaptador GGUF, fake determinista, timeout, cancelación, códigos de error estables, idempotencia y descarga verificada del modelo. No incluye proveedor cloud, Edge Function ni guard de procedencia: no hay egreso.
 
-**Criterio de salida:** dominio no importa SDK/tipos del proveedor; cambiar fake por adapter no cambia el caso de uso; el guard bloquea técnicamente payloads no sintéticos.
+**No incluye:** bloqueo de la publicación. Si el motor falla o el modelo no está instalado, el hito se publica tal cual.
+
+**Pruebas:** contrato compartido entre fake y adaptador, límites de longitud, cancelación, ausencia de modelo y benchmark sobre corpus sintético.
+
+**Criterio de salida:** el dominio no importa SDK ni tipos del runtime; cambiar el fake por el adaptador no cambia el caso de uso; ningún texto sale del dispositivo; un hito se publica incluso con el modelo ausente.
 
 ## V6 - Resumen temporal y caché
 
 **Valor:** la persona consulta un resumen sintético de una ventana temporal y una segunda lectura reutiliza solo una entrada exactamente vigente.
 
-**Incluye:** rango `[desde, hasta)`, zona horaria, conjunto/versiones fuente, modelo/prompt/provider version, estado, expiración e invalidación. La respuesta indica procedencia, ventana y que no sustituye la ficha.
+**Incluye:** rango `[desde, hasta)`, zona horaria, conjunto/versiones fuente, versión de modelo y prompt, estado, expiración e invalidación. La respuesta indica procedencia, ventana y que no sustituye la ficha.
 
 **Entidades:** `SummaryRequest`, `SummarySnapshot` y `SummaryCacheEntry`, que pueden consolidarse si no compromete auditoría.
 
 **Pruebas:** bordes temporales, zona horaria, hit/miss, cambio de fuente, aislamiento RLS, concurrencia, timeout y respuesta vacía.
 
-**Criterio de salida:** una mutación o nueva versión fuente invalida el resultado; jamás se devuelve caché de otro paciente/ventana/modelo; el stub 501 observado en el baseline (`supabase/functions/clinical-summary/index.ts:3-19`) se reemplaza con tests.
+**Criterio de salida:** una mutación o nueva versión fuente invalida el resultado; jamás se devuelve caché de otro paciente o ventana; la Edge Function `clinical-summary` del baseline ya no existe (ADR-017).
 
 ## V7 - Ciclo operacional: outbox, auditoría y eliminación
 

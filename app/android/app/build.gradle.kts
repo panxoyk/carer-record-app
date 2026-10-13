@@ -24,8 +24,9 @@ android {
         applicationId = "io.carerrecord.carer_record_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // record_android requiere minSdk 23 (codificación AAC vía MediaCodec).
-        minSdk = 23
+        // Flutter 3.47 fija minSdk 24, por encima del mínimo 23 que exige
+        // record_android (codificación AAC vía MediaCodec).
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

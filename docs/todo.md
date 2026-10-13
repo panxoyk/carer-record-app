@@ -44,3 +44,17 @@ Este archivo organiza tareas secuenciales de implementación. El alcance, las de
 - [ ] Ejecutar las validaciones de Flutter y base de datos afectadas por cada corte.
 - [ ] Incorporar un secret scan en CI.
 - [ ] Actualizar la evidencia de foundation al cerrar cada bloque.
+
+## Corte ASR local y síntesis local (2026-10-12)
+
+- [x] ADR-016 y ADR-017 aceptadas, con ADR-015 en parte sustituida y ADR-008/ADR-009 sustituidas.
+- [x] Migración aditiva: `transcription_metadata` validado, audio almacenado retirado por completo y timeline proyectando el texto confirmado.
+- [x] pgTAP del contrato corregido, incluida la prueba de privacidad que falla si reaparece un bucket, una política o una columna de audio.
+- [x] Motor `sherpa_onnx` detrás de `AsrEngine`, con manifiesto versionado y fallo cerrado sin modelo.
+- [x] Flujo grabar → transcribir → revisar → confirmar → purgar, sin reproducción de audio en la bitácora.
+- [x] `SynthesisProvider` local con adaptador GGUF y fake determinista; la asistencia nunca bloquea la publicación.
+- [x] Retiro de `clinical-summary` y de la Edge Function de síntesis.
+- [ ] Cerrar el spike SP-01 con medición en un dispositivo arm64 real: latencia, factor de tiempo real, RAM, batería, temperatura y tamaño de descarga.
+- [ ] Registrar el corpus sintético del benchmark de síntesis y sus resultados; no afirmar calidad clínica.
+- [ ] Instalar los pesos en el dispositivo mediante el flujo de descarga con progreso antes de cualquier demostración.
+- [ ] Medir y decidir el plazo de expiración de capturas pendientes (`Q-PRIV-03`) con el vault ya implementado.

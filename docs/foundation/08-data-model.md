@@ -716,17 +716,26 @@ Las siguientes tres tablas pertenecen al modelo objetivo, pero no a la primera n
 
 ### `context_notes`
 
-| Aspecto     | Definición                                                                                                                                                                                               |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Propósito   | Nota complementaria originada en CRA, con confirmación y corrección trazables                                                                                                                            |
-| PK          | `clinical_record_id`, FK uno a uno                                                                                                                                                                       |
-| Columnas    | `organization_id`, `status`, `content`, `input_method`, `confirmed_at` nullable, `confirmed_by_membership_id` nullable, `corrects_note_id` nullable, `transcription_metadata jsonb` nullable             |
-| FK          | Cabecera, confirmador y nota corregida de la misma organización/hospitalización                                                                                                                          |
-| Constraints | Tipo correcto y `provenance_kind = cra`; contenido no vacío y limitado; confirmador/fecha obligatorios solo en confirmed; corrección apunta a nota previa distinta; JSON objeto; no ciclos de corrección |
-| Índices     | `(organization_id, clinical_record_id)`; `(organization_id, corrects_note_id)`; la cabecera indexa episodio/autor/tiempo                                                                                 |
-| Mutabilidad | Borrador editable por autor hasta confirmar; confirmada inmutable; corrección crea nueva fila; descarte lógico                                                                                           |
-| Procedencia | Autor de cabecera, confirmador, timestamps y auditoría; IA/transcripción se registra como asistencia, no autoría                                                                                         |
-| RLS         | Borrador solo autor; confirmadas con `context.note.read` y episodio; create/confirm/correct son permisos separados y preferentemente RPCs transaccionales                                                |
+> **Decidido — desviación consciente del objetivo.** La implementación observada en `supabase/migrations/20261012000000_context_note_milestones.sql` y `20261012010000_context_note_local_transcription.sql` se aparta del diseño objetivo de esta tabla en cuatro puntos, de forma deliberada:
+>
+> 1. La clave primaria es un `id uuid` propio con `gen_random_uuid()`, no una FK uno a uno a `clinical_record_id`.
+> 2. No existe la cabecera `clinical_records`: la tabla es canónica por sí misma y su cabecera es `(organization_id, hospitalization_id, patient_id)`.
+> 3. No existe `corrects_note_id`: la corrección no se modela todavía y `context.note.correct` permanece en el catálogo sin flujo.
+> 4. La publicación es de un solo paso con `status = 'confirmed'`, en lugar de borrador más transición; la inmutabilidad se consigue sin `UPDATE` ni `DELETE` en runtime.
+>
+> Consecuencia asumida: la composición con `clinical_records` y la corrección append-only siguen pendientes para un corte futuro que las introduzca como migración aditiva.
+
+| Aspecto     | Definición                                                                                                                                                                                                                               |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Propósito   | Nota complementaria originada en CRA, confirmada por su autor e inmutable                                                                                                                                                                |
+| PK          | `id uuid` con `gen_random_uuid()`                                                                                                                                                                                                        |
+| Columnas    | `organization_id`, `hospitalization_id`, `patient_id`, `author_id`, `status`, `input_method`, `content`, `transcription_metadata jsonb` nullable, `client_event_id`, `occurred_at`, `confirmed_at`, `created_at`                         |
+| FK          | Cabecera compuesta `(organization_id, hospitalization_id, patient_id)` a `hospitalizations` del mismo tenant                                                                                                                             |
+| Constraints | Un solo camino: `text` con `content` no vacío y sin metadata, o `audio` con `content` no vacío y metadata válida; `content` hasta 20000 caracteres; metadata objeto, hasta 4096 bytes, solo claves técnicas permitidas y sin texto libre |
+| Índices     | `(organization_id, hospitalization_id, occurred_at desc, id)`; único `(organization_id, client_event_id)`                                                                                                                                |
+| Mutabilidad | Inserción única en `confirmed`; sin `UPDATE`, `DELETE` ni `TRUNCATE` en runtime; la corrección futura crea una fila nueva                                                                                                                |
+| Procedencia | `author_id = auth.uid()`, `client_event_id` para idempotencia y `transcription_metadata` como auditoría técnica del ASR local, nunca autoría                                                                                             |
+| RLS         | Inserción con perfil y membresía activos, `context.note.create` y `context.note.confirm`, alcance sobre el episodio y `author_id = auth.uid()`; lectura del autor o de confirmados con `context.note.read` y episodio                    |
 
 ## Read model y auditoría
 

@@ -119,28 +119,28 @@ Este corte no incluye ingesta FHIR completa, escritura clínica, solicitudes de 
 - derivar paciente y autor desde recursos autorizados, no desde campos confiados al cliente;
 - implementar primero el contrato textual y reutilizar sus invariantes de autoría, publicación e idempotencia en audio.
 
-**Confirmado en parte.** El corte de hitos de bitácora implementa el contrato textual y de audio almacenado como `context_notes` confirmadas e inmutables, con `context.note.read/create/confirm`, RLS por episodio, pgTAP y recorrido móvil, según [ADR-015](decisions/adr-015-hitos-bitora-audio.md). La corrección de notas y el resto de eventos de contexto propios siguen **Propuestos**, y el dictado con ASR local permanece **Pendiente** del spike (Incremento D).
+**Confirmado.** El corte de hitos de bitácora implementa `context_notes` confirmadas e inmutables, con `context.note.read/create/confirm`, RLS por episodio, pgTAP y recorrido móvil, según [ADR-015](decisions/adr-015-hitos-bitora-audio.md). [ADR-016](decisions/adr-016-asr-local-transcripcion-confirmada.md) sustituyó el audio almacenado por transcripción local: el hito de audio ahora persiste el texto confirmado y su procedencia técnica. La corrección de notas y el resto de eventos de contexto propios siguen **Propuestos**.
 
 ### Incremento D: audio, ASR, NER y síntesis
 
 - mantener audio y transcripción en el dispositivo y definir su retención temporal;
 - medir ASR con vocabulario sintético y dispositivos objetivo;
-- ejecutar NER y tokenización reversible local antes de cualquier síntesis cloud;
-- presentar audio y síntesis editable para confirmación del mismo autor;
-- exigir trazabilidad entre salida, entrada y versión del modelo;
-- integrar el proveedor cloud detrás de una interfaz abstracta y usando solo datos sintéticos.
+- señalar entidades localmente sin sustituir texto ni construir un mapa;
+- presentar transcripción y síntesis como borradores editables para confirmación del mismo autor;
+- exigir trazabilidad entre la procedencia técnica y la versión del modelo;
+- ejecutar el modelo de síntesis en el dispositivo detrás de una interfaz abstracta.
 
-**Pendiente.** El baseline no contiene proveedor, modelo, almacenamiento de audio ni contrato de síntesis en CRA; cada capacidad se incorpora solo al completar el corte y su evidencia.
+**Confirmado en alcance local.** [ADR-016](decisions/adr-016-asr-local-transcripcion-confirmada.md) implementa la captura, la transcripción con `sherpa_onnx`, la confirmación del autor y la purga; [ADR-017](decisions/adr-017-sintesis-local.md) implementa `SynthesisProvider` con adaptador GGUF y fake determinista. No queda proveedor cloud, Edge Function de síntesis ni tokenización reversible. La medición de latencia, RAM, batería y temperatura sobre corpus sintético y el resumen de periodo siguen **Pendientes**; la calidad clínica del reconocimiento no se afirma en ningún caso.
 
 ### Incremento E: resumen temporal
 
 - permitir seleccionar un intervalo explícito con zona horaria institucional;
 - resumir únicamente fuentes autorizadas y versionadas;
-- aplicar minimización, NER/tokenización y proveedor abstracto;
+- ejecutar el resumen con el modelo local y su versión declarados, sin egreso;
 - conservar como máximo un cache invalidable, no una nota ni un evento clínico;
 - mostrar periodo, generación, fuentes y estado de vigencia.
 
-**Decidido.** Gestión de turnos, scheduling, handoff y RRHH quedan fuera del prototipo. Los periodos de resumen no crean una entidad de turno ni permisos dependientes de horario, según [ADR-012](decisions/adr-012-turnos-fuera-de-alcance.md).
+**Decidido.** Gestión de turnos, scheduling, handoff y RRHH quedan fuera del prototipo. Los periodos de resumen no crean una entidad de turno ni permisos dependientes de horario, según [ADR-012](decisions/adr-012-turnos-fuera-de-alcance.md). El resumen se ejecuta con el modelo en el dispositivo ([ADR-017](decisions/adr-017-sintesis-local.md)); la caché sigue **Pendiente**.
 
 ## Fuera del alcance académico
 

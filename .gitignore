@@ -10,6 +10,12 @@ app/build/
 app/.flutter-plugins
 app/.flutter-plugins-dependencies
 app/.idea/
+app/android/build/
+app/android/.gradle/
+app/android/app/build/
+app/android/app/.cxx/
+app/ios/Pods/
+app/ios/.symlinks/
 
 # Python
 __pycache__/
