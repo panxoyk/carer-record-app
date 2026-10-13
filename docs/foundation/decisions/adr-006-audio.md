@@ -3,6 +3,7 @@
 - Estado: Aceptada
 - Fecha: 2026-09-27
 - Alcance: entrada de audio del flujo experimental
+- Relación: ADR-015 sustituye en parte su regla de no subida para el audio de hitos de bitácora confirmados; el resto de la decisión (captura explícita del flujo experimental) permanece vigente
 
 ## Contexto
 

@@ -119,7 +119,7 @@ Este corte no incluye ingesta FHIR completa, escritura clínica, solicitudes de 
 - derivar paciente y autor desde recursos autorizados, no desde campos confiados al cliente;
 - implementar primero el contrato textual y reutilizar sus invariantes de autoría, publicación e idempotencia en audio.
 
-**Propuesto.** Esta capacidad acerca el producto a la visión, pero no puede incorporarse hasta acordar la matriz de escritura y sus pruebas RLS.
+**Confirmado en parte.** El corte de hitos de bitácora implementa el contrato textual y de audio almacenado como `context_notes` confirmadas e inmutables, con `context.note.read/create/confirm`, RLS por episodio, pgTAP y recorrido móvil, según [ADR-015](decisions/adr-015-hitos-bitora-audio.md). La corrección de notas y el resto de eventos de contexto propios siguen **Propuestos**, y el dictado con ASR local permanece **Pendiente** del spike (Incremento D).
 
 ### Incremento D: audio, ASR, NER y síntesis
 

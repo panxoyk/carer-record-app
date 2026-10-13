@@ -43,15 +43,16 @@ Las siguientes preguntas se resolvieron durante la fundación y no se mantienen 
 
 ## Audio, modelos y síntesis
 
-| ID       | Pregunta                                                                                        | Prioridad  | Responsable a confirmar  | Momento de resolución |
-| -------- | ----------------------------------------------------------------------------------------------- | ---------- | ------------------------ | --------------------- |
-| Q-ASR-01 | ¿Qué dispositivos, SO, idioma/acentos y presupuesto de latencia/RAM/batería son objetivo?       | Bloqueante | Móvil/investigación      | SP-01                 |
-| Q-ASR-02 | ¿Qué motor/modelo y licencia permiten distribución académica?                                   | Bloqueante | Investigación/legal      | SP-01                 |
-| Q-NER-01 | ¿Qué taxonomía de identificadores y umbral por clase se requieren?                              | Bloqueante | Privacidad/investigación | SP-02                 |
-| Q-NER-02 | ¿Dónde y con qué mecanismo se cifra el mapa reversible?                                         | Bloqueante | Seguridad/móvil          | Diseño de V4          |
-| Q-AI-01  | ¿Qué esquema estructurado de salida y límites de longitud se usarán para cada tipo de síntesis? | Alta       | Clínica/investigación    | Antes de V5           |
-| Q-AI-02  | ¿Qué proveedor/modelo sandbox se evaluará y con qué límites de costo/timeout?                   | Media      | Investigación/backend    | SP-05                 |
-| Q-AI-03  | ¿Cómo se prueba de forma no falsificable la procedencia sintética en runtime?                   | Bloqueante | Seguridad/backend        | Antes de V5           |
+| ID         | Pregunta                                                                                                  | Prioridad  | Responsable a confirmar  | Momento de resolución |
+| ---------- | --------------------------------------------------------------------------------------------------------- | ---------- | ------------------------ | --------------------- |
+| Q-ASR-01   | ¿Qué dispositivos, SO, idioma/acentos y presupuesto de latencia/RAM/batería son objetivo?                 | Bloqueante | Móvil/investigación      | SP-01                 |
+| Q-ASR-02   | ¿Qué motor/modelo y licencia permiten distribución académica?                                             | Bloqueante | Investigación/legal      | SP-01                 |
+| Q-NER-01   | ¿Qué taxonomía de identificadores y umbral por clase se requieren?                                        | Bloqueante | Privacidad/investigación | SP-02                 |
+| Q-NER-02   | ¿Dónde y con qué mecanismo se cifra el mapa reversible?                                                   | Bloqueante | Seguridad/móvil          | Diseño de V4          |
+| Q-AI-01    | ¿Qué esquema estructurado de salida y límites de longitud se usarán para cada tipo de síntesis?           | Alta       | Clínica/investigación    | Antes de V5           |
+| Q-AI-02    | ¿Qué proveedor/modelo sandbox se evaluará y con qué límites de costo/timeout?                             | Media      | Investigación/backend    | SP-05                 |
+| Q-AI-03    | ¿Cómo se prueba de forma no falsificable la procedencia sintética en runtime?                             | Bloqueante | Seguridad/backend        | Antes de V5           |
+| Q-AUDIO-01 | ¿Qué plazo de retención y mecanismo de eliminación aplicará al audio crudo de hitos confirmados (RK-028)? | Media      | Privacidad/producto      | Antes de datos reales |
 
 ## Operación y alcance
 

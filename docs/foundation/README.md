@@ -45,6 +45,7 @@ Carer Record es una capa de contexto clínico e integración para hospitalizaci�
 11. Audio, transcripción, mapa y artefactos intermedios se eliminan al confirmar, descartar o expirar.
 12. Un resumen de periodo es una vista temporal con caché invalidable; nunca se publica automáticamente como nota.
 13. Gestión de turnos, RRHH, handoff formal, FHIR universal, datos reales y cumplimiento productivo quedan fuera del prototipo.
+14. Los hitos de bitácora son notas de contexto confirmadas e inmutables (texto o audio almacenado en bucket privado) que el autor publica en el timeline de su hospitalización; el audio de hito sí se persiste, a diferencia del flujo experimental de ASR (ADR-015).
 
 ## Mapa de lectura
 

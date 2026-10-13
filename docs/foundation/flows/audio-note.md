@@ -6,6 +6,8 @@ Este flujo es un contrato objetivo y permanece bloqueado hasta aprobar el spike 
 
 No existe fallback a ASR cloud. Si el ASR local no cumple el spike, la nota de audio no se habilita y se conserva el flujo textual. Solo se usan voces, pacientes y contenido sintéticos durante desarrollo y pruebas.
 
+No debe confundirse con los hitos de bitácora de audio ([ADR-015](../decisions/adr-015-hitos-bitora-audio.md)): en ese corte, ya implementado, la grabación confirmada se publica íntegra en un bucket privado y se reproduce desde la bitácora, sin ASR, NER ni síntesis.
+
 ## Actores
 
 - Perfil con membresía activa y permisos `context.note.create`/`context.note.confirm` dentro del alcance de la hospitalización.
@@ -20,7 +22,7 @@ No existe fallback a ASR cloud. Si el ASR local no cumple el spike, la nota de a
 - Una membresía activa con `context.note.create` puede iniciar dictado para una hospitalización dentro de su alcance y con permiso de micrófono concedido.
 - Solo el mismo autor puede reanudar, confirmar o descartar la operación local.
 - Una autoridad IAM sin `context.*`, suspendidos, asignaciones vencidas, perfiles ausentes y anónimos no capturan ni confirman desde este flujo.
-- El audio nunca tiene permiso de subida; ningún endpoint acepta audio.
+- En este flujo, el audio nunca tiene permiso de subida y ningún endpoint lo acepta; la única excepción es el audio de hitos de bitácora (ADR-015), con bucket privado y políticas propias.
 - La nota publicada es inmutable y solo contiene el resultado final, no audio ni transcripción intermedia.
 
 ## Precondiciones
@@ -104,7 +106,7 @@ No existe `awaiting_review`; no se sube un borrador para que otra persona lo con
 
 ## Datos
 
-- Audio: archivo temporal local cifrado, formato y frecuencia definidos por el spike; nunca se transmite ni persiste en Supabase.
+- Audio: archivo temporal local cifrado, formato y frecuencia definidos por el spike; en este flujo nunca se transmite ni persiste en Supabase.
 - Transcripción: artefacto técnico local; nunca se envía sin tokenizar, se presenta como nota final ni se persiste en servidor.
 - NER: entidades y mapa token-valor exclusivamente locales.
 - Cloud: texto tokenizado, inventario de tokens, configuración de síntesis, versión e idempotency key.

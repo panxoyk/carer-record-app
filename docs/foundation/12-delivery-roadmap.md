@@ -32,6 +32,8 @@ La fotografía previa a esta fundación registra un MVP local con autenticación
 
 V1 y V3 pueden explorarse en paralelo mediante spikes, pero no compartir contratos inestables. V5 permanece bloqueado hasta demostrar técnicamente que el flujo cloud solo acepta procedencia sintética.
 
+El corte de hitos de bitácora ([ADR-015](decisions/adr-015-hitos-bitora-audio.md)) añade la escritura confirmada de `context_notes` — texto o audio almacenado en bucket privado — con RLS por episodio, pgTAP dedicado y recorrido móvil, sobre el subcorte DB de V2. No completa V3: el ASR local sigue bloqueado en su spike y no habilita NER ni síntesis.
+
 El subcorte DB de V2 implementa IAM, hospitalizaciones/asignaciones y RLS clínico por episodio. Los subcortes 4.1 (operaciones IAM), 4.2 (alta institucional Edge), 4.3 (administración institucional Flutter y asignaciones asistenciales) y 4.4 (consulta clínica Flutter por hospitalización) tienen implementación y pruebas dirigidas. La revisión integrada 4.5 y el gate 5.2 están cerrados para demo sintética/local; esto no completa V2 ni acredita producción. Fases 3 y 4 solo se consideran integradas dentro de ese alcance.
 
 ## V0 - Baseline y guardrails
@@ -44,7 +46,7 @@ El subcorte DB de V2 implementa IAM, hospitalizaciones/asignaciones y RLS clíni
 
 - setup local y CI pasan desde un checkout limpio;
 - las limitaciones académicas y de datos sintéticos son visibles;
-- ADR-001 a ADR-013 y apéndices están enlazados;
+- ADR-001 a ADR-015 y apéndices están enlazados;
 - no hay secretos ni datos reales versionados;
 - riesgos P0 tienen tratamiento o bloqueo explícito.
 
@@ -76,7 +78,7 @@ El subcorte DB de V2 implementa IAM, hospitalizaciones/asignaciones y RLS clíni
 
 **Valor:** con audio estrictamente sintético, una persona captura una muestra, obtiene una transcripción técnica local verificable y elimina el artefacto; la experiencia final de usuario revisará audio y síntesis en V5.
 
-**Incluye:** permiso de micrófono, consentimiento/indicador, límites, archivo privado temporal, motor ASR local detrás de interfaz, procedencia del modelo, estados y borrado idempotente. No incluye nube ni persistencia clínica.
+**Incluye:** permiso de micrófono, consentimiento/indicador, límites, archivo privado temporal, motor ASR local detrás de interfaz, procedencia del modelo, estados y borrado idempotente. No incluye nube ni persistencia clínica para el flujo experimental; el audio de hitos de bitácora no forma parte de V3 y tiene su propio contrato y bucket (ADR-015).
 
 **Entidades locales:** `RecordingSession`, `AudioArtifact`, `TranscriptDraft`; no se crean tablas remotas salvo decisión posterior.
 
