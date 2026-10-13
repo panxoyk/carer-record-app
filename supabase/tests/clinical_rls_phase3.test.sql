@@ -55,8 +55,8 @@ select is((select array_agg(column_name order by ordinal_position)::text
 select is((select array_agg(column_name order by ordinal_position)::text
   from information_schema.columns where table_schema='public'
     and table_name='clinical_timeline_by_hospitalization'),
-  '{organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at}',
-  'timeline exposes exactly the contracted event columns');
+  '{organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,audio_storage_path,audio_duration_ms}',
+  'timeline exposes exactly the contracted event and milestone columns');
 select ok(not has_column_privilege('authenticated','public.clinical_events','recorded_by','select')
   and not has_column_privilege('authenticated','public.clinical_events','payload','select'),
   'timeline source provenance and raw payload remain unavailable');

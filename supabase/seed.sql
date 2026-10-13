@@ -23,6 +23,24 @@ on conflict (id) do nothing;
 -- synthetic legacy practitioners exist; this is idempotent and has no runtime grant.
 select public.bootstrap_legacy_practitioner_iam();
 
+-- Bitácora milestones (context notes): clinical staff create and confirm their
+-- own milestones. The protected demo administrator receives the same
+-- context.note.* set: the delegation rule
+-- (20261011300000_harden_iam_role_delegation_and_signatures.sql) only allows
+-- granting a role whose complete permission set the delegating administrator
+-- also holds, so a read-only administrator could no longer delegate
+-- "Personal clínico".
+insert into public.role_permissions (organization_id, role_id, permission_code)
+select role.organization_id, role.id, permission.code
+from public.roles role
+join public.organizations organization on organization.id = role.organization_id
+join (
+  values ('context.note.read'), ('context.note.create'), ('context.note.confirm')
+) as permission(code) on true
+where organization.slug = 'demo-hospital'
+  and (role.name = 'Personal clínico' or role.protected_kind = 'demo_administrator')
+on conflict (organization_id, role_id, permission_code) do nothing;
+
 -- Fictitious local-development patients only; never use clinical data here.
 insert into public.patients (
   id, external_reference, given_name, family_name, birth_date, rut, care_unit,
