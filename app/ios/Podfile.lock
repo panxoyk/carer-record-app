@@ -1,7 +1,17 @@
 PODS:
   - app_links (6.4.1):
     - Flutter
+  - audio_session (0.0.1):
+    - Flutter
   - Flutter (1.0.0)
+  - just_audio (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - path_provider_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - record_ios (1.2.1):
+    - Flutter
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -10,15 +20,27 @@ PODS:
 
 DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
+  - audio_session (from `.symlinks/plugins/audio_session/ios`)
   - Flutter (from `Flutter`)
+  - just_audio (from `.symlinks/plugins/just_audio/darwin`)
+  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
+  - record_ios (from `.symlinks/plugins/record_ios/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 EXTERNAL SOURCES:
   app_links:
     :path: ".symlinks/plugins/app_links/ios"
+  audio_session:
+    :path: ".symlinks/plugins/audio_session/ios"
   Flutter:
     :path: Flutter
+  just_audio:
+    :path: ".symlinks/plugins/just_audio/darwin"
+  path_provider_foundation:
+    :path: ".symlinks/plugins/path_provider_foundation/darwin"
+  record_ios:
+    :path: ".symlinks/plugins/record_ios/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   url_launcher_ios:
@@ -26,7 +48,11 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   app_links: 3dbc685f76b1693c66a6d9dd1e9ab6f73d97dc0a
+  audio_session: 9bb7f6c970f21241b19f5a3658097ae459681ba0
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
+  path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
+  record_ios: 980fd386a97a35987d0fce3dfda4b26a38c90f4c
   shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
 
