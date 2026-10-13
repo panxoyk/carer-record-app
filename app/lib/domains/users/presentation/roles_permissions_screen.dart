@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design_system/clinical_design_system.dart';
+import '../../../core/design_system/anchored_selector.dart';
 import '../../institutional/data/iam_models.dart';
 import '../../institutional/data/iam_repository.dart';
 import '../../institutional/presentation/iam_providers.dart';
@@ -110,11 +111,21 @@ class _RoleEditor extends ConsumerStatefulWidget {
 }
 
 class _RoleEditorState extends ConsumerState<_RoleEditor> {
+  /// El texto vive en el State y no en el campo: cambiar de rol remonta el
+  /// editor, y el campo debe conservar lo escrito y el foco.
+  final _permissionSearchController = TextEditingController();
   String? _roleId;
   Set<String> _draft = {};
   Set<String> _initial = {};
   bool _saving = false;
+  int _roleSelectionRevision = 0;
   var _permissionQuery = '';
+
+  @override
+  void dispose() {
+    _permissionSearchController.dispose();
+    super.dispose();
+  }
 
   bool get _dirty =>
       !_draft.containsAll(_initial) || !_initial.containsAll(_draft);
@@ -146,66 +157,89 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
     for (final permission in visible) {
       (groups[permission.family] ??= []).add(permission);
     }
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return Column(
       children: [
-        DropdownButtonFormField<String>(
-          value: role?.id,
-          decoration: const InputDecoration(labelText: 'Rol'),
-          items: [
-            for (final item in roles)
-              DropdownMenuItem(value: item.id, child: Text(item.name)),
-          ],
-          onChanged: _saving ? null : (id) => _selectRole(context, id, roles),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              AnchoredSelector<String>(
+                key: ValueKey(_roleSelectionRevision),
+                selectedValue: role?.id,
+                labelText: 'Rol',
+                decoration: clinicalInputDecoration(labelText: 'Rol'),
+                options: [
+                  for (final item in roles)
+                    AnchoredSelectorOption(value: item.id, label: item.name),
+                ],
+                onSelected: (id) => _selectRole(context, id, roles),
+              ),
+              if (role != null) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  key: const ValueKey('permission-search'),
+                  controller: _permissionSearchController,
+                  decoration: clinicalInputDecoration(
+                    hintText: 'Nombre o descripción',
+                    prefixIcon: const Icon(Icons.search),
+                  ),
+                  onChanged:
+                      (value) => setState(() => _permissionQuery = value),
+                ),
+                if (hidden)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'El rol contiene permisos no disponibles para esta edición. Recarga o solicita revisión antes de continuar.',
+                    ),
+                  ),
+                for (final entry in groups.entries) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    entry.key,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  for (final permission in entry.value)
+                    CheckboxListTile(
+                      value: _draft.contains(permission.code),
+                      title: Text(permission.code),
+                      subtitle: Text(permission.description),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      onChanged:
+                          _saving
+                              ? null
+                              : (checked) => setState(() {
+                                checked == true
+                                    ? _draft.add(permission.code)
+                                    : _draft.remove(permission.code);
+                              }),
+                    ),
+                ],
+                if (visible.isEmpty)
+                  const ListTile(
+                    title: Text('Ningún permiso coincide con la búsqueda.'),
+                  ),
+              ],
+            ],
+          ),
         ),
-        if (role != null) ...[
-          const SizedBox(height: 8),
-          Text(role.description),
-          const SizedBox(height: 12),
-          TextField(
-            decoration: const InputDecoration(
-              labelText: 'Buscar permisos',
-              helperText: 'Busca por nombre, familia o descripción.',
-              prefixIcon: Icon(Icons.search),
-            ),
-            onChanged: (value) => setState(() => _permissionQuery = value),
-          ),
-          if (hidden)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                'El rol contiene permisos no disponibles para esta edición. Recarga o solicita revisión antes de continuar.',
+        if (role != null)
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed:
+                      _saving || !_dirty || hidden
+                          ? null
+                          : () => _save(context),
+                  child: Text(_saving ? 'Guardando…' : 'Guardar'),
+                ),
               ),
             ),
-          for (final entry in groups.entries) ...[
-            const SizedBox(height: 16),
-            Text(entry.key, style: Theme.of(context).textTheme.titleMedium),
-            for (final permission in entry.value)
-              CheckboxListTile(
-                value: _draft.contains(permission.code),
-                title: Text(permission.code),
-                subtitle: Text(permission.description),
-                controlAffinity: ListTileControlAffinity.leading,
-                onChanged:
-                    _saving
-                        ? null
-                        : (checked) => setState(() {
-                          checked == true
-                              ? _draft.add(permission.code)
-                              : _draft.remove(permission.code);
-                        }),
-              ),
-          ],
-          if (visible.isEmpty)
-            const ListTile(
-              title: Text('Ningún permiso coincide con la búsqueda.'),
-            ),
-          FilledButton(
-            onPressed:
-                _saving || !_dirty || hidden ? null : () => _save(context),
-            child: Text(_saving ? 'Guardando…' : 'Guardar'),
           ),
-        ],
       ],
     );
   }
@@ -223,6 +257,7 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
     if (id == null || id == _roleId) return;
     if (_dirty &&
         !await _confirm(context, '¿Descartar los cambios pendientes?')) {
+      if (mounted) setState(() => _roleSelectionRevision++);
       return;
     }
     if (!mounted) return;

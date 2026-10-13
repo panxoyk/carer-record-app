@@ -2,6 +2,7 @@ import 'package:carer_record_app/domains/institutional/data/iam_models.dart';
 import 'package:carer_record_app/domains/institutional/data/iam_repository.dart';
 import 'package:carer_record_app/domains/institutional/presentation/iam_providers.dart';
 import 'package:carer_record_app/domains/users/presentation/roles_permissions_screen.dart';
+import 'package:carer_record_app/core/design_system/anchored_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,11 +52,17 @@ void main() {
       );
       await _mount(tester, fake, roles: [roleWithDeprecated]);
       expect(find.text('No hay roles ordinarios activos.'), findsNothing);
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.tap(find.byType(AnchoredSelector<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Equipo').last);
       await tester.pumpAndSettle();
       expect(find.text('clínico'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('membresías'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       expect(find.text('membresías'), findsOneWidget);
       expect(find.text('clinical.read'), findsOneWidget);
       expect(
@@ -91,22 +98,31 @@ void main() {
       );
       await _select(tester, 'Equipo');
       expect(find.text('Gestión de roles y permisos'), findsOneWidget);
-      expect(find.text('Buscar permisos'), findsOneWidget);
+      expect(find.text('Descripción del rol'), findsNothing);
+      final search = find.byKey(const ValueKey('permission-search'));
+      final decoration = tester.widget<TextField>(search).decoration!;
+      expect(decoration.hintText, 'Nombre o descripción');
+      expect(decoration.labelText, isNull);
+      expect(decoration.helperText, isNull);
+      expect(
+        find.text('Busca por nombre, familia o descripción.'),
+        findsNothing,
+      );
       expect(find.text('clínico'), findsOneWidget);
       expect(find.text('membresías'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), 'escritura');
+      await tester.enterText(search, 'escritura');
       await tester.pumpAndSettle();
       expect(find.text('clinical.write'), findsOneWidget);
       expect(find.text('clinical.read'), findsNothing);
       expect(find.text('membresías'), findsNothing);
 
-      await tester.enterText(find.byType(TextField), 'membresías');
+      await tester.enterText(search, 'membresías');
       await tester.pumpAndSettle();
       expect(find.text('iam.membership.read'), findsOneWidget);
       expect(find.text('clinical.write'), findsNothing);
 
-      await tester.enterText(find.byType(TextField), 'nada coincide');
+      await tester.enterText(search, 'nada coincide');
       await tester.pumpAndSettle();
       expect(
         find.text('Ningún permiso coincide con la búsqueda.'),
@@ -132,7 +148,7 @@ void main() {
           ),
         ],
       );
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.tap(find.byType(AnchoredSelector<String>));
       await tester.pumpAndSettle();
       expect(find.text('Protegido'), findsNothing);
       expect(find.text('00000000-0000-0000-0000-000000000001'), findsNothing);
@@ -242,7 +258,16 @@ void main() {
       await _chooseRole(tester, 'Supervisión');
       await tester.tap(find.text('Cancelar'));
       await tester.pumpAndSettle();
-      expect(find.text('Descripción del rol'), findsOneWidget);
+      expect(find.text('Equipo'), findsOneWidget);
+      expect(
+        tester
+            .widget<AnchoredSelector<String>>(
+              find.byType(AnchoredSelector<String>),
+            )
+            .selectedValue,
+        _role.id,
+      );
+      expect(find.text('Descripción del rol'), findsNothing);
       expect(
         tester
             .widget<CheckboxListTile>(find.byType(CheckboxListTile).first)
@@ -253,7 +278,7 @@ void main() {
       await tester.tap(find.text('Confirmar'));
       await tester.pumpAndSettle();
       expect(find.text('Supervisión'), findsOneWidget);
-      expect(find.text('Descripción del rol'), findsOneWidget);
+      expect(find.text('Descripción del rol'), findsNothing);
       expect(
         tester
             .widget<CheckboxListTile>(find.byType(CheckboxListTile).first)
@@ -461,7 +486,7 @@ void main() {
 }
 
 Future<void> _chooseRole(WidgetTester tester, String name) async {
-  await tester.tap(find.byType(DropdownButtonFormField<String>));
+  await tester.tap(find.byType(AnchoredSelector<String>));
   await tester.pumpAndSettle();
   await tester.tap(find.text(name).last);
   await tester.pumpAndSettle();
@@ -505,7 +530,7 @@ Future<void> _mount(
 }
 
 Future<void> _select(WidgetTester tester, String name) async {
-  await tester.tap(find.byType(DropdownButtonFormField<String>));
+  await tester.tap(find.byType(AnchoredSelector<String>));
   await tester.pumpAndSettle();
   await tester.tap(find.text(name).last);
   await tester.pumpAndSettle();
