@@ -1,18 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'clinical_tokens.dart';
+
 /// Tokens visuales compartidos por las pantallas clínicas.
-abstract final class ClinicalColors {
-  static const mint = Color(0xff4eddb3);
-  static const mintDark = Color(0xff2ab892);
-  static const softMint = Color(0xffe7faf4);
-  static const ink = Color(0xff1c1c1e);
-  static const canvas = Color(0xfff2f2f7);
-  static const secondary = Color(0xff6e6e73);
-  static const tertiary = Color(0xffaeaeb2);
-  static const separator = Color(0x1f3c3c43);
-  static const destructive = Color(0xffff3b30);
-}
+export 'clinical_tokens.dart'
+    show ClinicalColors, ClinicalRadii, ClinicalSpacing, ClinicalTextStyles;
 
 abstract final class ClinicalTheme {
   static ThemeData build() => ThemeData(
@@ -23,6 +16,18 @@ abstract final class ClinicalTheme {
       surface: Colors.white,
     ),
     scaffoldBackgroundColor: ClinicalColors.canvas,
+    textTheme: const TextTheme(
+      headlineMedium: ClinicalTextStyles.pageTitle,
+      titleLarge: ClinicalTextStyles.sectionTitle,
+      bodyLarge: TextStyle(color: ClinicalColors.ink),
+      bodyMedium: TextStyle(color: ClinicalColors.secondary),
+      labelLarge: TextStyle(fontWeight: FontWeight.w600),
+    ),
+    dividerTheme: const DividerThemeData(
+      color: ClinicalColors.divider,
+      thickness: 1,
+      space: 1,
+    ),
     cardTheme: const CardThemeData(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -34,8 +39,57 @@ abstract final class ClinicalTheme {
       backgroundColor: ClinicalColors.canvas,
       indicatorColor: ClinicalColors.softMint,
     ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: ClinicalColors.mintDark,
+        foregroundColor: ClinicalColors.ink,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(ClinicalRadii.control),
+        ),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(foregroundColor: ClinicalColors.mintText),
+    ),
+    inputDecorationTheme: _inputTheme,
   );
 }
+
+final InputDecorationTheme _inputTheme = InputDecorationTheme(
+  filled: true,
+  fillColor: Colors.white,
+  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+  border: _inputBorder(ClinicalColors.separator),
+  enabledBorder: _inputBorder(ClinicalColors.separator),
+  focusedBorder: _inputBorder(ClinicalColors.mintDark, width: 1.6),
+  errorBorder: _inputBorder(ClinicalColors.destructive),
+  focusedErrorBorder: _inputBorder(ClinicalColors.destructive, width: 1.6),
+  labelStyle: const TextStyle(color: ClinicalColors.secondary),
+  floatingLabelStyle: const TextStyle(color: ClinicalColors.mintText),
+  errorStyle: const TextStyle(color: ClinicalColors.destructive),
+);
+
+OutlineInputBorder _inputBorder(Color color, {double width = 1}) =>
+    OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: color, width: width),
+    );
+
+/// Decoración común de los campos de entrada. Los bordes, el relleno y los
+/// estados viven en el tema; aquí solo se declara el contenido del campo.
+InputDecoration clinicalInputDecoration({
+  String? labelText,
+  String? hintText,
+  String? helperText,
+  Widget? prefixIcon,
+  Widget? suffixIcon,
+}) => InputDecoration(
+  labelText: labelText,
+  hintText: hintText,
+  helperText: helperText,
+  prefixIcon: prefixIcon,
+  suffixIcon: suffixIcon,
+);
 
 class ClinicalCard extends StatelessWidget {
   const ClinicalCard({

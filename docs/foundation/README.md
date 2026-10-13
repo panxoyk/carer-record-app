@@ -109,6 +109,8 @@ Cada flujo define objetivo, actores, permisos, precondiciones, camino principal,
 
 ## Recorridos recomendados
 
+La [guía breve del sistema visual](../design-system.md) describe la referencia y los tokens Flutter compartidos.
+
 ### Incorporación de una persona desarrolladora
 
 1. Leer visión, prototipo y alcance.
