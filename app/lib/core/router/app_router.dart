@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../domains/auth/presentation/auth_providers.dart';
 import '../../domains/auth/presentation/auth_screens.dart';
+import '../../domains/context_note/presentation/model_setup_screen.dart';
 import '../../domains/patient/presentation/patient_screens.dart';
 import '../../domains/institutional/presentation/iam_providers.dart';
 import '../../domains/institutional/data/iam_models.dart';
@@ -17,12 +18,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = _RouterRefresh(gate);
   ref.listen(selectedOrganizationProvider, (_, __) => refresh.refresh());
   final router = GoRouter(
-    initialLocation: '/',
+    initialLocation: '/setup',
     refreshListenable: refresh,
     redirect: (context, state) async {
       final location = state.matchedLocation;
-      const publicPaths = {'/login', '/recover'};
+      const publicPaths = {'/login', '/recover', '/setup'};
       if (gate.session == null) {
+        // A fresh clone has no weights yet. Provisioning is public on purpose:
+        // it moves model bytes, not clinical content, and doing it before
+        // sign-in keeps a 1.3 GB download off the authenticated route.
+        if (location == '/setup') return null;
         return publicPaths.contains(location) ? null : '/login';
       }
       if (gate.recoveringPassword) {
@@ -31,6 +36,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (location == '/update-password') {
         return '/';
       }
+      // An authenticated user never needs the provisioning screen.
+      if (location == '/setup') return '/';
       final contexts = await ref
           .read(iamContextsProvider.future)
           .catchError((_) => <IamContext>[]);
@@ -60,6 +67,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/', builder: (_, __) => const ProtectedShell()),
+      GoRoute(path: '/setup', builder: (_, __) => const ModelSetupScreen()),
       GoRoute(path: '/login', builder: (_, __) => const SignInScreen()),
       GoRoute(
         path: '/recover',

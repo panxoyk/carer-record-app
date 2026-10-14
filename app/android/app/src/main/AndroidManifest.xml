@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Bitácora milestones: raw audio capture for stored-audio milestones. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- First-run provisioning of the on-device ASR and synthesis weights. The
+         Flutter template only declares this in the debug/profile manifests, so a
+         release build could never download the models it ships a manifest for. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Dev: local Supabase over HTTP (emulator). Native audio playback uses the
          platform network stack, which blocks cleartext by default. Production
          uses HTTPS, where this flag is inert. -->
