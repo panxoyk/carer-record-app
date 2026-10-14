@@ -50,6 +50,22 @@ pnpm db:reset
 
 Consulta la sección de tu plataforma y ejecuta `pnpm app:run`. El comando pasa la URL y clave publishable de `.env` a Flutter mediante `--dart-define`.
 
+## Modelos en el dispositivo
+
+El dictado de hitos y la mejora de redacción se ejecutan dentro del teléfono, así que la app necesita dos pesos que **no están en el repositorio**:unos 198 MB de `sherpa-onnx-whisper-base` (int8, Apache/MIT) y unos 1,03 GB de `Qwen3-1.7B-Q4_K_M.gguf` (Apache-2.0). Versionarlos ocuparía más que el código y bloquearía los clones.
+
+Lo que sí está versionado son los manifiestos, `app/assets/asr_model_manifest.json` y `app/assets/llm_model_manifest.json`. Cada uno fija origen, licencia, versión, tamaño y el `sha256` de cada archivo.
+
+Qué hace la app con ellos:
+
+- En el **primer arranque** se abre la pantalla «Preparar el dispositivo» y descarga los dos modelos con progreso visible.
+- Cada descarga se verifica por `sha256` antes de usarse; si no coincide, el instalador borra lo descargado y reintenta.
+- Los pesos quedan en el directorio privado de soporte de la app (`files/asr` y `files/llm` en Android), fuera del APK y fuera de las copias de seguridad.
+- En los arranques siguientes solo se comprueba el tamaño de los archivos: hashear 1,3 GB en cada inicio costaría más que la propia descarga.
+- La pantalla se puede saltar. Sin modelos, la bitácora sigue funcionando: solo desaparecen el hito dictado y la ayuda a redactar (ADR-016 y ADR-017).
+
+Necesitas ~1,3 GB libres en el dispositivo y conexión en el primer arranque. Después todo funciona sin red.
+
 ## Ejecutar en simulador o emulador
 
 ### iOS Simulator

@@ -56,5 +56,7 @@ Este archivo organiza tareas secuenciales de implementación. El alcance, las de
 - [x] Retiro de `clinical-summary` y de la Edge Function de síntesis.
 - [ ] Cerrar el spike SP-01 con medición en un dispositivo arm64 real: latencia, factor de tiempo real, RAM, batería, temperatura y tamaño de descarga.
 - [ ] Registrar el corpus sintético del benchmark de síntesis y sus resultados; no afirmar calidad clínica.
-- [ ] Instalar los pesos en el dispositivo mediante el flujo de descarga con progreso antes de cualquier demostración.
+- [x] Descarga de pesos en el dispositivo con el flujo de primer arranque: pantalla «Preparar el dispositivo», progreso, verificación por `sha256` y salida sin modelos que no bloquea la bitácora. Sustituye la instalación manual por `adb push`.
+- [ ] Medir en un arm64 real el coste de la descompresión bzip2 en streaming y el pico de RAM durante la instalación de los 198 MB de ASR.
 - [ ] Medir y decidir el plazo de expiración de capturas pendientes (`Q-PRIV-03`) con el vault ya implementado.
+- [ ] Cerrar el arranque sin credenciales de Supabase. Hoy `initializeSupabase` lanza en `main()` y la app no llega a pintar, así que un clon sin `.env` no puede ni descargar los modelos; la pantalla de preparación no depende del backend.
