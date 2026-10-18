@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -62,9 +63,22 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
   bool _busy = false;
   bool _assisting = false;
   String? _assistNote;
+  MilestoneEditorActivity? _editorActivity;
+
+  @override
+  void initState() {
+    super.initState();
+    _editorActivity = ref.read(milestoneEditorActiveProvider);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _editorActivity?.active = true;
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _editorActivity?.active = false;
     _ticker?.cancel();
     _textController.dispose();
     _previewPlayer?.dispose();
@@ -90,10 +104,19 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
       await _stopRecording();
       return;
     }
-    final engine = await ref.read(asrEngineProvider.future);
+    final engineState = ref.read(asrEngineProvider);
+    if (engineState.isLoading) {
+      _showError('Comprobando disponibilidad del dictado local.');
+      return;
+    }
+    if (engineState.hasError) {
+      _showError('No se pudo comprobar el dictado local. Inténtalo de nuevo.');
+      return;
+    }
+    final engine = engineState.valueOrNull;
     if (engine == null) {
       _showError(
-        'El ASR local no está disponible en este dispositivo. '
+        'El Dictado no está disponible en este dispositivo. '
         'Escribe el hito en texto.',
       );
       return;
@@ -175,7 +198,7 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
       _patch(
         _session.copyWith(
           stage: DictationStage.failed,
-          error: 'El ASR local no está disponible.',
+          error: 'El Dictado no está disponible.',
         ),
       );
       _showError('No se pudo transcribir localmente. Intenta de nuevo.');
@@ -308,7 +331,7 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
           error: 'No se pudo guardar el hito.',
         ),
       );
-      _showError('No se pudo guardar el hito: $error');
+      _showError('No se pudo guardar el hito. Inténtalo de nuevo.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -354,13 +377,21 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
             ),
             const SizedBox(height: 8),
             Text(
-              asrReady
-                  ? 'La transcripción ocurre en este dispositivo y el audio no '
-                        'sale del teléfono.'
-                  : 'El reconocimiento de voz local no está disponible; '
-                        'el hito de texto sigue funcionando.',
+              engineState.isLoading
+                  ? 'Comprobando disponibilidad del dictado local…'
+                  : engineState.hasError
+                  ? 'No se pudo comprobar el dictado local. El hito de texto sigue disponible.'
+                  : asrReady
+                  ? 'La transcripción ocurre en este dispositivo y el audio no sale del teléfono.'
+                  : 'El modelo de dictado no está instalado. El hito de texto sigue disponible.',
+              key: const Key('asr-availability'),
               style: Theme.of(context).textTheme.bodySmall,
             ),
+            if (engineState.hasError || (!engineState.isLoading && !asrReady))
+              TextButton(
+                onPressed: () => context.push('/models'),
+                child: const Text('Administrar modelos'),
+              ),
             const SizedBox(height: 16),
             if (_mode == MilestoneInputMethod.text)
               TextField(
@@ -411,8 +442,30 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
   }
 
   Widget _buildAssistRow() {
-    final provider = ref.watch(synthesisProviderProvider).valueOrNull;
+    final providerState = ref.watch(synthesisProviderProvider);
+    final provider = providerState.valueOrNull;
     final hasDraft = _textController.text.trim().isNotEmpty;
+    if (providerState.isLoading) {
+      return Semantics(
+        liveRegion: true,
+        child: Text('Comprobando disponibilidad de la mejora local…'),
+      );
+    }
+    if (providerState.hasError) {
+      return Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'No se pudo comprobar la mejora local. El texto puede confirmarse sin cambios.',
+            ),
+          ),
+          TextButton(
+            onPressed: () => context.push('/models'),
+            child: const Text('Administrar modelos'),
+          ),
+        ],
+      );
+    }
     if (provider == null) {
       return Row(
         children: [
@@ -420,10 +473,14 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'La mejora de texto no está disponible: el modelo local no está '
+              'La Ayuda de redacción no está disponible: el modelo de IA no está '
               'instalado. El hito se publica tal como lo escribiste.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
+          ),
+          TextButton(
+            onPressed: () => context.push('/models'),
+            child: const Text('Instalar'),
           ),
         ],
       );
@@ -456,7 +513,7 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
   Future<void> _improveDraft() async {
     final provider = await ref.read(synthesisProviderProvider.future);
     if (provider == null) {
-      setState(() => _assistNote = 'El modelo local no está instalado.');
+      setState(() => _assistNote = 'La Ayuda de redacción no está instalada.');
       return;
     }
     setState(() {
@@ -480,7 +537,8 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
 
   String _assistMessageFor(String? code) {
     return switch (code) {
-      SynthesisErrorCode.unavailable => 'El modelo local no está disponible.',
+      SynthesisErrorCode.unavailable =>
+        'La Ayuda de redacción no está disponible.',
       SynthesisErrorCode.timeout => 'La mejora local tardó demasiado.',
       SynthesisErrorCode.tooLong => 'La sugerencia era demasiado larga.',
       SynthesisErrorCode.cancelled => 'Mejora cancelada.',
@@ -500,7 +558,13 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             IconButton.filledTonal(
-              onPressed: _busy || stage == DictationStage.transcribingLocal
+              onPressed:
+                  _busy ||
+                      stage == DictationStage.transcribingLocal ||
+                      (stage != DictationStage.recording &&
+                          (ref.watch(asrEngineProvider).isLoading ||
+                              ref.watch(asrEngineProvider).hasError ||
+                              ref.watch(asrEngineProvider).valueOrNull == null))
                   ? null
                   : _toggleRecording,
               tooltip: stage == DictationStage.recording
@@ -510,6 +574,13 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
                 stage == DictationStage.recording ? Icons.stop : Icons.mic_none,
               ),
             ),
+            if (stage != DictationStage.recording &&
+                !ref.watch(asrEngineProvider).isLoading &&
+                ref.watch(asrEngineProvider).valueOrNull == null)
+              TextButton(
+                onPressed: () => context.push('/models'),
+                child: const Text('Administrar modelos'),
+              ),
             const SizedBox(width: 12),
             if (stage == DictationStage.recording)
               const Text('Grabando localmente…')

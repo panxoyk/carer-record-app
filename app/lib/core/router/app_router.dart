@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../domains/auth/presentation/auth_providers.dart';
 import '../../domains/auth/presentation/auth_screens.dart';
 import '../../domains/context_note/presentation/model_setup_screen.dart';
+import '../../domains/context_note/presentation/model_management_screen.dart';
+import '../../domains/context_note/presentation/model_setup_providers.dart';
 import '../../domains/patient/presentation/patient_screens.dart';
 import '../../domains/institutional/presentation/iam_providers.dart';
 import '../../domains/institutional/data/iam_models.dart';
@@ -16,6 +18,9 @@ import '../design_system/clinical_design_system.dart';
 final appRouterProvider = Provider<GoRouter>((ref) {
   final gate = ref.read(authGateProvider);
   final refresh = _RouterRefresh(gate);
+  ref.listen(modelReadinessProvider, (_, __) => refresh.refresh());
+  ref.listen(modelSetupSkippedProvider, (_, __) => refresh.refresh());
+  ref.listen(setupAwaitingContinueProvider, (_, __) => refresh.refresh());
   ref.listen(selectedOrganizationProvider, (_, __) => refresh.refresh());
   final router = GoRouter(
     initialLocation: '/setup',
@@ -23,21 +28,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) async {
       final location = state.matchedLocation;
       const publicPaths = {'/login', '/recover', '/setup'};
+      final modelsReady = await ref
+          .read(modelReadinessProvider.future)
+          .catchError((_) => false);
+      final setupRedirect = modelSetupRedirect(
+        location: location,
+        modelsReady: modelsReady,
+        skipped: ref.read(modelSetupSkippedProvider),
+        setupAwaitingContinue: ref.read(setupAwaitingContinueProvider),
+        hasSession: gate.session != null,
+        recoveringPassword: gate.recoveringPassword,
+      );
+      if (setupRedirect != null) return setupRedirect;
       if (gate.session == null) {
-        // A fresh clone has no weights yet. Provisioning is public on purpose:
-        // it moves model bytes, not clinical content, and doing it before
-        // sign-in keeps a 1.3 GB download off the authenticated route.
-        if (location == '/setup') return null;
         return publicPaths.contains(location) ? null : '/login';
       }
       if (gate.recoveringPassword) {
         return location == '/update-password' ? null : '/update-password';
       }
+      // Keep the authenticated first-run route available until the user
+      // installs the optional models or explicitly skips setup.
+      if (location == '/setup') return null;
       if (location == '/update-password') {
         return '/';
       }
-      // An authenticated user never needs the provisioning screen.
-      if (location == '/setup') return '/';
       final contexts = await ref
           .read(iamContextsProvider.future)
           .catchError((_) => <IamContext>[]);
@@ -68,6 +82,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/', builder: (_, __) => const ProtectedShell()),
       GoRoute(path: '/setup', builder: (_, __) => const ModelSetupScreen()),
+      GoRoute(
+        path: '/models',
+        builder: (_, __) => const ModelManagementScreen(),
+      ),
       GoRoute(path: '/login', builder: (_, __) => const SignInScreen()),
       GoRoute(
         path: '/recover',
@@ -130,6 +148,35 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   });
   return router;
 });
+
+/// Returns the redirect needed for optional local model setup, or null when
+/// the auth/authorization redirect should decide the destination.
+String? modelSetupRedirect({
+  required String location,
+  required bool modelsReady,
+  required bool skipped,
+  bool setupAwaitingContinue = false,
+  required bool hasSession,
+  bool recoveringPassword = false,
+}) {
+  if (recoveringPassword) {
+    return location == '/update-password' ? null : '/update-password';
+  }
+  if (location == '/recover' || location == '/update-password') return null;
+  if (location == '/models' && !hasSession) return '/login';
+  // Authenticated users may manage installed models even when cleanup leaves
+  // one unavailable; authorization checks still run below this setup gate.
+  if (location == '/models' && hasSession) return null;
+  if (!modelsReady && !skipped && location != '/setup') return '/setup';
+  if (skipped && location == '/setup' && !hasSession) return '/login';
+  if (modelsReady &&
+      location == '/setup' &&
+      !setupAwaitingContinue &&
+      !hasSession) {
+    return '/login';
+  }
+  return null;
+}
 
 String? permissionRedirectForLocation(IamContext context, String location) {
   if (location == '/') {

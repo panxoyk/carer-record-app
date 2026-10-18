@@ -26,6 +26,10 @@ La disponibilidad de un runtime de inferencia GGUF en el dispositivo (`llamadart
 9. **Uso ordenado.** Primero mejora del texto del hito escrito a mano; después NER local para señalar entidades al autor; el resumen de periodo (ADR-011) es la última adición.
 10. **El SDK sube como prerrequisito propio.** `llamadart` exige Dart ≥3.10.7 / Flutter ≥3.38.0. La actualización del SDK se ejecuta como cambio aislado con su propia validación completa antes de integrar esta ADR.
 
+### Operación de modelos en la app
+
+La implementación administra transcripción y asistencia de texto como capacidades independientes. En cada arranque comprueba sus archivos y un registro local de verificación asociado a identidad, versión, checksum y ruta; el registro se crea solo después de validar el modelo. La comprobación rápida compara existencia y tamaño, por lo que no detecta corrupción que conserve el tamaño; gestión ofrece verificación completa, limpieza y reinstalación por capacidad. La omisión de la pantalla inicial solo evita descargar durante esa ejecución y no altera la comprobación del siguiente arranque. La instalación comunica etapa y progreso. El resumen de periodo no está expuesto en la app; esta decisión no afirma que esté implementado.
+
 ## Alternativas consideradas
 
 - **Mantener el pipeline cloud de ADR-008/ADR-009:** preserva la decisión fundacional y permite comparar proveedores, pero mantiene egreso, credenciales, Edge Function y un mapa reversible que hoy no tiene consumidor.

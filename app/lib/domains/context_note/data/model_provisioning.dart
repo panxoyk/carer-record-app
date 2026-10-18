@@ -27,6 +27,9 @@ class ModelTask {
     required this.bytes,
     required this.status,
     this.fraction,
+    this.receivedBytes,
+    this.totalBytes,
+    this.eta,
     this.stage,
     this.error,
   });
@@ -43,6 +46,9 @@ class ModelTask {
 
   /// 0..1 while installing, null when the total size is not yet known.
   final double? fraction;
+  final int? receivedBytes;
+  final int? totalBytes;
+  final Duration? eta;
 
   /// Coarse phase name reported by the installer, for the progress line.
   final String? stage;
@@ -51,6 +57,10 @@ class ModelTask {
   ModelTask copyWith({
     ModelStatus? status,
     double? fraction,
+    int? receivedBytes,
+    int? totalBytes,
+    Duration? eta,
+    bool clearProgress = false,
     String? stage,
     String? error,
     bool clearError = false,
@@ -63,7 +73,10 @@ class ModelTask {
     bytes: bytes,
     status: status ?? this.status,
     fraction: fraction ?? this.fraction,
-    stage: stage ?? this.stage,
+    receivedBytes: clearProgress ? null : (receivedBytes ?? this.receivedBytes),
+    totalBytes: clearProgress ? null : (totalBytes ?? this.totalBytes),
+    eta: clearProgress ? null : (eta ?? this.eta),
+    stage: stage ?? (clearProgress ? null : this.stage),
     error: clearError ? null : (error ?? this.error),
   );
 
@@ -76,9 +89,9 @@ class ModelTask {
 
   String get stageLabel => switch (stage) {
     'descargando' => 'Descargando',
-    'verificando' => 'Verificando integridad',
+    'verificando' => 'Comprobando descarga',
     'descomprimiendo' => 'Descomprimiendo',
-    'extrayendo' => 'Instalando pesos',
+    'extrayendo' => 'Preparando modelos de IA',
     _ => 'Preparando',
   };
 }

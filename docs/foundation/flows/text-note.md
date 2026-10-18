@@ -63,6 +63,7 @@ flowchart TD
 
 - Sin conexión antes de publicar: la operación queda encolada localmente y se reintenta con backoff al recuperar conectividad.
 - Sin modelo local instalado: el botón de mejora se explica como no disponible y la publicación directa funciona igual.
+- La pantalla inicial puede omitirse durante esa ejecución; la mejora sigue no disponible si falta el modelo y la comprobación vuelve a ocurrir al siguiente arranque. Desde gestión de modelos se puede verificar la integridad, limpiar o reinstalar solo el modelo de asistencia.
 - El motor local falla, agota el tiempo o devuelve salida no interpretable: se informa con un código estable, se conserva el texto del autor y se publica sin asistencia.
 - Sin conexión al pedir mejora: la mejora local no necesita red; si la publicación falla por red, la operación queda encolada.
 - Perfil o membresía suspendidos, permiso revocado u hospitalización fuera de alcance antes de confirmar: RLS deniega y la app ofrece descarte seguro, nunca transferencia a otro autor.
@@ -129,6 +130,7 @@ La auditoría registra actor, paciente, hospitalización, resultado, `client_eve
 - `app/lib/domains/context_note/domain/synthesis_provider.dart`: puerto del dominio con códigos de error estables.
 - `app/lib/domains/context_note/domain/usecases/synthesis_usecases.dart`: la asistencia nunca bloquea la publicación.
 - `app/lib/domains/context_note/data/context_note_repository.dart`: escritura única con contenido confirmado y procedencia.
+- La gestión individual de modelos, su progreso y sus límites de verificación están descritos en [Audio, IA y NER](../09-audio-ai-ner.md#síntesis-local).
 - `supabase/tests/context_notes_milestones.test.sql`: contrato RLS, idempotencia e inmutabilidad.
 - [Modelo de dominio](../07-domain-model.md#nota-de-contexto) define `ContextNote` con confirmación del autor, corrección append-only y proyección al timeline.
 - [Supabase: Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security) documenta políticas `with check` para filas nuevas.

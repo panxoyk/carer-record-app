@@ -69,6 +69,7 @@ sequenceDiagram
 - Transcripción vacía: no se publica; se informa y se ofrece repetir la grabación o escribir a mano.
 - Confianza baja en algún segmento: el borrador lo señala para que el autor lo revise antes de confirmar.
 - Modelo no instalado: el botón de dictado no ofrece grabar y el hito textual sigue disponible.
+- La pantalla inicial puede omitirse durante esa ejecución; el dictado sigue no disponible si falta el modelo y la comprobación vuelve a ocurrir al siguiente arranque. Desde gestión de modelos se puede verificar la integridad, limpiar o reinstalar solo el modelo de transcripción.
 - Suspensión de perfil o membresía, revocación de permiso o pérdida de alcance antes de confirmar: RLS deniega; no se exporta nada y solo se permite descartar.
 - Reinicio del dispositivo: un barrido elimina las operaciones vencidas sin depender de que el flujo vuelva a abrirse.
 
@@ -130,6 +131,7 @@ Los eventos auditables son inicio y fin de captura, resultado agregado del ASR, 
 - `app/lib/domains/context_note/data/sherpa_asr_engine.dart`: adaptador local y procedencia no sensible.
 - `app/lib/domains/context_note/data/draft_vault.dart`: temporales cifrados y purga idempotente.
 - `app/assets/asr_model_manifest.json`: origen, licencia, versión y checksums del modelo.
+- La gestión de modelos está descrita en [Audio, IA y NER](../09-audio-ai-ner.md#síntesis-local).
 - `supabase/tests/context_notes_milestones.test.sql`: RLS, idempotencia y prueba de privacidad.
 - [Sherpa ONNX: modelos ASR preentrenados](https://k2-fsa.github.io/sherpa/onnx/pretrained_models/index.html) permite evaluar modelos, idiomas y artefactos durante el spike.
 - [Supabase: Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security) documenta las políticas de lectura y escritura por fila.

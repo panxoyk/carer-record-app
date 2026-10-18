@@ -11,9 +11,21 @@ import '../data/context_note_repository.dart';
 import '../data/draft_vault.dart';
 import '../data/llama_gguf_synthesis_provider.dart';
 import '../data/llm_model_manifest.dart';
+import '../data/local_capability_repository_impl.dart';
+import '../domain/local_capability_repository.dart';
 import '../data/sherpa_asr_engine.dart';
 import '../domain/asr_engine.dart';
 import '../domain/synthesis_provider.dart';
+
+/// Plain mutable activity flag: teardown can release it synchronously without
+/// notifying a ProviderContainer that may already be disposing.
+class MilestoneEditorActivity {
+  bool active = false;
+}
+
+final milestoneEditorActiveProvider = Provider<MilestoneEditorActivity>(
+  (ref) => MilestoneEditorActivity(),
+);
 
 final contextNoteRepositoryProvider =
     Provider.autoDispose<ContextNoteRepository>(
@@ -79,6 +91,16 @@ final llmModelDirectoryProvider = FutureProvider.autoDispose<Directory>((
   if (!directory.existsSync()) await directory.create(recursive: true);
   return directory;
 });
+
+final localCapabilityRepositoryProvider =
+    Provider<Future<LocalCapabilityRepository>>(
+      (ref) async => LocalCapabilityRepositoryImpl(
+        speech: await ref.watch(asrModelManifestProvider.future),
+        writing: await ref.watch(llmModelManifestProvider.future),
+        speechDirectory: await ref.watch(asrModelDirectoryProvider.future),
+        writingDirectory: await ref.watch(llmModelDirectoryProvider.future),
+      ),
+    );
 
 /// Local text assistance, or `null` when the model is not installed.
 ///

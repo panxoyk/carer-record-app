@@ -13,6 +13,8 @@ import 'package:go_router/go_router.dart';
 import 'package:carer_record_app/domains/institutional/data/iam_models.dart';
 import 'package:carer_record_app/domains/institutional/presentation/iam_providers.dart';
 import 'package:carer_record_app/core/design_system/clinical_design_system.dart';
+import 'package:carer_record_app/domains/context_note/presentation/context_note_providers.dart';
+import 'package:carer_record_app/domains/context_note/presentation/milestone_editor_sheet.dart';
 
 const orgId = '00000000-0000-4000-8000-000000000001';
 const hospitalizationId = '00000000-0000-4000-8000-000000000002';
@@ -38,6 +40,39 @@ Widget screen(Widget child, List<Override> overrides) => ProviderScope(
 );
 
 void main() {
+  testWidgets('closing milestone editor releases its active guard safely', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showMilestoneEditorSheet(
+                  context,
+                  patient: episode,
+                  onSaved: () {},
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(container.read(milestoneEditorActiveProvider).active, isTrue);
+    await tester.tap(find.text('Descartar'));
+    await tester.pumpAndSettle();
+    expect(container.read(milestoneEditorActiveProvider).active, isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+    container.dispose();
+  });
+
   testWidgets('internal root app bars use clinical title and colors', (
     tester,
   ) async {
