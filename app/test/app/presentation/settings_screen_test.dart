@@ -1,7 +1,10 @@
-import 'package:carer_record_app/domains/institutional/data/iam_models.dart';
+import 'dart:ui' as ui;
+
+import 'package:carer_record_app/domains/institutional/domain/iam_entities.dart';
 import 'package:carer_record_app/domains/institutional/presentation/iam_providers.dart';
 import 'package:carer_record_app/domains/auth/presentation/auth_providers.dart';
-import 'package:carer_record_app/domains/patient/presentation/patient_screens.dart';
+import 'package:carer_record_app/app/presentation/settings_screen.dart';
+import 'package:carer_record_app/core/design_system/clinical_design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,9 +40,19 @@ void main() {
     expect(find.text('HERRAMIENTAS'), findsOneWidget);
     expect(find.text('Dictado y redacción'), findsOneWidget);
     expect(find.byTooltip('Membresía activa'), findsOneWidget);
-    await tester.tap(find.byTooltip('Membresía activa'));
-    await tester.pumpAndSettle();
-    expect(find.text('Membresía activa'), findsWidgets);
+    final membership = tester.getSemantics(find.byTooltip('Membresía activa'));
+    expect(membership.label, contains('Membresía activa'));
+    expect(
+      membership.getSemanticsData().hasAction(ui.SemanticsAction.tap),
+      isFalse,
+    );
+    expect(membership.getSemanticsData().flagsCollection.isButton, isFalse);
+    final organizationCard = find.ancestor(
+      of: find.text('Hospital'),
+      matching: find.byType(ClinicalCard),
+    );
+    expect(organizationCard, findsOneWidget);
+    expect(tester.getSize(organizationCard).height, greaterThanOrEqualTo(48));
     expect(
       tester.getCenter(find.text('HERRAMIENTAS')).dy,
       lessThan(tester.getCenter(find.text('Dictado y redacción')).dy),
@@ -138,9 +151,14 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Hospital inactivo'), findsNothing);
-      await tester.tap(find.byTooltip('Membresía activa'));
-      await tester.pumpAndSettle();
-      expect(find.text('Membresía activa'), findsWidgets);
+      final membership = tester.getSemantics(
+        find.byTooltip('Membresía activa'),
+      );
+      expect(membership.label, contains('Membresía activa'));
+      expect(
+        membership.getSemanticsData().hasAction(ui.SemanticsAction.tap),
+        isFalse,
+      );
     },
   );
 }

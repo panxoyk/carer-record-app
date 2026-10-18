@@ -1,5 +1,5 @@
-import 'package:carer_record_app/domains/context_note/data/fake_synthesis_provider.dart';
-import 'package:carer_record_app/domains/context_note/domain/synthesis_provider.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/fake_synthesis_provider.dart';
+import 'package:carer_record_app/domains/on_device_ai/domain/synthesis_provider.dart';
 import 'package:carer_record_app/domains/context_note/domain/usecases/synthesis_usecases.dart';
 import 'package:flutter_test/flutter_test.dart';
 

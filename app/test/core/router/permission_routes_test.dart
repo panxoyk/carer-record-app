@@ -1,6 +1,6 @@
-import 'package:carer_record_app/core/router/app_router.dart';
+import 'package:carer_record_app/app/router/navigation_policy.dart';
 import 'package:carer_record_app/core/router/administration_navigation.dart';
-import 'package:carer_record_app/domains/institutional/data/iam_models.dart';
+import 'package:carer_record_app/domains/institutional/domain/iam_entities.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

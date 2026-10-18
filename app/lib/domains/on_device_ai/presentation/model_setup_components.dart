@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/design_system/clinical_design_system.dart';
 import '../../../core/design_system/clinical_page_title.dart';
-import '../data/model_provisioning.dart';
+import '../presentation/models/model_task.dart';
 
 class ModelSetupCard extends StatelessWidget {
   const ModelSetupCard({
@@ -162,6 +162,7 @@ class ModelManagementCardActions extends StatelessWidget {
     required this.onInstall,
     required this.busy,
     required this.canClean,
+    required this.canInstall,
     super.key,
   });
   final VoidCallback onVerify;
@@ -169,11 +170,12 @@ class ModelManagementCardActions extends StatelessWidget {
   final VoidCallback onInstall;
   final bool busy;
   final bool canClean;
+  final bool canInstall;
   @override
   Widget build(BuildContext context) => Wrap(
     spacing: ClinicalSpacing.compact,
     children: [
-      if (!canClean)
+      if (canInstall)
         FilledButton(
           onPressed: busy ? null : onInstall,
           child: const Text('Descargar'),

@@ -1,4 +1,4 @@
-import '../synthesis_provider.dart';
+import '../../../on_device_ai/domain/synthesis_provider.dart';
 
 /// Asks the local model to polish the text the author wrote by hand.
 ///

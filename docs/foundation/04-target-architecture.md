@@ -133,6 +133,10 @@ Mantiene la separación `data/domain/presentation` ya exigida por el repositorio
 
 Los repositorios Flutter son la frontera del cliente. Una pantalla no consulta Supabase directamente. Los modelos de transporte no sustituyen entidades de dominio y los cambios del esquema físico no deben propagarse indiscriminadamente a presentación.
 
+En el corte IAM actualmente implementado, `institutional/domain/` contiene entidades, reglas, puertos y fábrica de intentos; `institutional/data/` contiene mappers y adaptadores Supabase. `users/presentation/` mantiene widgets y controladores consumidores de puertos. La composición raíz en `app/` reúne refresh de autorización, router/política, lifecycle y ajustes; IAM no depende de providers clínicos y la composición de rutas no reside en `core`. Estos límites describen el corte IAM, no uniformizan los flujos aún pendientes ni declaran completa toda la arquitectura Flutter. La parte A de IA local y notas se preserva.
+
+El dominio vertical `on_device_ai` encapsula ASR, síntesis local y gestión de modelos en `data/domain/presentation` (ADR-018). `context_note` conserva los casos de uso de negocio, vault y los controladores de dictado, asistencia y edición/publicación; consume capacidades de IA mediante leases genéricos y puertos. `LocalCapabilityRepository` es la única frontera de provisioning. `ConfirmedMilestoneWriter` y `DictationAudio` pertenecen al dominio de notas. La composición raíz inyecta el hook genérico de limpieza al cerrar sesión.
+
 ### Supabase Auth
 
 Autentica credenciales, recupera contraseñas y emite sesiones. No es el catálogo de profesionales ni el motor de permisos. `auth.users` prueba identidad técnica; `profiles` y `organization_memberships` determinan si esa identidad tiene una persona activa en una institución. Esta separación evita almacenar contraseñas en el dominio y permite que una cuenta participe en más de una organización.

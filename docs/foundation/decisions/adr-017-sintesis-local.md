@@ -48,9 +48,9 @@ La implementación administra transcripción y asistencia de texto como capacida
 
 ## Evidencia y límites
 
-- `app/lib/domains/context_note/domain/`: puerto `SynthesisProvider` y contratos de request/response sin tipos del runtime.
-- `app/lib/domains/context_note/data/`: adaptador GGUF y fake determinista intercambiables.
-- `app/lib/domains/context_note/presentation/`: la asistencia se ofrece y nunca bloquea la publicación.
+- `app/lib/domains/on_device_ai/domain/`: puerto `SynthesisProvider` y contratos de request/response sin tipos del runtime.
+- `app/lib/domains/on_device_ai/data/`: adaptador GGUF y fake determinista intercambiables.
+- `app/lib/domains/context_note/`: casos de uso y presentación de asistencia permanecen en la feature y nunca bloquean la publicación.
 - `app/assets/llm_model_manifest.json`: origen, licencia, versión, checksum y tamaño del modelo; los pesos no se versionan.
 - `package.json:29` y `supabase/config.toml`: la función `clinical-summary` deja de existir y los scripts se ajustan en el mismo corte.
 - No se afirma calidad de redacción clínica, equivalencia con un proveedor cloud, ni comportamiento con datos reales. La medición se realiza sobre corpus sintético en español clínico y se registra como evidencia de rendimiento, no de utilidad clínica.

@@ -138,6 +138,26 @@ void main() {
       );
     });
 
+    test(
+      'explicit null clears every optional artifact while omission retains it',
+      () {
+        const populated = DictationSession(
+          recordingPath: '/tmp/capture.wav',
+          draftText: 'draft',
+          error: 'error',
+        );
+        expect(populated.copyWith().recordingPath, '/tmp/capture.wav');
+        final cleared = populated.copyWith(
+          recordingPath: null,
+          draftText: null,
+          error: null,
+        );
+        expect(cleared.recordingPath, isNull);
+        expect(cleared.draftText, isNull);
+        expect(cleared.error, isNull);
+      },
+    );
+
     test('stages that hold artifacts are explicit', () {
       expect(DictationStage.recording.holdsTemporaryArtifacts, isTrue);
       expect(DictationStage.transcribingLocal.holdsTemporaryArtifacts, isTrue);

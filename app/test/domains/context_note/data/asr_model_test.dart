@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:carer_record_app/domains/context_note/data/asr_model_installer.dart';
-import 'package:carer_record_app/domains/context_note/data/asr_model_manifest.dart';
-import 'package:carer_record_app/domains/context_note/data/sherpa_asr_engine.dart';
-import 'package:carer_record_app/domains/context_note/domain/asr_engine.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/asr_model_installer.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/asr_model_manifest.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/sherpa_asr_engine.dart';
+import 'package:carer_record_app/domains/on_device_ai/domain/asr_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

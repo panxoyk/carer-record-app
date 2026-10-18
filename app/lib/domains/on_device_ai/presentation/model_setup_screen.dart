@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/design_system/clinical_design_system.dart';
 import '../../../core/design_system/clinical_page_title.dart';
-import '../data/model_provisioning.dart';
+import '../../../core/design_system/clinical_toast.dart';
+import '../presentation/models/model_task.dart';
 import 'model_setup_providers.dart';
 import 'model_setup_components.dart';
 
@@ -47,9 +48,16 @@ class _ModelSetupScreenState extends ConsumerState<ModelSetupScreen> {
     }
   }
 
-  void _start() {
+  Future<void> _start() async {
+    final controller = ref.read(modelSetupControllerProvider.notifier);
+    if (controller.isBusy || ref.read(modelSetupRefreshErrorProvider)) return;
     ref.read(setupAwaitingContinueProvider.notifier).state = true;
-    ref.read(modelSetupControllerProvider.notifier).installAll();
+    await controller.installAll();
+    if (!mounted) return;
+    if (ref.read(modelSetupControllerProvider.notifier).allReady) {
+      ClinicalToast.success(context, message: 'Los modelos están listos.');
+    }
+    // Per-model failures and progress remain visible in the setup cards.
   }
 
   void _continue() {

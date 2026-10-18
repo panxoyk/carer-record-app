@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:carer_record_app/domains/context_note/data/llama_gguf_synthesis_provider.dart';
-import 'package:carer_record_app/domains/context_note/data/llm_model_installer.dart';
-import 'package:carer_record_app/domains/context_note/data/llm_model_manifest.dart';
-import 'package:carer_record_app/domains/context_note/domain/synthesis_provider.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/llama_gguf_synthesis_provider.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/llm_model_installer.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/llm_model_manifest.dart';
+import 'package:carer_record_app/domains/on_device_ai/domain/synthesis_provider.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 

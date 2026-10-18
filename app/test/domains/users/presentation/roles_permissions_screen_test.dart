@@ -1,8 +1,12 @@
-import 'package:carer_record_app/domains/institutional/data/iam_models.dart';
+import 'package:carer_record_app/domains/institutional/domain/iam_entities.dart';
+
+import '../../../support/authorization_refresh_override.dart';
+
 import 'package:carer_record_app/domains/institutional/data/iam_repository.dart';
 import 'package:carer_record_app/domains/institutional/presentation/iam_providers.dart';
 import 'package:carer_record_app/domains/users/presentation/roles_permissions_screen.dart';
 import 'package:carer_record_app/core/design_system/anchored_selector.dart';
+import 'package:carer_record_app/core/design_system/clinical_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +14,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'dart:async';
 
 void main() {
-  testWidgets(
+  setUp(ClinicalToast.dismissAll);
+  _toastTestWidgets(
     'denies unless both role read and manage, without sensitive providers',
     (tester) async {
       for (final permissions in [
@@ -22,6 +27,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              authorizationRefreshOverride,
               iamContextProvider.overrideWith(
                 (ref) async => _context(permissions),
               ),
@@ -34,7 +40,7 @@ void main() {
                 return _catalog;
               }),
             ],
-            child: const MaterialApp(home: RolesPermissionsScreen()),
+            child: _toastApp(home: const RolesPermissionsScreen()),
           ),
         );
         await tester.pumpAndSettle();
@@ -44,7 +50,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  _toastTestWidgets(
     'shows grouped delegable composition and protects hidden permissions',
     (tester) async {
       final fake = _FakeRepository();
@@ -89,7 +95,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  _toastTestWidgets(
     'permission search keeps family groups and matches descriptions',
     (tester) async {
       await _mount(
@@ -132,7 +138,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  _toastTestWidgets(
     'empty roles state and ordinary selection excludes protected role',
     (tester) async {
       await _mount(tester, _FakeRepository(), roles: []);
@@ -156,7 +162,7 @@ void main() {
     },
   );
 
-  testWidgets('saving replaces full composition and success confirms', (
+  _toastTestWidgets('saving replaces full composition and success confirms', (
     tester,
   ) async {
     final fake = _FakeRepository();
@@ -177,18 +183,20 @@ void main() {
     expect(find.text('Permisos actualizados.'), findsOneWidget);
   });
 
-  testWidgets('roles loading never renders a stale role', (tester) async {
+  _toastTestWidgets('roles loading never renders a stale role', (tester) async {
     final pending = Completer<List<IamRole>>();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          authorizationRefreshOverride,
           iamContextProvider.overrideWith(
             (ref) async => _context({'iam.role.read', 'iam.role.manage'}),
           ),
           iamRolesProvider.overrideWith((ref) => pending.future),
           iamDelegablePermissionsProvider.overrideWith((ref) async => _catalog),
+          iamRepositoryProvider.overrideWithValue(_FakeRepository()),
         ],
-        child: const MaterialApp(home: RolesPermissionsScreen()),
+        child: _toastApp(home: const RolesPermissionsScreen()),
       ),
     );
     await tester.pump();
@@ -198,7 +206,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets(
+  _toastTestWidgets(
     'complete permission payload is sorted and contains only checked catalog codes',
     (tester) async {
       final fake = _FakeRepository();
@@ -217,22 +225,26 @@ void main() {
     },
   );
 
-  testWidgets('catalog retry invalidates and queries again', (tester) async {
+  _toastTestWidgets('catalog retry invalidates and queries again', (
+    tester,
+  ) async {
     var reads = 0;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          authorizationRefreshOverride,
           iamContextProvider.overrideWith(
             (ref) async => _context({'iam.role.read', 'iam.role.manage'}),
           ),
           iamRolesProvider.overrideWith((ref) async => [_role]),
+          iamRepositoryProvider.overrideWithValue(_FakeRepository()),
           iamDelegablePermissionsProvider.overrideWith((ref) async {
             reads++;
             if (reads == 1) throw StateError('private database details');
             return _catalog;
           }),
         ],
-        child: const MaterialApp(home: RolesPermissionsScreen()),
+        child: _toastApp(home: const RolesPermissionsScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -244,7 +256,7 @@ void main() {
     expect(find.text('No fue posible cargar el catálogo.'), findsNothing);
   });
 
-  testWidgets(
+  _toastTestWidgets(
     'dirty role switch cancel preserves draft and confirm loads next composition',
     (tester) async {
       final second = _role.copyWith(
@@ -289,7 +301,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  _toastTestWidgets(
     'organization change removes old selection immediately during reload',
     (tester) async {
       final contextState = StateProvider<IamContext>(
@@ -299,6 +311,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            authorizationRefreshOverride,
             contextState.overrideWith(
               (ref) => _context({'iam.role.read', 'iam.role.manage'}),
             ),
@@ -309,11 +322,12 @@ void main() {
                   ? rolesPending.future
                   : Future.value([_role]);
             }),
+            iamRepositoryProvider.overrideWithValue(_FakeRepository()),
             iamDelegablePermissionsProvider.overrideWith(
               (ref) async => _catalog,
             ),
           ],
-          child: const MaterialApp(home: RolesPermissionsScreen()),
+          child: _toastApp(home: const RolesPermissionsScreen()),
         ),
       );
       await tester.pumpAndSettle();
@@ -332,7 +346,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  _toastTestWidgets(
     'all saves require impact confirmation including explicit empty set',
     (tester) async {
       final fake = _FakeRepository();
@@ -350,6 +364,12 @@ void main() {
       await tester.tap(find.text('Confirmar'));
       await tester.pumpAndSettle();
       expect(fake.permissions, ['clinical.read']);
+      ClinicalToast.dismissAll();
+      await tester.pump(const Duration(milliseconds: 300));
+      ClinicalToast.dismissAll();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 300));
 
       final emptyFake = _FakeRepository();
       await _mount(tester, emptyFake, roles: [_role]);
@@ -366,8 +386,8 @@ void main() {
     },
   );
 
-  testWidgets(
-    'exception retry reuses exact snapshot; new save gesture gets new key and draft',
+  _toastTestWidgets(
+    'persistent retry reuses exact snapshot after toast expiry; new save gesture gets new key and draft',
     (tester) async {
       final fake = _FakeRepository()..throwCount = 2;
       await _mount(tester, fake, roles: [_role.copyWith(permissions: {})]);
@@ -379,7 +399,21 @@ void main() {
       await tester.pumpAndSettle();
       final first = fake.calls.first;
       expect(first.permissions, {'clinical.read'});
-      await tester.tap(find.text('Reintentar'));
+      expect(find.text('Reintentar guardado'), findsOneWidget);
+      expect(
+        find.text('No se pudo confirmar el guardado de los permisos.'),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 5));
+      expect(
+        find.text('No se pudo confirmar el guardado de los permisos.'),
+        findsNothing,
+      );
+      expect(
+        find.textContaining('El resultado podría haberse aplicado'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Reintentar guardado'));
       await tester.pumpAndSettle();
       expect(
         fake.calls[1].attempt.idempotencyKey,
@@ -402,13 +436,70 @@ void main() {
     },
   );
 
+  _toastTestWidgets(
+    'changing role or draft removes stale retry and a fresh save uses current draft',
+    (tester) async {
+      final second = _role.copyWith(
+        id: '00000000-0000-0000-0000-000000000002',
+        name: 'Supervisión',
+        permissions: {},
+      );
+      final switching = _FakeRepository()..throwCount = 1;
+      await _mount(
+        tester,
+        switching,
+        roles: [
+          _role.copyWith(permissions: {}),
+          second,
+        ],
+      );
+      await _select(tester, 'Equipo');
+      await tester.tap(find.byType(CheckboxListTile).first);
+      await tester.pump();
+      await _tapSave(tester);
+      await tester.tap(find.text('Confirmar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Reintentar guardado'), findsOneWidget);
+      await _chooseRole(tester, 'Supervisión');
+      await tester.tap(find.text('Confirmar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Supervisión'), findsOneWidget);
+      expect(find.text('Reintentar guardado'), findsNothing);
+
+      final editing = _FakeRepository()..throwCount = 1;
+      await _mount(tester, editing, roles: [_role.copyWith(permissions: {})]);
+      await _select(tester, 'Equipo');
+      await tester.tap(find.byType(CheckboxListTile).first);
+      await tester.pump();
+      await _tapSave(tester);
+      await tester.tap(find.text('Confirmar'));
+      await tester.pumpAndSettle();
+      final oldAttempt = editing.calls.first.attempt;
+      expect(find.text('Reintentar guardado'), findsOneWidget);
+
+      await tester.tap(find.byType(CheckboxListTile).first);
+      await tester.pump();
+      await tester.tap(find.byType(CheckboxListTile).at(1));
+      await tester.pump();
+      expect(find.text('Reintentar guardado'), findsNothing);
+      await _tapSave(tester);
+      await tester.tap(find.text('Confirmar'));
+      await tester.pumpAndSettle();
+      expect(
+        editing.calls.last.attempt.idempotencyKey,
+        isNot(oldAttempt.idempotencyKey),
+      );
+      expect(editing.calls.last.permissions, {'clinical.write'});
+    },
+  );
+
   for (final resultCode in [
     'denied',
     'permission_not_delegable',
     'protected_or_missing',
     'idempotency_conflict',
   ]) {
-    testWidgets('$resultCode is sanitized and never reports success', (
+    _toastTestWidgets('$resultCode is sanitized and never reports success', (
       tester,
     ) async {
       final fake = _FakeRepository()..resultCode = resultCode;
@@ -426,17 +517,18 @@ void main() {
       expect(find.textContaining('SQL'), findsNothing);
       expect(
         find.textContaining(switch (resultCode) {
-          'denied' => 'No fue posible autorizar',
-          'permission_not_delegable' => 'ya no está disponible',
-          'protected_or_missing' => 'No fue posible actualizar',
-          _ => 'no pudo confirmarse',
+          'denied' => 'No fue posible autorizar este cambio.',
+          'permission_not_delegable' =>
+            'El conjunto de permisos ya no está disponible.',
+          'protected_or_missing' => 'No fue posible actualizar este rol.',
+          _ => 'La solicitud no pudo confirmarse. Recarga antes de continuar.',
         }),
         findsOneWidget,
       );
     });
   }
 
-  testWidgets(
+  _toastTestWidgets(
     'success invalidates and hides previous content while requery is pending',
     (tester) async {
       final fake = _FakeRepository();
@@ -445,6 +537,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            authorizationRefreshOverride,
             iamContextProvider.overrideWith(
               (ref) async => _context({'iam.role.read', 'iam.role.manage'}),
             ),
@@ -459,7 +552,7 @@ void main() {
             ),
             iamRepositoryProvider.overrideWithValue(fake),
           ],
-          child: const MaterialApp(home: RolesPermissionsScreen()),
+          child: _toastApp(home: const RolesPermissionsScreen()),
         ),
       );
       await tester.pumpAndSettle();
@@ -481,6 +574,26 @@ void main() {
     },
   );
 }
+
+void _toastTestWidgets(
+  String description,
+  Future<void> Function(WidgetTester tester) test,
+) {
+  testWidgets(description, (tester) async {
+    ClinicalToast.dismissAll();
+    try {
+      await test(tester);
+    } finally {
+      ClinicalToast.dismissAll();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+  });
+}
+
+Widget _toastApp({required Widget home}) => MaterialApp(
+  builder: (context, child) => ClinicalToastHost(child: child!),
+  home: home,
+);
 
 Future<void> _chooseRole(WidgetTester tester, String name) async {
   await tester.tap(find.byType(AnchoredSelector<String>));
@@ -517,6 +630,7 @@ Future<void> _mount(
     ProviderScope(
       key: ValueKey(identityHashCode(repository)),
       overrides: [
+        authorizationRefreshOverride,
         iamContextProvider.overrideWith(
           (ref) async => _context({'iam.role.read', 'iam.role.manage'}),
         ),
@@ -524,7 +638,7 @@ Future<void> _mount(
         iamDelegablePermissionsProvider.overrideWith((ref) async => _catalog),
         iamRepositoryProvider.overrideWithValue(repository),
       ],
-      child: MaterialApp(
+      child: _toastApp(
         home: RolesPermissionsScreen(
           key: ValueKey(identityHashCode(repository)),
         ),

@@ -23,6 +23,7 @@ Ninguna ADR de esta carpeta acredita cumplimiento productivo. La evidencia de es
 | [ADR-015](adr-015-hitos-bitora-audio.md)                 | Hitos de bitácora en texto o audio almacenado | Aceptada, en parte sustituida por ADR-016 | Sí, demo sintética/local                |
 | [ADR-016](adr-016-asr-local-transcripcion-confirmada.md) | ASR local y transcripción confirmada          | Aceptada                                  | Sí, demo sintética/local                |
 | [ADR-017](adr-017-sintesis-local.md)                     | Síntesis local con modelo en el dispositivo   | Aceptada                                  | Sí, demo sintética/local                |
+| [ADR-018](adr-018-modulo-ia-local-compartido.md)         | Módulo compartido de IA en el dispositivo     | Aceptada                                  | Sí, organización técnica                |
 | [ADR-006](adr-006-audio.md)                              | Captura de audio local y explícita            | Aceptada, en parte sustituida por ADR-016 | Sí, demo sintética/local                |
 | [ADR-007](adr-007-asr-local.md)                          | ASR local                                     | Aceptada                                  | Sí, motor sherpa_onnx tras ADR-016      |
 | [ADR-008](adr-008-ner-tokenizacion-reversible.md)        | NER y tokenización reversible                 | Sustituida por ADR-017                    | No                                      |

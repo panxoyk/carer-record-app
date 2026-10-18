@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design_system/clinical_design_system.dart';
+import '../../../core/design_system/clinical_toast.dart';
 import '../../../core/design_system/anchored_selector.dart';
 import '../../../core/time/clinical_time.dart';
 
 import 'package:go_router/go_router.dart';
 
-import '../../institutional/data/iam_models.dart';
-import '../../institutional/data/iam_repository.dart';
+import '../../institutional/domain/iam_entities.dart';
 import '../../institutional/presentation/iam_providers.dart';
+import '../../../core/session/authorization_refresh.dart';
+import 'controllers/member_actions_controller.dart';
+import 'controllers/create_member_controller.dart';
 
 class UsersScreen extends ConsumerStatefulWidget {
   const UsersScreen({super.key});
@@ -88,7 +91,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (_, __) => _retry(
-                    () => invalidateAuthorizationAndData(ref),
+                    () => ref.read(authorizationRefreshProvider)(),
                     'No fue posible validar permisos.',
                   ),
                   data: (ctx) {
@@ -148,6 +151,9 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                                       bottom: ClinicalSpacing.item,
                                     ),
                                     child: _MemberTile(
+                                      key: ValueKey(
+                                        '${ctx.organizationId}:${ctx.profileId}:${member.membershipId}',
+                                      ),
                                       member: member,
                                       roles: availableRoles,
                                       assignments:
@@ -180,8 +186,9 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
   }
 }
 
-class _MemberTile extends ConsumerWidget {
+class _MemberTile extends ConsumerStatefulWidget {
   const _MemberTile({
+    super.key,
     required this.member,
     required this.roles,
     required this.assignments,
@@ -193,9 +200,92 @@ class _MemberTile extends ConsumerWidget {
   final IamContext context;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final canManage = this.context.allows('iam.membership.manage');
-    final canAssign = this.context.allows('iam.role.assign');
+  ConsumerState<_MemberTile> createState() => _MemberTileState();
+}
+
+class _MemberTileState extends ConsumerState<_MemberTile> {
+  MemberActionsController? _actions;
+  MemberActionSnapshot? _failedSnapshot;
+  String? _actionError;
+
+  MemberActionsController get _actionsForUse =>
+      _actions ??= MemberActionsController(
+        administration: ref.read(iamAdministrationProvider),
+        attemptFactory: ref.read(iamOperationAttemptFactoryProvider),
+        refreshAuthorization: ref.read(authorizationRefreshProvider),
+        organizationId: widget.context.organizationId,
+        membershipId: widget.member.membershipId,
+      );
+
+  @override
+  void didUpdateWidget(covariant _MemberTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.context.organizationId != widget.context.organizationId ||
+        oldWidget.member.membershipId != widget.member.membershipId) {
+      _actions?.dispose();
+      _actions = null;
+      _failedSnapshot = null;
+      _actionError = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _actions?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _perform(
+    MemberActionsController controller,
+    Future<AdminOperationResult?> Function() action,
+    String successMessage,
+  ) async {
+    if (_actionsForUse.busy) return;
+    setState(() {
+      _actionError = null;
+    });
+    AdminOperationResult? result;
+    var failed = false;
+    try {
+      result = await action();
+    } catch (_) {
+      failed = true;
+    }
+    if (!mounted || (!failed && result == null)) return;
+    if (failed) {
+      final snapshot = controller.retrySnapshot;
+      if (snapshot == null) return;
+      setState(() {
+        _failedSnapshot = snapshot;
+        _actionError = 'No se pudo confirmar la operación. El resultado podría haberse aplicado; reintenta para verificarlo.';
+      });
+      ClinicalToast.failure(context, message: _memberFailureMessage(snapshot));
+    } else if (result!.success) {
+      setState(() {
+        _failedSnapshot = null;
+        _actionError = null;
+      });
+      ClinicalToast.success(context, message: successMessage);
+    } else {
+      setState(() {
+        _failedSnapshot = null;
+        _actionError = _memberResultMessage(result!.code);
+      });
+      ClinicalToast.failure(
+        context,
+        message: _memberFailureMessage(controller.retrySnapshot),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final member = widget.member;
+    final roles = widget.roles;
+    final assignments = widget.assignments;
+    final iamContext = widget.context;
+    final canManage = iamContext.allows('iam.membership.manage');
+    final canAssign = iamContext.allows('iam.role.assign');
     final grantableRoles = eligibleRolesForGrant(
       roles: roles,
       assignments: assignments,
@@ -216,6 +306,23 @@ class _MemberTile extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_actionError != null) ...[
+            Text(
+              _actionError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+            if (_failedSnapshot != null)
+              TextButton(
+                onPressed: _actionsForUse.busy
+                    ? null
+                    : () => _perform(
+                        _actionsForUse,
+                        () => _actionsForUse.retry(_failedSnapshot!),
+                        _successFor(_failedSnapshot!),
+                      ),
+                child: const Text('Reintentar operación'),
+              ),
+          ],
           Text(
             member.displayName,
             style: Theme.of(context).textTheme.titleLarge,
@@ -228,8 +335,16 @@ class _MemberTile extends ConsumerWidget {
             const SizedBox(height: ClinicalSpacing.item),
             _RoleGrantPicker(
               membershipId: member.membershipId,
-              organizationId: this.context.organizationId,
+              organizationId: iamContext.organizationId,
               roles: grantableRoles,
+              onGrantRole: (roleId) {
+                final actions = _actionsForUse;
+                _perform(
+                  actions,
+                  () => actions.grantRole(roleId),
+                  'Rol asignado.',
+                );
+              },
             ),
           ],
           if (roleRows.isNotEmpty) ...[
@@ -252,17 +367,14 @@ class _MemberTile extends ConsumerWidget {
                     ? IconButton(
                         tooltip: 'Revocar rol',
                         icon: const Icon(Icons.remove_circle_outline),
-                        onPressed: () => _mutate(
-                          context,
-                          ref,
-                          (attempt) => ref
-                              .read(iamRepositoryProvider)
-                              .revokeRole(
-                                organizationId: this.context.organizationId,
-                                assignmentId: assignment.assignmentId,
-                                attempt: attempt,
-                              ),
-                        ),
+                        onPressed: () {
+                          final actions = _actionsForUse;
+                          _perform(
+                            actions,
+                            () => actions.revokeRole(assignment.assignmentId),
+                            'Rol revocado.',
+                          );
+                        },
                       )
                     : null,
               ),
@@ -278,18 +390,16 @@ class _MemberTile extends ConsumerWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
-                onPressed: () => _mutate(
-                  context,
-                  ref,
-                  (attempt) => ref
-                      .read(iamRepositoryProvider)
-                      .updateMembership(
-                        organizationId: this.context.organizationId,
-                        membershipId: member.membershipId,
-                        status: active ? 'suspended' : 'active',
-                        attempt: attempt,
-                      ),
-                ),
+                onPressed: () {
+                  final actions = _actionsForUse;
+                  _perform(
+                    actions,
+                    () => actions.updateMembership(
+                      active ? 'suspended' : 'active',
+                    ),
+                    active ? 'Membresía suspendida.' : 'Membresía activada.',
+                  );
+                },
                 child: Text(
                   active ? 'Suspender membresía' : 'Activar membresía',
                 ),
@@ -300,6 +410,34 @@ class _MemberTile extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _memberResultMessage(String code) => switch (code) {
+  'denied' => 'No tienes autorización vigente para realizar esta operación.',
+  'idempotency_conflict' => 'La solicitud no coincide con el intento anterior. Recarga la información antes de continuar.',
+  _ => 'No fue posible completar la operación solicitada.',
+};
+
+String _successFor(MemberActionSnapshot snapshot) => switch (snapshot.kind) {
+  MemberActionKind.grantRole => 'Rol asignado.',
+  MemberActionKind.revokeRole => 'Rol revocado.',
+  MemberActionKind.updateMembership =>
+    snapshot.status == 'suspended'
+        ? 'Membresía suspendida.'
+        : 'Membresía activada.',
+};
+
+String _memberFailureMessage(MemberActionSnapshot? snapshot) {
+  if (snapshot == null) return 'No se pudo confirmar la operación.';
+  return switch (snapshot.kind) {
+    MemberActionKind.grantRole => 'No se pudo confirmar la asignación del rol.',
+    MemberActionKind.revokeRole =>
+      'No se pudo confirmar la revocación del rol.',
+    MemberActionKind.updateMembership =>
+      snapshot.status == 'suspended'
+          ? 'No se pudo confirmar la suspensión de la membresía.'
+          : 'No se pudo confirmar la activación de la membresía.',
+  };
 }
 
 String _roleAssignmentHistory(IamRoleAssignment assignment) {
@@ -323,11 +461,13 @@ class _RoleGrantPicker extends ConsumerStatefulWidget {
     required this.membershipId,
     required this.organizationId,
     required this.roles,
+    required this.onGrantRole,
   });
 
   final String membershipId;
   final String organizationId;
   final List<IamRole> roles;
+  final void Function(String roleId) onGrantRole;
 
   @override
   ConsumerState<_RoleGrantPicker> createState() => _RoleGrantPickerState();
@@ -361,19 +501,7 @@ class _RoleGrantPickerState extends ConsumerState<_RoleGrantPicker> {
       ],
       onSelected: (roleId) {
         setState(() => _roleId = roleId);
-        _mutate(
-          context,
-          ref,
-          (attempt) => ref
-              .read(iamRepositoryProvider)
-              .grantRole(
-                organizationId: widget.organizationId,
-                membershipId: widget.membershipId,
-                roleId: roleId,
-                attempt: attempt,
-              ),
-          usesValidFrom: true,
-        );
+        widget.onGrantRole(roleId);
       },
     );
   }
@@ -388,47 +516,6 @@ Widget _retry(VoidCallback retry, String message) => Center(
     ],
   ),
 );
-
-Future<void> _mutate(
-  BuildContext context,
-  WidgetRef ref,
-  Future<AdminOperationResult> Function(AdminOperationAttempt) action, {
-  AdminOperationAttempt? attempt,
-  bool usesValidFrom = false,
-}) async {
-  attempt ??= newAdminOperationAttempt(usesValidFrom: usesValidFrom);
-  try {
-    final result = await action(attempt);
-    if (!context.mounted) return;
-    if (result.success) {
-      invalidateAuthorizationAndData(ref);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Cambio aplicado.')));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No fue posible aplicar el cambio.')),
-      );
-    }
-  } catch (_) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No fue posible aplicar el cambio. Puedes reintentar.'),
-          action: SnackBarAction(
-            label: 'Reintentar',
-            onPressed: () => _mutate(
-              context,
-              ref,
-              action,
-              attempt: attempt,
-              usesValidFrom: usesValidFrom,
-            ),
-          ),
-        ),
-      );
-    }
-  }
-}
 
 Future<void> _createMember(BuildContext context, WidgetRef ref) async {
   final iam = ref.read(iamContextProvider).valueOrNull;
@@ -477,14 +564,16 @@ class _CreateUserSheetState extends ConsumerState<_CreateUserSheet> {
   final _displayName = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  CreateMemberController? _controller;
 
-  /// Se genera una vez por panel y se reutiliza en los reintentos para que
-  /// un fallo recuperable no cree un usuario duplicado.
-  final String _idempotencyKey = newIdempotencyKey();
+  CreateMemberController get _controllerForUse =>
+      _controller ??= CreateMemberController(
+        administration: ref.read(iamAdministrationProvider),
+        attemptFactory: ref.read(iamOperationAttemptFactoryProvider),
+        refreshAuthorization: ref.read(authorizationRefreshProvider),
+      );
 
   late String _roleId = widget.roles.first.id;
-  String? _submissionError;
-  var _saving = false;
   var _passwordVisible = false;
   var _discarding = false;
 
@@ -497,6 +586,7 @@ class _CreateUserSheetState extends ConsumerState<_CreateUserSheet> {
 
   @override
   void dispose() {
+    _controller?.dispose();
     _displayName.dispose();
     _email.dispose();
     _password.dispose();
@@ -559,38 +649,23 @@ class _CreateUserSheetState extends ConsumerState<_CreateUserSheet> {
   }
 
   Future<void> _submit() async {
-    if (_saving) return;
+    if (_controller?.busy == true) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    setState(() {
-      _saving = true;
-      _submissionError = null;
-    });
-    try {
-      await ref
-          .read(iamRepositoryProvider)
-          .createMember(
-            organizationId: widget.organizationId,
-            email: _email.text.trim(),
-            password: _password.text,
-            displayName: _displayName.text.trim(),
-            roleId: _roleId,
-            idempotencyKey: _idempotencyKey,
-          );
-      invalidateAuthorizationAndData(ref);
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      if (widget.parentContext.mounted) {
-        ScaffoldMessenger.of(widget.parentContext)
-            .showSnackBar(const SnackBar(content: Text('Usuario agregado.')));
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-          _submissionError =
-              'No fue posible agregar el usuario. Puedes reintentar.';
-        });
-      }
+    final controller = _controllerForUse;
+    setState(() {});
+    final succeeded = await controller.createMember(
+      organizationId: widget.organizationId,
+      email: _email.text.trim(),
+      password: _password.text,
+      displayName: _displayName.text.trim(),
+      roleId: _roleId,
+    );
+    if (!mounted) return;
+    setState(() {});
+    if (!succeeded) return;
+    Navigator.of(context).pop();
+    if (widget.parentContext.mounted) {
+      ClinicalToast.success(widget.parentContext, message: 'Usuario agregado.');
     }
   }
 
@@ -701,11 +776,11 @@ class _CreateUserSheetState extends ConsumerState<_CreateUserSheet> {
                         validator: (value) =>
                             value == null ? 'Selecciona el rol inicial.' : null,
                       ),
-                      if (_submissionError != null)
+                      if (_controller?.error != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 12),
                           child: Text(
-                            _submissionError!,
+                            _controller!.error!,
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.error,
                             ),
@@ -724,12 +799,16 @@ class _CreateUserSheetState extends ConsumerState<_CreateUserSheet> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: _saving ? null : _submit,
-                      child: Text(_saving ? 'Agregando…' : 'Agregar usuario'),
+                      onPressed: _controller?.busy == true ? null : _submit,
+                      child: Text(
+                        _controller?.busy == true
+                            ? 'Agregando…'
+                            : 'Agregar usuario',
+                      ),
                     ),
                   ),
                   TextButton(
-                    onPressed: _saving ? null : _requestClose,
+                    onPressed: _controller?.busy == true ? null : _requestClose,
                     child: const Text('Cancelar'),
                   ),
                 ],

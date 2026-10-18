@@ -3,14 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/design_system/clinical_design_system.dart';
-import '../../../core/router/administration_navigation.dart';
+import '../../../core/design_system/clinical_toast.dart';
 import '../../../core/time/clinical_time.dart';
-import '../../auth/presentation/auth_providers.dart';
 import '../../clinical_event/domain/entities/clinical_event.dart';
 import '../../clinical_event/presentation/clinical_event_providers.dart';
 import '../../context_note/presentation/milestone_editor_sheet.dart';
 import '../../institutional/presentation/iam_providers.dart';
-import '../../institutional/data/iam_models.dart';
 import '../domain/entities/patient.dart';
 import 'patient_providers.dart';
 
@@ -137,7 +135,7 @@ class PatientDetailScreen extends ConsumerWidget {
         actions: canAddMilestone && patient.valueOrNull != null
             ? [
                 IconButton(
-                  tooltip: 'Agregar hito',
+                  tooltip: 'Añadir nota de contexto',
                   icon: const Icon(Icons.add_task_outlined),
                   onPressed: () {
                     final item = patient.valueOrNull;
@@ -145,11 +143,21 @@ class PatientDetailScreen extends ConsumerWidget {
                     showMilestoneEditorSheet(
                       context,
                       patient: item,
-                      onSaved: () => ref.invalidate(
-                        hospitalizationClinicalEventsProvider(
-                          hospitalizationId,
-                        ),
-                      ),
+                      onSaved: (cleanupPending) {
+                        if (!context.mounted) return;
+                        ref.invalidate(
+                          hospitalizationClinicalEventsProvider(
+                            hospitalizationId,
+                          ),
+                        );
+                        ClinicalToast.success(
+                          context,
+                          message: cleanupPending
+                              ? 'Nota guardada. La limpieza local quedó pendiente.'
+                              : 'Nota guardada.',
+                          withDetails: cleanupPending,
+                        );
+                      },
                     );
                   },
                 ),
@@ -285,201 +293,3 @@ class PatientInformationScreen extends ConsumerWidget {
     );
   }
 }
-
-class SettingsScreen extends ConsumerWidget {
-  const SettingsScreen({super.key});
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final contexts = ref.watch(iamContextsProvider);
-    final iam = ref.watch(iamContextProvider);
-    final session = ref.watch(sessionProvider);
-    return Scaffold(
-      bottomNavigationBar: const ClinicalBottomNavigation(selectedIndex: 1),
-      appBar: clinicalAppBar(title: 'Ajustes'),
-      body: iam.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) =>
-            const Center(child: Text('No fue posible cargar el perfil.')),
-        data: (profile) {
-          if (profile == null) {
-            return const Center(
-              child: Text('No fue posible cargar el perfil.'),
-            );
-          }
-          final organizations = (contexts.valueOrNull ?? const <IamContext>[])
-              .where(
-                (organization) =>
-                    organization.profileStatus == 'active' &&
-                    organization.membershipStatus == 'active',
-              )
-              .toList();
-          final selected = ref.watch(selectedOrganizationProvider);
-          final displayedContext =
-              organizations
-                  .where(
-                    (organization) =>
-                        organization.organizationId == selected?.organizationId,
-                  )
-                  .firstOrNull ??
-              organizations
-                  .where(
-                    (organization) =>
-                        organization.organizationId == profile.organizationId,
-                  )
-                  .firstOrNull;
-          final administrationDestinations = administrationNavigationFor(
-            profile,
-          );
-          final active =
-              (displayedContext?.membershipStatus ??
-                  profile.membershipStatus) ==
-              'active';
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              ClinicalCard(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: ClinicalColors.mint,
-                      child: Text(_initials(profile.displayName)),
-                    ),
-                    const SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            profile.displayName,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(session?.user.email ?? 'No disponible'),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              ClinicalCard(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    const Icon(Icons.business_outlined),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: organizations.length > 1
-                          ? DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                isExpanded: true,
-                                value: displayedContext?.organizationId,
-                                items: [
-                                  for (final org in organizations)
-                                    DropdownMenuItem<String>(
-                                      value: org.organizationId,
-                                      child: Text(org.organizationName),
-                                    ),
-                                ],
-                                onChanged: (id) {
-                                  if (id != null) {
-                                    ref
-                                        .read(
-                                          selectedOrganizationProvider.notifier,
-                                        )
-                                        .select(id);
-                                  }
-                                },
-                              ),
-                            )
-                          : Text(
-                              displayedContext?.organizationName ??
-                                  profile.organizationName,
-                            ),
-                    ),
-                    Semantics(
-                      button: true,
-                      label: active ? 'Membresía activa' : 'Membresía inactiva',
-                      child: IconButton(
-                        tooltip: active
-                            ? 'Membresía activa'
-                            : 'Membresía inactiva',
-                        icon: Icon(
-                          active
-                              ? Icons.check_circle_outline
-                              : Icons.cancel_outlined,
-                        ),
-                        onPressed: () => ScaffoldMessenger.of(context)
-                            .showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  active
-                                      ? 'Membresía activa'
-                                      : 'Membresía inactiva',
-                                ),
-                              ),
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              if (administrationDestinations.isNotEmpty) ...[
-                ClinicalSettingsSection(
-                  title: 'Administración institucional',
-                  children: [
-                    for (var i = 0; i < administrationDestinations.length; i++)
-                      ClinicalSettingsRow(
-                        label: administrationDestinations[i].label,
-                        icon: switch (administrationDestinations[i].location) {
-                          '/users' => Icons.group_outlined,
-                          '/roles' => Icons.admin_panel_settings_outlined,
-                          _ => Icons.assignment_ind_outlined,
-                        },
-                        isLast: i == administrationDestinations.length - 1,
-                        onTap: () =>
-                            context.go(administrationDestinations[i].location),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-              ],
-              ClinicalSettingsSection(
-                title: 'Herramientas',
-                children: [
-                  ClinicalSettingsRow(
-                    label: 'Dictado y redacción',
-                    icon: Icons.auto_awesome_outlined,
-                    isLast: true,
-                    onTap: () => context.go('/models'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              ClinicalSettingsRow(
-                label: 'Cerrar sesión',
-                icon: Icons.logout,
-                destructive: true,
-                onTap: () => ref.read(authRepositoryProvider).signOut(),
-                isLast: true,
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-String _initials(String name) => name
-    .split(' ')
-    .where((part) => part.isNotEmpty)
-    .take(2)
-    .map((part) => part[0])
-    .join();

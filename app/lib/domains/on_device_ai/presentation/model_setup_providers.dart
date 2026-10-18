@@ -1,19 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/model_provisioning.dart';
+import 'models/model_task.dart';
 import '../data/asr_model_manifest.dart';
 import '../data/llm_model_manifest.dart';
 import '../domain/local_capability_repository.dart';
-import 'context_note_providers.dart';
+import '../presentation/local_ai_providers.dart';
 
 final modelSetupClockProvider = Provider<DateTime Function()>(
   (ref) => DateTime.now,
-);
-
-/// Keeps the provisioner injectable so the controller can be tested without
-/// reaching for the network.
-final modelProvisionerProvider = Provider<ModelProvisioner>(
-  (ref) => const ModelProvisioner(),
 );
 
 /// A skip is valid only for this process. It is deliberately not persisted.
@@ -242,7 +236,7 @@ class ModelSetupController extends Notifier<List<ModelTask>> {
   }
 
   Future<void> clean(LocalModel model) async {
-    if (ref.read(milestoneEditorActiveProvider).active) {
+    if (ref.read(localCapabilityUsageProvider).isInUse(_capability(model))) {
       ref.read(modelCleanBlockedProvider.notifier).state = true;
       return;
     }

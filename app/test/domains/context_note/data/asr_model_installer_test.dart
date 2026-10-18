@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:archive/archive.dart';
-import 'package:carer_record_app/domains/context_note/data/asr_model_installer.dart';
-import 'package:carer_record_app/domains/context_note/data/asr_model_manifest.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/asr_model_installer.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/asr_model_manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The installer used to shell out to `tar`, which does not exist on Android or

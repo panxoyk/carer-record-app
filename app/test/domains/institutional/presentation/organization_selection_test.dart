@@ -1,6 +1,9 @@
 import 'package:carer_record_app/domains/institutional/presentation/iam_providers.dart';
-import 'package:carer_record_app/core/router/app_router.dart';
-import 'package:carer_record_app/domains/institutional/data/iam_models.dart';
+
+import '../../../support/authorization_refresh_override.dart';
+
+import 'package:carer_record_app/domains/institutional/presentation/organization_selection_screen.dart';
+import 'package:carer_record_app/domains/institutional/domain/iam_entities.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -68,6 +71,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            authorizationRefreshOverride,
             iamContextsProvider.overrideWith((ref) async {
               reads++;
               return contexts;

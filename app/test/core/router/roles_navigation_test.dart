@@ -1,6 +1,9 @@
-import 'package:carer_record_app/core/router/app_router.dart';
-import 'package:carer_record_app/domains/institutional/data/iam_models.dart';
+import 'package:carer_record_app/app/router/navigation_policy.dart';
+import 'package:carer_record_app/app/presentation/protected_shell.dart';
+import 'package:carer_record_app/core/session/authorization_refresh.dart';
+import 'package:carer_record_app/domains/institutional/domain/iam_entities.dart';
 import 'package:carer_record_app/domains/institutional/presentation/iam_providers.dart';
+import 'package:carer_record_app/domains/institutional/domain/iam_ports.dart';
 import 'package:carer_record_app/domains/users/presentation/roles_permissions_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -193,9 +196,16 @@ Widget _scope(
       catalogRead?.call();
       return const [];
     }),
+    iamAdministrationProvider.overrideWithValue(_NavIamAdministration()),
+    authorizationRefreshProvider.overrideWith((ref) => () {}),
   ],
   child: MaterialApp.router(routerConfig: router),
 );
+
+class _NavIamAdministration implements IamAdministration {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 IamContext _iam(String organizationId, Set<String> permissions) => IamContext(
   organizationId: organizationId,

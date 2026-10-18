@@ -1,4 +1,4 @@
-import '../../domains/institutional/data/iam_models.dart';
+import '../../domains/institutional/domain/iam_entities.dart';
 
 List<({String location, String label})> administrationNavigationFor(
   IamContext context,

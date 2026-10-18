@@ -5,6 +5,8 @@ import 'dart:math';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../domain/dictation_audio.dart';
+
 /// Owns every temporary artifact of an in-flight dictation and deletes it when
 /// the flow ends (ADR-016 decision 7, ADR-010).
 ///
@@ -13,9 +15,12 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// text artifacts — the transcription draft, the pending outbox entry and the
 /// expiry ledger — go through the platform's encrypted storage instead, so a
 /// file listing or a device backup never exposes them in the clear.
-class DraftVault {
-  DraftVault({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+class DraftVault implements DictationArtifacts {
+  DraftVault({
+    FlutterSecureStorage? storage,
+    Future<void> Function(String path)? deleteRecording,
+  }) : _storage = storage ?? const FlutterSecureStorage(),
+       _deleteRecording = deleteRecording ?? _deleteRecordingDirectory;
 
   static const String _transcriptionKey = 'cra.dictation.transcription.';
   static const String _outboxKey = 'cra.dictation.outbox.';
@@ -26,8 +31,25 @@ class DraftVault {
   static const Duration pendingLifetime = Duration(hours: 24);
 
   final FlutterSecureStorage _storage;
+  final Future<void> Function(String path) _deleteRecording;
+
+  static Future<void> _deleteRecordingDirectory(String path) async {
+    final directory = File(path).parent;
+    if (await directory.exists()) await directory.delete(recursive: true);
+  }
+
+  /// Registers a capture before the recorder writes its first byte.
+  @override
+  Future<void> registerCapture(String operationId, String recordingPath) async {
+    await _storage.write(
+      key: '$_expiryPrefix$operationId',
+      value: DateTime.now().add(pendingLifetime).toIso8601String(),
+    );
+    await _storage.write(key: '$_outboxKey$operationId', value: recordingPath);
+  }
 
   /// Stores the transcribed draft and registers when it must be swept.
+  @override
   Future<void> putDraft(
     String operationId, {
     required String transcription,
@@ -55,25 +77,24 @@ class DraftVault {
 
   /// Deletes the recording, the transcription and the outbox entry.
   ///
-  /// Idempotent by contract: purging twice, or purging something already gone,
-  /// succeeds and never throws. Callers run it on confirm, discard, sign-out,
+  /// Missing artifacts are idempotent. I/O failures are propagated so callers
+  /// can report cleanup failure and the registry can be retried. Callers run it on confirm, discard, sign-out,
   /// failure and expiry.
+  @override
   Future<void> purge(String operationId, {String? recordingPath}) async {
     final registered = await _storage.read(key: '$_outboxKey$operationId');
+    final path = recordingPath ?? registered;
+    if (path != null && path.isNotEmpty) {
+      // Keep the encrypted registry until filesystem deletion succeeds. Missing
+      // directories are already clean and therefore idempotent.
+      await _deleteRecording(path);
+    }
     for (final key in [
       '$_transcriptionKey$operationId',
       '$_outboxKey$operationId',
       '$_expiryPrefix$operationId',
     ]) {
       await _storage.delete(key: key);
-    }
-    final path = recordingPath ?? registered;
-    if (path == null || path.isEmpty) return;
-    // The recording lives in a directory owned by this operation, so removing
-    // the directory takes the wav and any decoder scratch file with it.
-    final directory = File(path).parent;
-    if (directory.existsSync()) {
-      unawaited(directory.delete(recursive: true));
     }
   }
 
@@ -97,13 +118,16 @@ class DraftVault {
   /// device never leaks the previous user's drafts.
   Future<void> purgeAll() async {
     final entries = await _storage.readAll();
+    final operationIds = <String>{};
     for (final key in entries.keys) {
-      if (!key.startsWith('cra.dictation.')) continue;
-      final operationId = key
-          .substring('cra.dictation.'.length)
-          .replaceFirst('transcription.', '')
-          .replaceFirst('outbox.', '')
-          .replaceFirst('expiresAt.', '');
+      for (final prefix in [_transcriptionKey, _outboxKey, _expiryPrefix]) {
+        if (key.startsWith(prefix) && key.length > prefix.length) {
+          operationIds.add(key.substring(prefix.length));
+          break;
+        }
+      }
+    }
+    for (final operationId in operationIds) {
       await purge(operationId);
     }
   }
