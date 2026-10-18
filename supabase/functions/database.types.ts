@@ -1332,6 +1332,18 @@ export type Database = {
         Args: never;
         Returns: undefined;
       };
+      context_note_publication_matches: {
+        Args: {
+          p_client_event_id: string;
+          p_content: string;
+          p_hospitalization_id: string;
+          p_input_method: string;
+          p_organization_id: string;
+          p_patient_id: string;
+          p_transcription_metadata: Json;
+        };
+        Returns: boolean;
+      };
       create_iam_role: {
         Args: {
           p_description: string;
