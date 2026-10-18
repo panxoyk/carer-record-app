@@ -132,6 +132,8 @@ Este corte no incluye ingesta FHIR completa, escritura clínica, solicitudes de 
 
 **Confirmado en alcance local.** [ADR-016](decisions/adr-016-asr-local-transcripcion-confirmada.md) implementa la captura, la transcripción con `sherpa_onnx`, la confirmación del autor y la purga; [ADR-017](decisions/adr-017-sintesis-local.md) implementa `SynthesisProvider` con adaptador GGUF y fake determinista. No queda proveedor cloud, Edge Function de síntesis ni tokenización reversible. La medición de latencia, RAM, batería y temperatura sobre corpus sintético y el resumen de periodo siguen **Pendientes**; la calidad clínica del reconocimiento no se afirma en ningún caso.
 
+**Confirmado.** [ADR-018](decisions/adr-018-modulo-ia-local-compartido.md) organiza las capacidades locales existentes en un módulo compartido; no cambia arquitectura de producto, privacidad, permisos ni requisitos pendientes.
+
 ### Incremento E: resumen temporal
 
 - permitir seleccionar un intervalo explícito con zona horaria institucional;

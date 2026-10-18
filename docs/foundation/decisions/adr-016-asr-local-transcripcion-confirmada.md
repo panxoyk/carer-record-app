@@ -40,10 +40,10 @@ Al mismo tiempo, el único camino para evaluar la hipótesis académica de ASR l
 
 ## Evidencia y límites
 
-- `supabase/migrations/<timestamp>_context_note_local_transcription.sql`: `transcription_metadata` con constraint de forma y tamaño, retiro de columnas y grants, eliminación del bucket, funciones y políticas de Storage, y `summary` del timeline exponiendo el `content` confirmado.
+- `supabase/migrations/20261012010000_context_note_local_transcription.sql`: `transcription_metadata` con constraint de forma y tamaño, retiro de columnas y grants, eliminación del bucket, funciones y políticas de Storage, y `summary` del timeline exponiendo el `content` confirmado.
 - `supabase/tests/context_notes_milestones.test.sql`: aceptación del hito de audio con `content` + metadata, rechazo sin `content`, rechazo de metadata en hito de texto, metadata mal formada u sobredimensionada, ausencia de bucket y de políticas de Storage, e idempotencia por `client_event_id`.
 - `app/lib/domains/context_note/domain/`: entidad de hito y estados del ciclo de vida local.
-- `app/lib/domains/context_note/data/`: `AsrEngine` detrás de interfaz y repositorio sin código de Storage.
+- `app/lib/domains/on_device_ai/domain/` y `app/lib/domains/on_device_ai/data/`: contrato `AsrEngine` y motor ASR local; `app/lib/domains/context_note/data/` conserva el repositorio de notas, sin código de Storage.
 - `app/lib/domains/context_note/presentation/`: flujo grabar → transcribir → revisar → confirmar → purgar.
 - Manifest `app/assets/asr_model_manifest.json`: origen, licencia, versión y checksum del modelo español; los pesos no se versionan.
 - No se afirma calidad clínica de la transcripción, ni comportamiento con datos reales, ni retention productiva: solo demo sintética y local.
