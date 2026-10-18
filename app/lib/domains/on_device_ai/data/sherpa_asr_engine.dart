@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import '../domain/asr_engine.dart';
-import '../domain/entities/context_note.dart';
+import '../domain/asr_transcript.dart';
 import 'asr_model_manifest.dart';
 
 /// On-device speech recognition backed by `sherpa_onnx`.

@@ -1,4 +1,4 @@
-import 'package:carer_record_app/core/router/app_router.dart';
+import 'package:carer_record_app/app/router/navigation_policy.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

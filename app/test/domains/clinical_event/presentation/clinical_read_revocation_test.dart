@@ -2,7 +2,7 @@ import 'package:carer_record_app/domains/auth/presentation/auth_providers.dart';
 import 'package:carer_record_app/domains/clinical_event/data/clinical_read_client.dart';
 import 'package:carer_record_app/domains/clinical_event/presentation/clinical_event_providers.dart';
 import 'package:carer_record_app/domains/clinical_event/presentation/clinical_read_providers.dart';
-import 'package:carer_record_app/domains/institutional/data/iam_models.dart';
+import 'package:carer_record_app/domains/institutional/domain/iam_entities.dart';
 import 'package:carer_record_app/domains/institutional/presentation/iam_providers.dart';
 import 'package:carer_record_app/domains/patient/presentation/patient_providers.dart';
 import 'package:carer_record_app/domains/patient/presentation/patient_screens.dart';

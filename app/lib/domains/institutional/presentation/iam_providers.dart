@@ -2,20 +2,43 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/supabase_client.dart';
 import '../../auth/presentation/auth_providers.dart';
-import '../../patient/presentation/patient_providers.dart';
-import '../../clinical_event/presentation/clinical_event_providers.dart';
-import '../data/iam_models.dart';
+import '../domain/iam_entities.dart';
+import '../domain/iam_operation_attempt_factory.dart';
+import '../domain/iam_ports.dart';
 import '../data/iam_repository.dart';
 
 final iamRepositoryProvider = Provider.autoDispose<IamRepository>(
   (ref) => IamRepository(ref.watch(supabaseClientProvider)),
 );
 
+final iamContextReaderProvider = Provider.autoDispose<IamContextReader>(
+  (ref) => ref.watch(iamRepositoryProvider),
+);
+
+final iamAdministrationProvider = Provider.autoDispose<IamAdministration>(
+  (ref) => ref.watch(iamRepositoryProvider),
+);
+
+final careAssignmentAdministrationProvider =
+    Provider.autoDispose<CareAssignmentAdministration>(
+      (ref) => ref.watch(iamRepositoryProvider),
+    );
+
+final authorizedPatientNamesReaderProvider =
+    Provider.autoDispose<AuthorizedPatientNamesReader>(
+      (ref) => ref.watch(iamRepositoryProvider),
+    );
+
+final iamOperationAttemptFactoryProvider =
+    Provider.autoDispose<IamOperationAttemptFactory>(
+      (ref) => IamOperationAttemptFactory(),
+    );
+
 final AutoDisposeFutureProvider<List<IamContext>> iamContextsProvider =
     FutureProvider.autoDispose<List<IamContext>>((ref) async {
       if (ref.watch(sessionProvider) == null) return const [];
       try {
-        return await ref.watch(iamRepositoryProvider).currentContexts();
+        return await ref.watch(iamContextReaderProvider).currentContexts();
       } on FormatException {
         return const [];
       }
@@ -67,7 +90,7 @@ final AutoDisposeFutureProvider<IamContext?> iamContextProvider =
 final AutoDisposeFutureProvider<List<IamMember>> iamMembersProvider =
     FutureProvider.autoDispose<List<IamMember>>((ref) async {
       final contextFuture = ref.watch(iamContextProvider.future);
-      final repository = ref.watch(iamRepositoryProvider);
+      final repository = ref.watch(iamAdministrationProvider);
       final context = await contextFuture;
       if (context == null || !context.allows('iam.membership.read')) {
         return const [];
@@ -78,7 +101,7 @@ final AutoDisposeFutureProvider<List<IamMember>> iamMembersProvider =
 final AutoDisposeFutureProvider<List<IamRole>> iamRolesProvider =
     FutureProvider.autoDispose<List<IamRole>>((ref) async {
       final contextFuture = ref.watch(iamContextProvider.future);
-      final repository = ref.watch(iamRepositoryProvider);
+      final repository = ref.watch(iamAdministrationProvider);
       final context = await contextFuture;
       if (context == null || !context.allows('iam.role.read')) {
         return const [];
@@ -96,7 +119,7 @@ iamDelegablePermissionsProvider = FutureProvider.autoDispose((ref) async {
     return const [];
   }
   final permissions = await ref
-      .watch(iamRepositoryProvider)
+      .watch(iamAdministrationProvider)
       .delegablePermissions();
   return permissions
       .where((permission) => context.allows(permission.code))
@@ -109,7 +132,7 @@ iamRoleAssignmentsProvider =
       ref,
     ) async {
       final contextFuture = ref.watch(iamContextProvider.future);
-      final repository = ref.watch(iamRepositoryProvider);
+      final repository = ref.watch(iamAdministrationProvider);
       final context = await contextFuture;
       if (context == null || !context.allows('iam.membership.read')) {
         return <String, List<IamRoleAssignment>>{};
@@ -121,7 +144,7 @@ final AutoDisposeFutureProvider<List<CareAssignmentRecord>>
 careAssignmentsProvider =
     FutureProvider.autoDispose<List<CareAssignmentRecord>>((ref) async {
       final contextFuture = ref.watch(iamContextProvider.future);
-      final repository = ref.watch(iamRepositoryProvider);
+      final repository = ref.watch(careAssignmentAdministrationProvider);
       final context = await contextFuture;
       if (context == null || !context.allows('clinical.assignment.manage')) {
         return const [];
@@ -140,33 +163,17 @@ careAssignmentPatientNamesProvider =
         return const {};
       }
       return ref
-          .watch(iamRepositoryProvider)
+          .watch(authorizedPatientNamesReaderProvider)
           .censusPatientNames(context.organizationId);
     });
 
 final AutoDisposeFutureProvider<List<EligibleMember>> eligibleMembersProvider =
     FutureProvider.autoDispose<List<EligibleMember>>((ref) async {
       final contextFuture = ref.watch(iamContextProvider.future);
-      final repository = ref.watch(iamRepositoryProvider);
+      final repository = ref.watch(careAssignmentAdministrationProvider);
       final context = await contextFuture;
       if (context == null || !context.allows('clinical.assignment.manage')) {
         return const [];
       }
       return repository.eligibleMembers(context.organizationId);
     });
-
-void invalidateAuthorizationAndData(WidgetRef ref) {
-  // The SQL context is authoritative; invalidate its source before all dependents.
-  ref.invalidate(iamContextsProvider);
-  ref.invalidate(iamContextProvider);
-  ref.invalidate(iamMembersProvider);
-  ref.invalidate(iamRolesProvider);
-  ref.invalidate(iamDelegablePermissionsProvider);
-  ref.invalidate(iamRoleAssignmentsProvider);
-  ref.invalidate(careAssignmentsProvider);
-  ref.invalidate(careAssignmentPatientNamesProvider);
-  ref.invalidate(eligibleMembersProvider);
-  ref.invalidate(patientsProvider);
-  ref.invalidate(patientProvider);
-  ref.invalidate(hospitalizationClinicalEventsProvider);
-}

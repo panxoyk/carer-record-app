@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../domain/local_capability_repository.dart';
-import 'asr_model_installer.dart';
-import 'asr_model_manifest.dart';
+import '../../on_device_ai/data/asr_model_installer.dart';
+import '../../on_device_ai/data/asr_model_manifest.dart';
 import 'llm_model_installer.dart';
 import 'llm_model_manifest.dart';
 

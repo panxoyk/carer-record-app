@@ -3,11 +3,20 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design_system/clinical_design_system.dart';
+import '../../../core/design_system/clinical_toast.dart';
 import '../../../core/design_system/anchored_selector.dart';
 import '../../../core/time/clinical_time.dart';
-import '../../institutional/data/iam_models.dart';
-import '../../institutional/data/iam_repository.dart';
+import '../../institutional/domain/iam_entities.dart';
 import '../../institutional/presentation/iam_providers.dart';
+import '../../../core/session/authorization_refresh.dart';
+import 'controllers/care_assignments_controller.dart';
+
+typedef _ControllerForOrganization = CareAssignmentsController Function();
+typedef _PresentAssignmentOutcome = Future<void> Function(
+  Future<AdminOperationResult?> operation,
+  CareAssignmentsController controller,
+  String successMessage,
+);
 
 class AssignmentsScreen extends ConsumerStatefulWidget {
   const AssignmentsScreen({super.key});
@@ -21,9 +30,30 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
   /// remonta la lista, y el campo debe conservar lo escrito y el foco.
   final _patientSearchController = TextEditingController();
   var _patientQuery = '';
+  CareAssignmentsController? _controller;
+  String? _controllerScope;
+
+  CareAssignmentsController _controllerFor(
+    String organizationId,
+    String profileId,
+  ) {
+    final scope = '$organizationId:$profileId';
+    if (_controllerScope != scope) {
+      _controller?.dispose();
+      _controller = CareAssignmentsController(
+        administration: ref.read(careAssignmentAdministrationProvider),
+        attemptFactory: ref.read(iamOperationAttemptFactoryProvider),
+        refreshAuthorization: ref.read(authorizationRefreshProvider),
+        organizationId: organizationId,
+      );
+      _controllerScope = scope;
+    }
+    return _controller!;
+  }
 
   @override
   void dispose() {
+    _controller?.dispose();
     _patientSearchController.dispose();
     super.dispose();
   }
@@ -32,6 +62,14 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
   Widget build(BuildContext context) {
     final iamState = ref.watch(iamContextProvider);
     final iam = iamState.valueOrNull;
+    final currentScope = iam == null
+        ? null
+        : '${iam.organizationId}:${iam.profileId}';
+    if (_controller != null && _controllerScope != currentScope) {
+      _controller!.dispose();
+      _controller = null;
+      _controllerScope = null;
+    }
     final permission = iam?.allows('clinical.assignment.manage') ?? false;
     final assignments = ref.watch(careAssignmentsProvider);
     final eligible = ref.watch(eligibleMembersProvider);
@@ -102,6 +140,8 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
                           ? names.value
                           : const {},
                       patientQuery: _patientQuery,
+                      controllerFor: () =>
+                          _controllerFor(iam!.organizationId, iam.profileId),
                     );
                   },
                 ),
@@ -137,11 +177,13 @@ class _AssignmentList extends ConsumerWidget {
     required this.members,
     required this.patientNames,
     required this.patientQuery,
+    required this.controllerFor,
   });
   final List<CareAssignmentRecord> items;
   final List<EligibleMember> members;
   final Map<String, String> patientNames;
   final String patientQuery;
+  final _ControllerForOrganization controllerFor;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -163,11 +205,15 @@ class _AssignmentList extends ConsumerWidget {
       children: [
         for (final entry in visibleEpisodes)
           _HospitalizationCard(
+            key: ValueKey(
+              '${iam.organizationId}:${iam.profileId}:${entry.key}',
+            ),
             hospitalizationId: entry.key,
             rows: entry.value,
             members: members,
             patientName: patientNames[entry.key],
             organizationId: iam.organizationId,
+            controllerFor: controllerFor,
           ),
         if (items.isEmpty || visibleEpisodes.isEmpty)
           const ListTile(title: Text('No hay hospitalizaciones disponibles.')),
@@ -176,32 +222,119 @@ class _AssignmentList extends ConsumerWidget {
   }
 }
 
-class _HospitalizationCard extends ConsumerWidget {
+class _HospitalizationCard extends ConsumerStatefulWidget {
   const _HospitalizationCard({
+    super.key,
     required this.hospitalizationId,
     required this.rows,
     required this.members,
     required this.patientName,
     required this.organizationId,
+    required this.controllerFor,
   });
   final String hospitalizationId;
   final List<CareAssignmentRecord> rows;
   final List<EligibleMember> members;
   final String? patientName;
   final String organizationId;
+  final _ControllerForOrganization controllerFor;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HospitalizationCard> createState() =>
+      _HospitalizationCardState();
+}
+
+class _HospitalizationCardState extends ConsumerState<_HospitalizationCard> {
+  CareAssignmentSnapshot? _failedSnapshot;
+  String? _operationError;
+  bool _busy = false;
+
+  @override
+  void didUpdateWidget(covariant _HospitalizationCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.organizationId != widget.organizationId ||
+        oldWidget.hospitalizationId != widget.hospitalizationId) {
+      _failedSnapshot = null;
+      _operationError = null;
+      return;
+    }
+    final snapshot = _failedSnapshot;
+    if (snapshot?.action == CareAssignmentAction.revoke &&
+        !widget.rows.any((row) => row.assignmentId == snapshot!.targetId)) {
+      _failedSnapshot = null;
+      _operationError = null;
+    }
+  }
+
+  Future<void> _run(
+    Future<AdminOperationResult?> operation,
+    CareAssignmentsController controller,
+    String successMessage,
+  ) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _operationError = null;
+    });
+    AdminOperationResult? result;
+    try {
+      result = await operation;
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _failedSnapshot = controller.retrySnapshot;
+          _operationError = 'No se pudo confirmar la operación. El resultado podría haberse aplicado; reintenta para verificarlo.';
+        });
+        ClinicalToast.failure(
+          context,
+          message: _careFailureMessage(controller.retrySnapshot),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+        });
+      }
+    }
+    if (!mounted || result == null) return;
+    if (result.success) {
+      setState(() {
+        _failedSnapshot = null;
+        _operationError = null;
+      });
+      ClinicalToast.success(context, message: successMessage);
+    } else {
+      setState(() {
+        _failedSnapshot = null;
+        _operationError = _careResultMessage(result!.code);
+      });
+      ClinicalToast.failure(
+        context,
+        message: _careFailureMessage(controller.retrySnapshot),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hospitalizationId = widget.hospitalizationId;
+    final rows = widget.rows;
+    final members = widget.members;
+    final patientName = widget.patientName;
+    final organizationId = widget.organizationId;
+    final controllerFor = widget.controllerFor;
     final episode = rows.first;
     final now = DateTime.now().toUtc();
     final activeMemberships = rows
-        .where((row) {
-          return row.assignmentId != null &&
+        .where(
+          (row) =>
+              row.assignmentId != null &&
               row.membershipId != null &&
               row.revokedAt == null &&
               (row.validFrom == null || !row.validFrom!.toUtc().isAfter(now)) &&
-              (row.validUntil == null || row.validUntil!.toUtc().isAfter(now));
-        })
+              (row.validUntil == null || row.validUntil!.toUtc().isAfter(now)),
+        )
         .map((row) => row.membershipId)
         .toSet();
     final targets = members
@@ -218,8 +351,12 @@ class _HospitalizationCard extends ConsumerWidget {
         final first = a.validFrom;
         final second = b.validFrom;
         if (first == null || second == null) {
-          if (first != null) return 1;
-          if (second != null) return -1;
+          if (first != null) {
+            return 1;
+          }
+          if (second != null) {
+            return -1;
+          }
         } else {
           final byDate = first.compareTo(second);
           if (byDate != 0) return byDate;
@@ -227,6 +364,7 @@ class _HospitalizationCard extends ConsumerWidget {
         return a.assignmentId!.compareTo(b.assignmentId!);
       });
     }
+    final retry = _failedSnapshot;
     return Padding(
       padding: const EdgeInsets.only(bottom: ClinicalSpacing.item),
       child: ClinicalCard(
@@ -269,11 +407,46 @@ class _HospitalizationCard extends ConsumerWidget {
                 IconButton(
                   tooltip: 'Copiar identificador del episodio',
                   icon: const Icon(Icons.copy),
-                  onPressed: () =>
-                      Clipboard.setData(ClipboardData(text: hospitalizationId)),
+                  onPressed: () async {
+                    try {
+                      await Clipboard.setData(
+                        ClipboardData(text: hospitalizationId),
+                      );
+                      if (context.mounted) {
+                        ClinicalToast.success(
+                          context,
+                          message: 'Identificador copiado.',
+                        );
+                      }
+                    } catch (_) {
+                      if (context.mounted) {
+                        ClinicalToast.failure(
+                          context,
+                          message: 'No pudimos copiar el identificador.',
+                        );
+                      }
+                    }
+                  },
                 ),
               ],
             ),
+            if (_operationError != null) ...[
+              Text(
+                _operationError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              if (retry != null)
+                TextButton(
+                  onPressed: _busy
+                      ? null
+                      : () => _run(
+                          controllerFor().retry(retry),
+                          controllerFor(),
+                          _careSuccess(retry.action),
+                        ),
+                  child: const Text('Reintentar operación'),
+                ),
+            ],
             if (assignmentsByMember.isNotEmpty) ...[
               const SizedBox(height: ClinicalSpacing.compact),
               const ClinicalSectionTitle('Profesionales asignados'),
@@ -284,7 +457,10 @@ class _HospitalizationCard extends ConsumerWidget {
                   history: history,
                   members: members,
                   organizationId: organizationId,
+                  controllerFor: controllerFor,
                   now: now,
+                  presentOutcome: (operation, controller, message) =>
+                      _run(operation, controller, message),
                 ),
               ],
             ],
@@ -292,9 +468,22 @@ class _HospitalizationCard extends ConsumerWidget {
             OutlinedButton.icon(
               icon: const Icon(Icons.person_add_alt_1),
               label: const Text('Asignar profesional'),
-              onPressed: () =>
-                  _grant(context, ref, organizationId, episode, targets),
+              onPressed: _busy
+                  ? null
+                  : () => _grant(
+                      context,
+                      controllerFor,
+                      episode,
+                      targets,
+                      (operation, controller, message) =>
+                          _run(operation, controller, message),
+                    ),
             ),
+            if (targets.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: ClinicalSpacing.compact),
+                child: Text('No hay profesionales elegibles.'),
+              ),
           ],
         ),
       ),
@@ -318,12 +507,16 @@ class _MemberAssignmentHistory extends ConsumerWidget {
     required this.members,
     required this.organizationId,
     required this.now,
+    required this.controllerFor,
+    required this.presentOutcome,
   });
 
   final List<CareAssignmentRecord> history;
   final List<EligibleMember> members;
   final String organizationId;
   final DateTime now;
+  final _ControllerForOrganization controllerFor;
+  final _PresentAssignmentOutcome presentOutcome;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -362,7 +555,14 @@ class _MemberAssignmentHistory extends ConsumerWidget {
               ),
             ),
             if (revocable.isNotEmpty)
-              _revokeButton(context, ref, organizationId, revocable, name),
+              _revokeButton(
+                context,
+                controllerFor,
+                organizationId,
+                revocable,
+                name,
+                presentOutcome,
+              ),
           ],
         ),
       ],
@@ -400,24 +600,32 @@ class _AssignmentPeriod extends StatelessWidget {
 
 Widget _revokeButton(
   BuildContext context,
-  WidgetRef ref,
+  _ControllerForOrganization controllerFor,
   String organizationId,
   List<CareAssignmentRecord> revocable,
   String name,
+  _PresentAssignmentOutcome presentOutcome,
 ) => IconButton(
   tooltip: 'Quitar acceso',
   icon: const Icon(Icons.person_remove_outlined),
   style: IconButton.styleFrom(foregroundColor: ClinicalColors.destructive),
-  onPressed: () =>
-      _confirmRevoke(context, ref, organizationId, revocable, name),
+  onPressed: () => _confirmRevoke(
+    context,
+    controllerFor,
+    organizationId,
+    revocable,
+    name,
+    presentOutcome,
+  ),
 );
 
 Future<void> _confirmRevoke(
   BuildContext context,
-  WidgetRef ref,
+  _ControllerForOrganization controllerFor,
   String organizationId,
   List<CareAssignmentRecord> revocable,
   String name,
+  _PresentAssignmentOutcome presentOutcome,
 ) async {
   var row = revocable.last;
   if (revocable.length > 1) {
@@ -475,16 +683,11 @@ Future<void> _confirmRevoke(
     ),
   );
   if (confirmed != true || !context.mounted) return;
-  await _apply(
-    context,
-    ref,
-    (attempt) => ref
-        .read(iamRepositoryProvider)
-        .revokeCareAssignment(
-          organizationId: organizationId,
-          assignmentId: row.assignmentId!,
-          attempt: attempt,
-        ),
+  final controller = controllerFor();
+  await presentOutcome(
+    controller.revoke(assignmentId: row.assignmentId!),
+    controller,
+    'Acceso a la hospitalización revocado.',
   );
 }
 
@@ -498,15 +701,12 @@ String _memberName(CareAssignmentRecord row, List<EligibleMember> members) =>
 
 Future<void> _grant(
   BuildContext context,
-  WidgetRef ref,
-  String organizationId,
+  _ControllerForOrganization controllerFor,
   CareAssignmentRecord hospitalization,
   List<EligibleMember> members,
+  _PresentAssignmentOutcome presentOutcome,
 ) async {
   if (members.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No hay profesionales elegibles.')),
-    );
     return;
   }
   var selected = members.first.membershipId;
@@ -552,53 +752,34 @@ Future<void> _grant(
     ),
   );
   if (accepted != true || !context.mounted) return;
-  await _apply(
-    context,
-    ref,
-    (attempt) => ref
-        .read(iamRepositoryProvider)
-        .grantCareAssignment(
-          organizationId: organizationId,
-          hospitalizationId: hospitalization.hospitalizationId,
-          membershipId: selected,
-          attempt: attempt,
-        ),
-    usesValidFrom: true,
+  final controller = controllerFor();
+  await presentOutcome(
+    controller.grant(
+      hospitalizationId: hospitalization.hospitalizationId,
+      membershipId: selected,
+    ),
+    controller,
+    'Profesional asignado a la hospitalización.',
   );
 }
 
-Future<void> _apply(
-  BuildContext context,
-  WidgetRef ref,
-  Future<AdminOperationResult> Function(AdminOperationAttempt) action, {
-  AdminOperationAttempt? attempt,
-  bool usesValidFrom = false,
-}) async {
-  attempt ??= newAdminOperationAttempt(usesValidFrom: usesValidFrom);
-  try {
-    final result = await action(attempt);
-    if (!context.mounted) return;
-    if (result.success) {
-      invalidateAuthorizationAndData(ref);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Asignación actualizada.')));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No fue posible aplicar el cambio.')),
-      );
-    }
-  } catch (_) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No fue posible aplicar el cambio. Puedes reintentar.'),
-          action: SnackBarAction(
-            label: 'Reintentar',
-            onPressed: () => _apply(context, ref, action, attempt: attempt),
-          ),
-        ),
-      );
-    }
-  }
-}
+String _careSuccess(CareAssignmentAction action) => switch (action) {
+  CareAssignmentAction.grant => 'Profesional asignado a la hospitalización.',
+  CareAssignmentAction.revoke => 'Acceso a la hospitalización revocado.',
+};
+
+String _careFailureMessage(
+  CareAssignmentSnapshot? snapshot,
+) => switch (snapshot?.action) {
+  CareAssignmentAction.grant =>
+    'No se pudo confirmar la asignación del profesional a la hospitalización.',
+  CareAssignmentAction.revoke =>
+    'No se pudo confirmar la revocación del acceso a la hospitalización.',
+  null => 'No se pudo confirmar la operación de asignación.',
+};
+
+String _careResultMessage(String code) => switch (code) {
+  'denied' => 'No tienes autorización vigente para gestionar esta asignación.',
+  'idempotency_conflict' => 'La solicitud no coincide con el intento anterior. Recarga antes de continuar.',
+  _ => 'No fue posible completar la asignación solicitada.',
+};

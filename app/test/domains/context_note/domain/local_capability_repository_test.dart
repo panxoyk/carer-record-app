@@ -1,4 +1,4 @@
-import 'package:carer_record_app/domains/context_note/domain/local_capability_repository.dart';
+import 'package:carer_record_app/domains/on_device_ai/domain/local_capability_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

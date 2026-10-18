@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:carer_record_app/domains/context_note/data/asr_model_manifest.dart';
-import 'package:carer_record_app/domains/context_note/data/local_capability_repository_impl.dart';
-import 'package:carer_record_app/domains/context_note/data/llm_model_manifest.dart';
-import 'package:carer_record_app/domains/context_note/data/llm_model_installer.dart';
-import 'package:carer_record_app/domains/context_note/domain/local_capability_repository.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/asr_model_manifest.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/local_capability_repository_impl.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/llm_model_manifest.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/llm_model_installer.dart';
+import 'package:carer_record_app/domains/on_device_ai/domain/local_capability_repository.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 

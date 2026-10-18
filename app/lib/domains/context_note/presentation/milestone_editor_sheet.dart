@@ -1,22 +1,26 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:record/record.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/design_system/clinical_toast.dart';
+import '../../../core/design_system/clinical_design_system.dart';
+import '../../auth/presentation/auth_providers.dart';
+
 import '../../patient/domain/entities/patient.dart';
-import '../data/draft_vault.dart';
-import '../data/wav_container.dart';
-import '../domain/asr_engine.dart';
 import '../domain/entities/context_note.dart';
+import '../domain/confirmed_milestone_writer.dart';
+import 'controllers/milestone_editor_controller.dart';
+import 'controllers/dictation_controller.dart';
 import '../domain/entities/dictation_stage.dart';
-import '../domain/synthesis_provider.dart';
+import '../../on_device_ai/domain/synthesis_provider.dart';
+import '../../on_device_ai/domain/local_capability_repository.dart';
+import '../../on_device_ai/domain/local_capability_usage.dart';
+import '../../on_device_ai/presentation/local_ai_providers.dart';
 import '../domain/usecases/synthesis_usecases.dart';
+import 'controllers/note_assistance_controller.dart';
 import 'context_note_providers.dart';
 
 /// Bottom sheet to add a bitácora milestone as text or as a locally dictated
@@ -29,12 +33,18 @@ import 'context_note_providers.dart';
 Future<void> showMilestoneEditorSheet(
   BuildContext context, {
   required Patient patient,
-  required VoidCallback onSaved,
+  required ValueChanged<bool> onSaved,
 }) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(ClinicalRadii.card),
+      ),
+    ),
     builder: (_) => _MilestoneEditorSheet(patient: patient, onSaved: onSaved),
   );
 }
@@ -43,7 +53,7 @@ class _MilestoneEditorSheet extends ConsumerStatefulWidget {
   const _MilestoneEditorSheet({required this.patient, required this.onSaved});
 
   final Patient patient;
-  final VoidCallback onSaved;
+  final ValueChanged<bool> onSaved;
 
   @override
   ConsumerState<_MilestoneEditorSheet> createState() =>
@@ -53,288 +63,234 @@ class _MilestoneEditorSheet extends ConsumerStatefulWidget {
 class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
   static const _uuid = Uuid();
 
-  MilestoneInputMethod _mode = MilestoneInputMethod.text;
+  MilestoneInputMethod _mode = MilestoneInputMethod.audio;
   final TextEditingController _textController = TextEditingController();
-  DictationSession _session = const DictationSession();
-  Timer? _ticker;
-  AudioRecorder? _recorder;
-  AudioPlayer? _previewPlayer;
-  String? _operationId;
+  late final DictationController _dictation;
+  DictationSession get _session => _dictation.session;
+  String? get _operationId => _dictation.operationId;
   bool _busy = false;
-  bool _assisting = false;
+  String? _formError;
+  bool get _isBusy => _busy || _dictation.busy;
+  late final NoteAssistanceController _assistance;
   String? _assistNote;
-  MilestoneEditorActivity? _editorActivity;
+  LocalCapabilityUsageLease? _usageLease;
+  late final MilestoneEditorController _publication;
 
   @override
   void initState() {
     super.initState();
-    _editorActivity = ref.read(milestoneEditorActiveProvider);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _editorActivity?.active = true;
+    _textController.addListener(_onTextChanged);
+    _assistance = NoteAssistanceController(
+      load: () async {
+        final provider = await ref.read(synthesisProviderProvider.future);
+        return provider == null ? null : ImproveNoteDraft(provider: provider);
+      },
+    )..addListener(_onAssistanceChanged);
+    _dictation = DictationController(
+      audioFactory: ref.read(dictationAudioFactoryProvider),
+      artifactsFactory: () => ref.read(draftVaultProvider),
+      loadEngine: () => ref.read(asrEngineProvider.future),
+      newId: _uuid.v4,
+    )..addListener(_onDictationChanged);
+    _usageLease = ref
+        .read(localCapabilityUsageProvider)
+        .acquire(LocalCapability.values);
+    final patient = widget.patient;
+    _publication = MilestoneEditorController(
+      writer: _DeferredMilestoneWriter(
+        (milestone) =>
+            ref.read(contextNoteRepositoryProvider).saveMilestone(milestone),
+      ),
+      organizationId: patient.organizationId,
+      hospitalizationId: patient.hospitalizationId,
+      patientId: patient.patientId,
+      readAccountId: () => ref.read(sessionProvider)?.user.id,
+      newEventId: _uuid.v4,
+    )..addListener(_onPublicationChanged);
+  }
+
+  void _onTextChanged() {
+    _assistance.invalidate();
+    if (mounted) setState(() {});
+  }
+
+  void _onAssistanceChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onPublicationChanged() {
+    if (!mounted) return;
+    setState(() {
+      if (!_publication.busy && _publication.isPublicationLocked) {
+        _formError = 'No pudimos confirmar el guardado. Puedes reintentar la misma nota.';
       }
     });
   }
 
   @override
   void dispose() {
-    _editorActivity?.active = false;
-    _ticker?.cancel();
+    _usageLease?.release();
+    _dictation.removeListener(_onDictationChanged);
+    _dictation.dispose();
+    _textController.removeListener(_onTextChanged);
+    _publication.removeListener(_onPublicationChanged);
+    _publication.dispose();
+    _assistance.removeListener(_onAssistanceChanged);
+    _assistance.dispose();
     _textController.dispose();
-    _previewPlayer?.dispose();
-    _recorder?.dispose();
     super.dispose();
   }
 
-  void _showError(String message) {
+  void _showOperationError(String detail, {required String toastMessage}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    setState(() => _formError = detail);
+    ClinicalToast.failure(context, message: toastMessage);
   }
 
   void _patch(DictationSession next) {
-    if (mounted) setState(() => _session = next);
+    _dictation.updateDraft(next.draftText ?? '');
   }
 
-  // -- capture ------------------------------------------------------------
+  void _onDictationChanged() {
+    if (!mounted) return;
+    setState(() {});
+    final transcript = _session.transcript;
+    if (transcript != null &&
+        !identical(transcript, _lastAppliedTranscriptObject)) {
+      _lastAppliedTranscriptObject = transcript;
+      _textController.text = transcript.text;
+    }
+    if (_session.error != null) {
+      _showOperationError(
+        _session.error!,
+        toastMessage: 'No se pudo procesar el dictado.',
+      );
+    }
+  }
+
+  AsrTranscript? _lastAppliedTranscriptObject;
 
   Future<void> _toggleRecording() async {
-    if (_session.stage == DictationStage.recording) {
-      await _stopRecording();
-      return;
+    final recording = _session.stage == DictationStage.recording;
+    if (_publication.isPublicationLocked) return;
+    if (!recording) {
+      _lastAppliedTranscriptObject = null;
     }
-    final engineState = ref.read(asrEngineProvider);
-    if (engineState.isLoading) {
-      _showError('Comprobando disponibilidad del dictado local.');
-      return;
-    }
-    if (engineState.hasError) {
-      _showError('No se pudo comprobar el dictado local. Inténtalo de nuevo.');
-      return;
-    }
-    final engine = engineState.valueOrNull;
-    if (engine == null) {
-      _showError(
-        'El Dictado no está disponible en este dispositivo. '
-        'Escribe el hito en texto.',
-      );
-      return;
-    }
-    final recorder = AudioRecorder();
-    _recorder = recorder;
-    if (!await recorder.hasPermission()) {
-      await recorder.dispose();
-      _recorder = null;
-      _showError('El micrófono está bloqueado. Revisa el permiso del sistema.');
-      return;
-    }
-    try {
-      final operationId = _uuid.v4();
-      final root = (await getTemporaryDirectory()).path;
-      final directory = DraftVault.recordingDirectory(root, operationId);
-      await directory.create(recursive: true);
-      final path =
-          '${directory.path}${Platform.pathSeparator}'
-          '${DraftVault.recordingFileName(operationId)}';
-      // PCM16 with headers: sherpa-onnx decodes this container directly, so no
-      // lossy re-encode sits between the microphone and the recognizer.
-      await recorder.start(
-        const RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          sampleRate: RecordingFormat.sampleRate,
-          numChannels: RecordingFormat.channels,
-        ),
-        path: path,
-      );
-      _operationId = operationId;
-      _patch(
-        _session.copyWith(
-          stage: DictationStage.recording,
-          recordingPath: path,
-          transcript: null,
-          draftText: '',
-          clearError: true,
-        ),
-      );
+    await _dictation.toggleRecording();
+    if (!recording && _session.stage == DictationStage.recording) {
       _textController.clear();
-      _startTicker();
-    } catch (_) {
-      await recorder.dispose();
-      _recorder = null;
-      _showError('No se pudo iniciar la grabación de audio.');
     }
   }
-
-  void _startTicker() {
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  Future<void> _stopRecording() async {
-    _ticker?.cancel();
-    final recorder = _recorder;
-    var path = _session.recordingPath;
-    if (recorder != null) {
-      try {
-        final stopped = await recorder.stop();
-        if (stopped != null && stopped.isNotEmpty) path = stopped;
-      } finally {
-        await recorder.dispose();
-        _recorder = null;
-      }
-    }
-    if (path == null) {
-      _patch(_session.copyWith(stage: DictationStage.idle));
-      return;
-    }
-    _patch(_session.copyWith(stage: DictationStage.transcribingLocal));
-    setState(() => _busy = true);
-    final engine = await ref.read(asrEngineProvider.future);
-    if (engine == null) {
-      setState(() => _busy = false);
-      _patch(
-        _session.copyWith(
-          stage: DictationStage.failed,
-          error: 'El Dictado no está disponible.',
-        ),
-      );
-      _showError('No se pudo transcribir localmente. Intenta de nuevo.');
-      return;
-    }
-    try {
-      // Capture can be raw PCM without a container; the recognizer needs WAV.
-      final wavePath = await ensureWaveHeader(path);
-      final transcript = await engine.transcribe(wavePath);
-      await ref
-          .read(draftVaultProvider)
-          .putDraft(
-            _operationId ?? '',
-            transcription: transcript.text,
-            recordingPath: path,
-          );
-      _patch(
-        _session.copyWith(
-          stage: DictationStage.readyToConfirm,
-          transcript: transcript,
-          draftText: transcript.text,
-          clearError: true,
-        ),
-      );
-      _textController.text = transcript.text;
-      if (transcript.isEmpty) {
-        _showError(
-          'La transcripción local quedó vacía. Vuelve a grabar o escribe el hito.',
-        );
-      }
-    } on AsrUnavailableException catch (error) {
-      _patch(
-        _session.copyWith(stage: DictationStage.failed, error: error.reason),
-      );
-      _showError(error.reason);
-    } on AsrTranscriptionException catch (error) {
-      _patch(
-        _session.copyWith(stage: DictationStage.failed, error: error.reason),
-      );
-      _showError(error.reason);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  // -- review -------------------------------------------------------------
 
   Future<void> _previewRecording() async {
-    final path = _session.recordingPath;
-    if (path == null) return;
-    final player = _previewPlayer ??= AudioPlayer();
-    try {
-      if (player.playing) {
-        await player.pause();
-        return;
-      }
-      if (player.duration == null) await player.setFilePath(path);
-      await player.play();
-    } catch (_) {
-      _showError('No se pudo reproducir la grabación.');
+    if (!await _dictation.preview()) {
+      _showOperationError(
+        'No se pudo reproducir la grabación.',
+        toastMessage: 'No se pudo reproducir el dictado.',
+      );
     }
   }
 
-  Future<void> _discardArtifacts() async {
-    final operationId = _operationId;
-    _ticker?.cancel();
-    await _previewPlayer?.stop();
-    _patch(
-      _session.copyWith(
-        stage: DictationStage.discarded,
-        recordingPath: null,
-        transcript: null,
-        draftText: null,
-        clearError: true,
-      ),
-    );
-    _textController.clear();
-    if (operationId == null) return;
-    // Purge is idempotent, so it is safe to call again from dispose-like paths.
-    await ref
-        .read(draftVaultProvider)
-        .purge(operationId, recordingPath: _session.recordingPath);
-    _operationId = null;
+  Future<bool> _discardArtifacts({bool notifyFailure = true}) async {
+    final success = await _dictation.discard(notifyFailure: notifyFailure);
+    if (success) {
+      _lastAppliedTranscriptObject = null;
+      _textController.clear();
+    }
+    return success;
   }
 
   Future<void> _cancel() async {
-    await _discardArtifacts();
+    _assistance.invalidate();
+    if (!await _discardArtifacts(notifyFailure: false)) {
+      _showOperationError(
+        'No se pudo descartar la nota. Vuelve a intentarlo.',
+        toastMessage: 'No se pudo descartar la nota.',
+      );
+      return;
+    }
     if (mounted) Navigator.of(context).pop();
   }
 
   // -- publish ------------------------------------------------------------
 
   Future<void> _save() async {
-    final patient = widget.patient;
-    final content = _textController.text.trim();
-    if (content.isEmpty) {
-      _showError('Escribe el texto del hito antes de guardarlo.');
+    _assistance.invalidate();
+    if (_isBusy || _publication.busy) return;
+    if (_publication.accountChanged) {
+      _showOperationError(
+        'La sesión cambió. Descarta este borrador e inicia uno nuevo.',
+        toastMessage: 'No se pudo continuar con este borrador.',
+      );
+      return;
+    }
+    final pending = _publication.pendingPublication?.milestone;
+    final content = pending?.content ?? _textController.text.trim();
+    if (content.isEmpty || content.length > maxMilestoneTextLength) {
+      _showOperationError(
+        'La nota debe tener entre 1 y 20000 caracteres.',
+        toastMessage: 'No se pudo validar la nota.',
+      );
       return;
     }
     final isAudio = _mode == MilestoneInputMethod.audio;
     if (isAudio && _session.transcript == null) {
-      _showError(
-        'Graba y transcribe el hito antes de guardarlo, o usa el modo texto.',
+      _showOperationError(
+        'Confirma una transcripción o vuelve a grabar.',
+        toastMessage: 'No se pudo confirmar el guardado.',
+      );
+      return;
+    }
+    if (isAudio && content.isEmpty) {
+      _showOperationError(
+        'La transcripción está vacía. Escribe la nota o vuelve a grabar.',
+        toastMessage: 'No se pudo confirmar el guardado.',
       );
       return;
     }
     setState(() => _busy = true);
-    _patch(_session.copyWith(stage: DictationStage.publishing));
-    final milestone = ContextNoteMilestone(
-      organizationId: patient.organizationId,
-      hospitalizationId: patient.hospitalizationId,
-      patientId: patient.patientId,
-      inputMethod: _mode,
-      content: content,
-      transcription: _session.transcript?.metadata,
-      clientEventId: _uuid.v4(),
-    );
+    setState(() => _formError = null);
+
     try {
-      await ref.read(contextNoteRepositoryProvider).saveMilestone(milestone);
-      _patch(_session.copyWith(stage: DictationStage.published));
-      await _discardArtifacts();
-      if (mounted) {
-        Navigator.of(context).pop();
-        widget.onSaved();
+      final saved = await _publication.publish(
+        content: content,
+        inputMethod: pending?.inputMethod ?? _mode,
+        transcription:
+            pending?.transcription ??
+            (isAudio ? _session.transcript?.metadata : null),
+      );
+      if (!saved) {
+        if (_publication.isPublicationLocked) {
+          _formError = 'No pudimos confirmar el guardado. Puedes reintentar la misma nota.';
+        }
+        if (_publication.accountChanged) {
+          _showOperationError(
+            'La sesión cambió. Descarta este borrador e inicia uno nuevo.',
+            toastMessage: 'No se pudo continuar con este borrador.',
+          );
+        }
+        if (mounted) setState(() => _busy = false);
+        return;
       }
     } catch (error) {
-      _patch(
-        _session.copyWith(
-          stage: DictationStage.failed,
-          error: 'No se pudo guardar el hito.',
-        ),
+      _showOperationError(
+        'No pudimos confirmar el guardado. Puedes reintentar la misma nota.',
+        toastMessage: 'No se pudo confirmar el guardado.',
       );
-      _showError('No se pudo guardar el hito. Inténtalo de nuevo.');
-    } finally {
       if (mounted) setState(() => _busy = false);
+      return;
     }
+    // Persistence has succeeded. Cleanup is a separate best-effort step: never
+    // leave the editor open where a fresh clientEventId could publish twice.
+    var cleanupPending = false;
+    try {
+      cleanupPending = !await _discardArtifacts(notifyFailure: false);
+    } catch (_) {
+      cleanupPending = true;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    widget.onSaved(cleanupPending);
   }
 
   // -- view ---------------------------------------------------------------
@@ -343,99 +299,126 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
   Widget build(BuildContext context) {
     final engineState = ref.watch(asrEngineProvider);
     final asrReady = engineState.valueOrNull != null;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Agregar hito a la bitácora',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            SegmentedButton<MilestoneInputMethod>(
-              segments: [
-                const ButtonSegment(
-                  value: MilestoneInputMethod.text,
-                  label: Text('Texto'),
-                  icon: Icon(Icons.subject_outlined),
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.white,
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(ClinicalRadii.card),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          ClinicalSpacing.page,
+          ClinicalSpacing.card,
+          ClinicalSpacing.page,
+          ClinicalSpacing.card + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Nueva nota de contexto', style: theme.textTheme.titleLarge),
+              const SizedBox(height: ClinicalSpacing.compact),
+              SegmentedButton<MilestoneInputMethod>(
+                segments: [
+                  ButtonSegment(
+                    value: MilestoneInputMethod.audio,
+                    label: const Text('Dictado'),
+                    icon: Icon(
+                      asrReady ? Icons.mic_none : Icons.mic_off_outlined,
+                    ),
+                  ),
+                  const ButtonSegment(
+                    value: MilestoneInputMethod.text,
+                    label: Text('Texto'),
+                    icon: Icon(Icons.subject_outlined),
+                  ),
+                ],
+                selected: {_mode},
+                onSelectionChanged: _isBusy || _publication.isPublicationLocked
+                    ? null
+                    : (selection) => setState(() => _mode = selection.first),
+              ),
+              const SizedBox(height: ClinicalSpacing.compact),
+              if (_mode == MilestoneInputMethod.text)
+                TextField(
+                  controller: _textController,
+                  readOnly: _isBusy || _publication.isPublicationLocked,
+                  maxLines: 5,
+                  decoration: clinicalInputDecoration(
+                    labelText: 'Nota',
+                    hintText: 'Describe brevemente el contexto clínico.',
+                  ),
+                )
+              else
+                _buildDictationSection(),
+              if (_mode == MilestoneInputMethod.audio &&
+                  (engineState.isLoading ||
+                      engineState.hasError ||
+                      !asrReady)) ...[
+                const SizedBox(height: ClinicalSpacing.compact),
+                Text(
+                  engineState.isLoading ? 'Preparando dictado…' : 'El dictado no está disponible. Puedes escribir la nota.',
+                  key: const Key('asr-availability'),
+                  style: theme.textTheme.bodySmall,
                 ),
-                ButtonSegment(
-                  value: MilestoneInputMethod.audio,
-                  label: const Text('Dictado'),
-                  icon: Icon(
-                    asrReady ? Icons.mic_none : Icons.mic_off_outlined,
+                if (!engineState.isLoading)
+                  TextButton(
+                    onPressed: () => context.push('/models'),
+                    child: const Text('Configurar dictado'),
+                  ),
+              ],
+              _buildAssistRow(),
+              if (_formError != null || _publication.isPublicationLocked) ...[
+                const SizedBox(height: ClinicalSpacing.compact),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    _formError ?? 'No pudimos confirmar el guardado. Puedes reintentar la misma nota.',
+                    key: const Key('milestone-operation-error'),
+                    style: TextStyle(color: theme.colorScheme.error),
                   ),
                 ),
               ],
-              selected: {_mode},
-              onSelectionChanged: _busy
-                  ? null
-                  : (selection) => setState(() => _mode = selection.first),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              engineState.isLoading
-                  ? 'Comprobando disponibilidad del dictado local…'
-                  : engineState.hasError
-                  ? 'No se pudo comprobar el dictado local. El hito de texto sigue disponible.'
-                  : asrReady
-                  ? 'La transcripción ocurre en este dispositivo y el audio no sale del teléfono.'
-                  : 'El modelo de dictado no está instalado. El hito de texto sigue disponible.',
-              key: const Key('asr-availability'),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (engineState.hasError || (!engineState.isLoading && !asrReady))
-              TextButton(
-                onPressed: () => context.push('/models'),
-                child: const Text('Administrar modelos'),
+              const SizedBox(height: ClinicalSpacing.compact),
+              Text(
+                'Una vez guardada, no podrás editarla.',
+                style: theme.textTheme.bodySmall,
               ),
-            const SizedBox(height: 16),
-            if (_mode == MilestoneInputMethod.text)
-              TextField(
-                controller: _textController,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  hintText: 'Describe el hito (síntesis clínica breve).',
-                  border: OutlineInputBorder(),
-                ),
-              )
-            else
-              _buildDictationSection(),
-            const SizedBox(height: 12),
-            _buildAssistRow(),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _busy ? null : _cancel,
+              const SizedBox(height: ClinicalSpacing.item),
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: ClinicalSpacing.item,
+                runSpacing: ClinicalSpacing.compact,
+                children: [
+                  OutlinedButton(
+                    onPressed: _isBusy ? null : _cancel,
                     child: const Text('Descartar'),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
+                  FilledButton(
                     onPressed:
-                        _busy ||
+                        _isBusy ||
                             (_mode == MilestoneInputMethod.text &&
                                 _textController.text.trim().isEmpty)
                         ? null
                         : _save,
-                    child: _busy
+                    child: _isBusy
                         ? const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Confirmar hito'),
+                        : Text(
+                            !_publication.isPublicationLocked
+                                ? 'Guardar nota'
+                                : 'Reintentar guardado',
+                          ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -446,105 +429,102 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
     final provider = providerState.valueOrNull;
     final hasDraft = _textController.text.trim().isNotEmpty;
     if (providerState.isLoading) {
-      return Semantics(
-        liveRegion: true,
-        child: Text('Comprobando disponibilidad de la mejora local…'),
-      );
+      return const SizedBox.shrink();
     }
     if (providerState.hasError) {
-      return Row(
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Expanded(
-            child: Text(
-              'No se pudo comprobar la mejora local. El texto puede confirmarse sin cambios.',
-            ),
-          ),
+          const Text('Ayuda de redacción no disponible.'),
           TextButton(
             onPressed: () => context.push('/models'),
-            child: const Text('Administrar modelos'),
+            child: const Text('Configurar ayuda'),
           ),
         ],
       );
     }
     if (provider == null) {
-      return Row(
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(Icons.offline_bolt_outlined, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'La Ayuda de redacción no está disponible: el modelo de IA no está '
-              'instalado. El hito se publica tal como lo escribiste.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+          Text(
+            'Ayuda de redacción no disponible.',
+            style: Theme.of(context).textTheme.bodySmall,
           ),
           TextButton(
             onPressed: () => context.push('/models'),
-            child: const Text('Instalar'),
+            child: const Text('Configurar ayuda'),
           ),
         ],
       );
     }
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         OutlinedButton.icon(
-          onPressed: _busy || !hasDraft ? null : _improveDraft,
+          onPressed:
+              _isBusy ||
+                  _assistance.busy ||
+                  _publication.isPublicationLocked ||
+                  !hasDraft
+              ? null
+              : _improveDraft,
           icon: const Icon(Icons.auto_fix_high_outlined),
-          label: const Text('Mejorar redacción'),
+          label: const Text('Mejorar redacción', softWrap: true),
         ),
-        const SizedBox(width: 12),
-        if (_assisting)
+        const SizedBox(height: ClinicalSpacing.compact),
+        if (_assistance.busy)
           const SizedBox(
             width: 18,
             height: 18,
             child: CircularProgressIndicator(strokeWidth: 2),
           )
         else if (_assistNote != null)
-          Expanded(
-            child: Text(
-              _assistNote!,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
+          Text(_assistNote!, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }
 
   Future<void> _improveDraft() async {
-    final provider = await ref.read(synthesisProviderProvider.future);
-    if (provider == null) {
-      setState(() => _assistNote = 'La Ayuda de redacción no está instalada.');
-      return;
-    }
-    setState(() {
-      _assisting = true;
-      _assistNote = null;
-    });
-    final outcome = await ImproveNoteDraft(provider: provider)(
-      text: _textController.text,
+    final original = _textController.text;
+    if (mounted) setState(() => _assistNote = null);
+    final outcome = await _assistance.improve(
+      original,
       idempotencyKey: _operationId,
     );
-    if (!mounted) return;
-    setState(() => _assisting = false);
+    if (!mounted ||
+        outcome == null ||
+        _assistance.isClosed ||
+        _publication.busy ||
+        _publication.isPublicationLocked ||
+        _textController.text != original ||
+        !identical(_assistance.outcome, outcome)) {
+      return;
+    }
     if (!outcome.hasSuggestion) {
       setState(() => _assistNote = _assistMessageFor(outcome.errorCode));
       return;
     }
     // The suggestion is a draft: the author keeps editing before confirming.
     _textController.text = outcome.suggestion!;
-    setState(() => _assistNote = 'Revisa la sugerencia antes de confirmar.');
+    setState(() => _assistNote = 'Revisa la sugerencia antes de guardarla.');
   }
 
   String _assistMessageFor(String? code) {
     return switch (code) {
-      SynthesisErrorCode.unavailable =>
-        'La Ayuda de redacción no está disponible.',
-      SynthesisErrorCode.timeout => 'La mejora local tardó demasiado.',
-      SynthesisErrorCode.tooLong => 'La sugerencia era demasiado larga.',
-      SynthesisErrorCode.cancelled => 'Mejora cancelada.',
-      SynthesisErrorCode.malformed => 'La mejora local no se pudo interpretar.',
-      SynthesisErrorCode.internal => 'La mejora local falló.',
-      _ => 'Sin mejora local; se conserva tu texto.',
+      SynthesisErrorCode.unavailable => 'Ayuda de redacción no disponible.',
+      SynthesisErrorCode.timeout =>
+        'No se pudo mejorar la redacción. Tu texto se conserva.',
+      SynthesisErrorCode.tooLong =>
+        'No se pudo mejorar la redacción. Tu texto se conserva.',
+      SynthesisErrorCode.cancelled =>
+        'No se pudo mejorar la redacción. Tu texto se conserva.',
+      SynthesisErrorCode.malformed =>
+        'No se pudo mejorar la redacción. Tu texto se conserva.',
+      SynthesisErrorCode.internal =>
+        'No se pudo mejorar la redacción. Tu texto se conserva.',
+      _ => 'No se pudo mejorar la redacción. Tu texto se conserva.',
     };
   }
 
@@ -554,12 +534,13 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            IconButton.filledTonal(
+            FilledButton.tonalIcon(
               onPressed:
-                  _busy ||
+                  _isBusy ||
+                      _publication.isPublicationLocked ||
                       stage == DictationStage.transcribingLocal ||
                       (stage != DictationStage.recording &&
                           (ref.watch(asrEngineProvider).isLoading ||
@@ -567,53 +548,47 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
                               ref.watch(asrEngineProvider).valueOrNull == null))
                   ? null
                   : _toggleRecording,
-              tooltip: stage == DictationStage.recording
-                  ? 'Detener grabación'
-                  : 'Grabar dictado',
               icon: Icon(
                 stage == DictationStage.recording ? Icons.stop : Icons.mic_none,
               ),
-            ),
-            if (stage != DictationStage.recording &&
-                !ref.watch(asrEngineProvider).isLoading &&
-                ref.watch(asrEngineProvider).valueOrNull == null)
-              TextButton(
-                onPressed: () => context.push('/models'),
-                child: const Text('Administrar modelos'),
+              label: Text(
+                stage == DictationStage.recording
+                    ? 'Detener dictado'
+                    : 'Iniciar dictado',
               ),
-            const SizedBox(width: 12),
+            ),
+            const SizedBox(height: ClinicalSpacing.compact),
             if (stage == DictationStage.recording)
-              const Text('Grabando localmente…')
+              const Text('Grabando…')
             else if (stage == DictationStage.transcribingLocal)
-              const Text('Transcribiendo en el dispositivo…')
-            else if (stage == DictationStage.readyToConfirm)
-              const Text('Revisa la transcripción antes de confirmar.')
-            else
-              const Text('Graba el hito con voz.'),
+              const Text('Transcribiendo…'),
           ],
         ),
         if (_session.canListen)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              IconButton(
-                onPressed: _busy ? null : _previewRecording,
+              TextButton.icon(
+                onPressed: _isBusy ? null : _previewRecording,
+                // The visible label names the action; the tooltip supports
+                // assistive technologies without duplicating visual copy.
                 icon: const Icon(Icons.play_arrow),
+                label: const Text('Escuchar'),
               ),
-              const Text('Escuchar la grabación local'),
             ],
           ),
         if (transcript != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: ClinicalSpacing.compact),
           TextField(
             controller: _textController,
+            readOnly: _isBusy || _publication.isPublicationLocked,
             maxLines: 4,
-            decoration: InputDecoration(
-              labelText: 'Texto del hito (editable)',
-              helperText: transcript.hasUncertainSegments
-                  ? 'Revisa los tramos marcados: la confianza local fue baja.'
-                  : 'Corrige lo que el reconocimiento local no entendió.',
-              border: const OutlineInputBorder(),
+            decoration: clinicalInputDecoration(labelText: 'Nota').copyWith(
+              helper: Text(
+                transcript.hasUncertainSegments
+                    ? 'Algunas palabras pueden ser incorrectas. Revisa el texto.'
+                    : 'Revisa el texto antes de guardar.',
+              ),
             ),
             onChanged: (value) => _patch(
               _session.copyWith(
@@ -622,29 +597,17 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          _ProvenanceChip(metadata: transcript.metadata),
         ],
       ],
     );
   }
 }
 
-class _ProvenanceChip extends StatelessWidget {
-  const _ProvenanceChip({required this.metadata});
-
-  final TranscriptionMetadata metadata;
+class _DeferredMilestoneWriter implements ConfirmedMilestoneWriter {
+  const _DeferredMilestoneWriter(this._save);
+  final Future<void> Function(ContextNoteMilestone) _save;
 
   @override
-  Widget build(BuildContext context) {
-    final engine = metadata.engine;
-    final model = metadata.model;
-    final label = model == null || model.isEmpty
-        ? 'Transcrito localmente con $engine'
-        : 'Transcrito localmente · $engine · $model';
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(label, style: Theme.of(context).textTheme.bodySmall),
-    );
-  }
+  Future<void> saveMilestone(ContextNoteMilestone milestone) =>
+      _save(milestone);
 }

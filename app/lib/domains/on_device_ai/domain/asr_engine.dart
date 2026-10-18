@@ -1,4 +1,4 @@
-import 'entities/context_note.dart';
+import 'asr_transcript.dart';
 
 /// Port of the local speech-recognition capability. The domain depends on this
 /// interface only: it never knows the engine SDK, the native audio format or

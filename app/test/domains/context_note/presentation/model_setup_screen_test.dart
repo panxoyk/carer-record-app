@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:carer_record_app/domains/context_note/data/asr_model_manifest.dart';
-import 'package:carer_record_app/domains/context_note/data/llm_model_manifest.dart';
-import 'package:carer_record_app/domains/context_note/domain/local_capability_repository.dart';
-import 'package:carer_record_app/domains/context_note/presentation/context_note_providers.dart';
-import 'package:carer_record_app/domains/context_note/presentation/model_setup_screen.dart';
-import 'package:carer_record_app/domains/context_note/presentation/model_management_screen.dart';
-import 'package:carer_record_app/domains/context_note/presentation/model_setup_providers.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/asr_model_manifest.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/llm_model_manifest.dart';
+import 'package:carer_record_app/domains/on_device_ai/domain/local_capability_repository.dart';
+import 'package:carer_record_app/domains/on_device_ai/presentation/models/model_task.dart';
+import 'package:carer_record_app/core/design_system/clinical_page_title.dart';
+import 'package:carer_record_app/core/design_system/clinical_toast.dart';
+import 'package:carer_record_app/domains/on_device_ai/presentation/local_ai_providers.dart';
+import 'package:carer_record_app/domains/on_device_ai/presentation/model_setup_screen.dart';
+import 'package:carer_record_app/domains/on_device_ai/presentation/model_management_screen.dart';
+import 'package:carer_record_app/domains/on_device_ai/presentation/model_setup_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +21,20 @@ import 'package:go_router/go_router.dart';
 /// that matter: the clinician sees what is being fetched and why, and a failed
 /// or declined download never blocks the clinical record.
 void main() {
+  setUp(ClinicalToast.dismissAll);
+  void toastTestWidgets(String description, WidgetTesterCallback callback) {
+    testWidgets(description, (tester) async {
+      try {
+        await callback(tester);
+      } finally {
+        ClinicalToast.dismissAll();
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(milliseconds: 500));
+      }
+    });
+  }
+
   const speechManifest = AsrModelManifest(
     id: 'sherpa-onnx-whisper-base',
     family: 'whisper',
@@ -58,16 +75,25 @@ void main() {
     if (root.existsSync()) await root.delete(recursive: true);
   });
 
-  Widget mount(ProviderContainer container) => UncontrolledProviderScope(
-    container: container,
-    child: const MaterialApp(home: ModelSetupScreen()),
-  );
+  Widget mount(ProviderContainer container, WidgetTester tester) {
+    return UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        builder: (context, child) => ClinicalToastHost(child: child!),
+        home: const ModelSetupScreen(),
+      ),
+    );
+  }
 
-  Widget mountManagement(ProviderContainer container) =>
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: ModelManagementScreen()),
-      );
+  Widget mountManagement(ProviderContainer container, WidgetTester tester) {
+    return UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        builder: (context, child) => ClinicalToastHost(child: child!),
+        home: const ModelManagementScreen(),
+      ),
+    );
+  }
 
   /// Tall enough that the whole column is laid out, so assertions do not depend
   /// on what a ListView happens to have built.
@@ -109,8 +135,12 @@ void main() {
     return container;
   }
 
-  testWidgets('offers both models with their licence and size', (tester) async {
-    await tester.pumpWidget(mount(containerWith(FakeCapabilityRepository())));
+  toastTestWidgets('offers both models with their licence and size', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      mount(containerWith(FakeCapabilityRepository()), tester),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Dictado de hitos'), findsOneWidget);
@@ -120,14 +150,14 @@ void main() {
     expect(find.textContaining('Pendiente'), findsNWidgets(2));
   });
 
-  testWidgets('startup inventory failure offers retry and skip', (
+  toastTestWidgets('startup inventory failure offers retry and skip', (
     tester,
   ) async {
     useTallSurface(tester);
     final repository = FakeCapabilityRepository()
       ..queryError = StateError('disco no disponible');
     final container = containerWith(repository);
-    await tester.pumpWidget(mount(container));
+    await tester.pumpWidget(mount(container, tester));
     await tester.pumpAndSettle();
     expect(
       find.text(
@@ -145,51 +175,52 @@ void main() {
     expect(find.text('Dictado de hitos'), findsOneWidget);
   });
 
-  testWidgets('refresh query failure blocks install until retry succeeds', (
-    tester,
-  ) async {
-    useTallSurface(tester);
-    final repository = FakeCapabilityRepository();
-    final container = containerWith(repository);
-    await tester.pumpWidget(mount(container));
-    await tester.pumpAndSettle();
-    expect(find.text('Dictado de hitos'), findsOneWidget);
+  toastTestWidgets(
+    'refresh query failure blocks install until retry succeeds',
+    (tester) async {
+      useTallSurface(tester);
+      final repository = FakeCapabilityRepository();
+      final container = containerWith(repository);
+      await tester.pumpWidget(mount(container, tester));
+      await tester.pumpAndSettle();
+      expect(find.text('Dictado de hitos'), findsOneWidget);
 
-    repository.queryError = StateError('inventario no disponible');
-    await container.read(modelSetupControllerProvider.notifier).refresh();
-    await tester.pumpAndSettle();
-    expect(
-      find.text(
-        'No se pudo comprobar el estado de la descarga. Inténtalo de nuevo.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Reintentar'), findsOneWidget);
+      repository.queryError = StateError('inventario no disponible');
+      await container.read(modelSetupControllerProvider.notifier).refresh();
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'No se pudo comprobar el estado de la descarga. Inténtalo de nuevo.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Reintentar'), findsOneWidget);
 
-    await container.read(modelSetupControllerProvider.notifier).installAll();
-    expect(repository.installed, isEmpty);
+      await container.read(modelSetupControllerProvider.notifier).installAll();
+      expect(repository.installed, isEmpty);
 
-    repository.queryError = null;
-    await tester.tap(find.text('Reintentar'));
-    await tester.pumpAndSettle();
-    expect(
-      find.text(
-        'No se pudo comprobar el estado de la descarga. Inténtalo de nuevo.',
-      ),
-      findsNothing,
-    );
-    await tester.tap(find.text('Descargar 0 MB'));
-    await tester.pumpAndSettle();
-    expect(
-      repository.installed,
-      containsAll([
-        LocalCapability.transcription,
-        LocalCapability.textAssistance,
-      ]),
-    );
-  });
+      repository.queryError = null;
+      await tester.tap(find.text('Reintentar'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'No se pudo comprobar el estado de la descarga. Inténtalo de nuevo.',
+        ),
+        findsNothing,
+      );
+      await tester.tap(find.text('Descargar 0 MB'));
+      await tester.pumpAndSettle();
+      expect(
+        repository.installed,
+        containsAll([
+          LocalCapability.transcription,
+          LocalCapability.textAssistance,
+        ]),
+      );
+    },
+  );
 
-  testWidgets('reports progress and finishes ready once installed', (
+  toastTestWidgets('reports progress and finishes ready once installed', (
     tester,
   ) async {
     useTallSurface(tester);
@@ -226,7 +257,7 @@ void main() {
       },
     );
     final container = containerWith(repository, clock: () => now);
-    await tester.pumpWidget(mount(container));
+    await tester.pumpWidget(mount(container, tester));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Descargar 0 MB'));
@@ -249,7 +280,7 @@ void main() {
     );
   });
 
-  testWidgets('a failed download leaves the screen usable and retryable', (
+  toastTestWidgets('a failed download leaves the screen usable and retryable', (
     tester,
   ) async {
     useTallSurface(tester);
@@ -266,7 +297,7 @@ void main() {
         );
       },
     );
-    await tester.pumpWidget(mount(containerWith(repository)));
+    await tester.pumpWidget(mount(containerWith(repository), tester));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Descargar 0 MB'));
@@ -285,7 +316,7 @@ void main() {
     expect(repository.installed, contains(LocalCapability.textAssistance));
   });
 
-  testWidgets(
+  toastTestWidgets(
     'download progress shows byte count percent and calculated ETA, then clears ETA outside download',
     (tester) async {
       useTallSurface(tester);
@@ -311,7 +342,7 @@ void main() {
           );
         },
       );
-      await tester.pumpWidget(mount(containerWith(repository)));
+      await tester.pumpWidget(mount(containerWith(repository), tester));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Descargar 0 MB'));
       await tester.pump();
@@ -329,20 +360,25 @@ void main() {
     },
   );
 
-  testWidgets('never blocks the record: the skip action is always offered', (
+  toastTestWidgets(
+    'never blocks the record: the skip action is always offered',
+    (tester) async {
+      useTallSurface(tester);
+      await tester.pumpWidget(
+        mount(containerWith(FakeCapabilityRepository()), tester),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ahora no'), findsOneWidget);
+    },
+  );
+
+  toastTestWidgets('skip records the choice before leaving setup', (
     tester,
   ) async {
     useTallSurface(tester);
-    await tester.pumpWidget(mount(containerWith(FakeCapabilityRepository())));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Ahora no'), findsOneWidget);
-  });
-
-  testWidgets('skip records the choice before leaving setup', (tester) async {
-    useTallSurface(tester);
     final container = containerWith(FakeCapabilityRepository());
-    await tester.pumpWidget(mount(container));
+    await tester.pumpWidget(mount(container, tester));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Ahora no'));
@@ -351,9 +387,13 @@ void main() {
     expect(container.read(setupAwaitingContinueProvider), isFalse);
   });
 
-  testWidgets('states that nothing clinical is downloaded', (tester) async {
+  toastTestWidgets('states that nothing clinical is downloaded', (
+    tester,
+  ) async {
     useTallSurface(tester);
-    await tester.pumpWidget(mount(containerWith(FakeCapabilityRepository())));
+    await tester.pumpWidget(
+      mount(containerWith(FakeCapabilityRepository()), tester),
+    );
     await tester.pumpAndSettle();
 
     expect(
@@ -364,13 +404,13 @@ void main() {
     );
   });
 
-  testWidgets('manager shows both models and can decline a clean', (
+  toastTestWidgets('manager shows both models and can decline a clean', (
     tester,
   ) async {
     useTallSurface(tester);
     final repository = FakeCapabilityRepository()
       ..ready.addAll(LocalCapability.values);
-    await tester.pumpWidget(mountManagement(containerWith(repository)));
+    await tester.pumpWidget(mountManagement(containerWith(repository), tester));
     await tester.pumpAndSettle();
 
     expect(find.text('Dictado y redacción'), findsOneWidget);
@@ -395,39 +435,45 @@ void main() {
     expect(repository.installed, isEmpty);
   });
 
-  testWidgets('manager cannot clean a model while milestone editor is active', (
+  toastTestWidgets(
+    'manager cannot clean a model while milestone editor is active',
+    (tester) async {
+      useTallSurface(tester);
+      final repository = FakeCapabilityRepository()
+        ..ready.addAll(LocalCapability.values);
+      final container = containerWith(repository);
+      await tester.pumpWidget(mountManagement(container, tester));
+      await tester.pumpAndSettle();
+      container
+          .read(localCapabilityUsageProvider)
+          .acquire(LocalCapability.values);
+
+      await tester.tap(find.text('Limpiar').first);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Limpiar'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.cleaned, isEmpty);
+      expect(repository.ready, contains(LocalCapability.transcription));
+      expect(find.text('No se pudo limpiar el modelo.'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+      expect(find.text('No se pudo limpiar el modelo.'), findsNothing);
+      expect(find.byKey(const Key('model-clean-blocked')), findsOneWidget);
+    },
+  );
+
+  toastTestWidgets('manager explicitly confirms clean and redownload', (
     tester,
   ) async {
     useTallSurface(tester);
     final repository = FakeCapabilityRepository()
       ..ready.addAll(LocalCapability.values);
-    final container = containerWith(repository);
-    await tester.pumpWidget(mountManagement(container));
-    await tester.pumpAndSettle();
-    container.read(milestoneEditorActiveProvider).active = true;
-
-    await tester.tap(find.text('Limpiar').first);
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(AlertDialog),
-        matching: find.text('Limpiar'),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(repository.cleaned, isEmpty);
-    expect(repository.ready, contains(LocalCapability.transcription));
-    expect(find.text('Cierra editor para reparar el modelo'), findsOneWidget);
-  });
-
-  testWidgets('manager explicitly confirms clean and redownload', (
-    tester,
-  ) async {
-    useTallSurface(tester);
-    final repository = FakeCapabilityRepository()
-      ..ready.addAll(LocalCapability.values);
-    await tester.pumpWidget(mountManagement(containerWith(repository)));
+    await tester.pumpWidget(mountManagement(containerWith(repository), tester));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Limpiar').first);
     await tester.pumpAndSettle();
@@ -437,14 +483,14 @@ void main() {
     expect(repository.ready, containsAll(LocalCapability.values));
   });
 
-  testWidgets('manager does not redownload when cleaning fails', (
+  toastTestWidgets('manager does not redownload when cleaning fails', (
     tester,
   ) async {
     useTallSurface(tester);
     final repository = FakeCapabilityRepository()
       ..ready.addAll(LocalCapability.values)
       ..cleanError = StateError('no se pudo limpiar');
-    await tester.pumpWidget(mountManagement(containerWith(repository)));
+    await tester.pumpWidget(mountManagement(containerWith(repository), tester));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Limpiar').first);
     await tester.pumpAndSettle();
@@ -455,26 +501,270 @@ void main() {
     expect(find.text('Error'), findsOneWidget);
   });
 
-  testWidgets('manager stays available when every model is ready', (
+  toastTestWidgets('manager stays available when every model is ready', (
     tester,
   ) async {
     useTallSurface(tester);
     final repository = FakeCapabilityRepository()
       ..ready.addAll(LocalCapability.values);
-    await tester.pumpWidget(mountManagement(containerWith(repository)));
+    await tester.pumpWidget(mountManagement(containerWith(repository), tester));
     await tester.pumpAndSettle();
     expect(find.text('Dictado y redacción'), findsOneWidget);
     expect(find.text('Dictado de hitos'), findsOneWidget);
     expect(find.text('Mejora de redacción'), findsOneWidget);
   });
 
-  testWidgets(
+  toastTestWidgets('management reports a completed install once', (
+    tester,
+  ) async {
+    useTallSurface(tester);
+    final repository = FakeCapabilityRepository();
+    await tester.pumpWidget(mountManagement(containerWith(repository), tester));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Descargar').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Dictado de hitos: instalación lista.'), findsOneWidget);
+    expect(repository.installed, [LocalCapability.transcription]);
+  });
+
+  toastTestWidgets(
+    'management keeps install failure inline without duplicate toast',
+    (tester) async {
+      useTallSurface(tester);
+      final repository = FakeCapabilityRepository(
+        onInstall: (_) async* {
+          throw StateError('fallo sintético');
+        },
+      );
+      final container = containerWith(repository);
+      await tester.pumpWidget(mountManagement(container, tester));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Descargar').first);
+      await tester.pumpAndSettle();
+      expect(
+        container.read(modelSetupControllerProvider).first.status,
+        ModelStatus.failed,
+      );
+      expect(
+        find.textContaining('No se pudo descargar el modelo'),
+        findsOneWidget,
+      );
+      expect(find.text('El modelo está listo.'), findsNothing);
+    },
+  );
+
+  for (final model in LocalModel.values) {
+    final capability = model == LocalModel.speech
+        ? LocalCapability.transcription
+        : LocalCapability.textAssistance;
+    final title = model == LocalModel.speech
+        ? 'Dictado de hitos'
+        : 'Mejora de redacción';
+
+    toastTestWidgets('manager hides download while checking $title', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      final verification = Completer<bool>();
+      final repository = FakeCapabilityRepository(
+        onVerify: (candidate) =>
+            candidate == capability ? verification.future : Future.value(true),
+      )..ready.addAll(LocalCapability.values);
+      final container = containerWith(repository);
+      await tester.pumpWidget(mountManagement(container, tester));
+      await tester.pumpAndSettle();
+
+      final targetCard = find.ancestor(
+        of: find.text(title),
+        matching: find.byType(ClinicalContentCard),
+      );
+      await tester.tap(
+        find.descendant(
+          of: targetCard,
+          matching: find.text('Comprobar descarga'),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.descendant(of: targetCard, matching: find.text('Comprobando')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: targetCard, matching: find.text('Descargar')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: targetCard, matching: find.byType(FilledButton)),
+        findsNothing,
+      );
+      expect(
+        find
+            .descendant(of: targetCard, matching: find.byType(OutlinedButton))
+            .evaluate()
+            .where(
+              (button) => (button.widget as OutlinedButton).onPressed != null,
+            ),
+        isEmpty,
+      );
+      final otherTitle = model == LocalModel.speech
+          ? 'Mejora de redacción'
+          : 'Dictado de hitos';
+      final otherCard = find.ancestor(
+        of: find.text(otherTitle),
+        matching: find.byType(ClinicalContentCard),
+      );
+      expect(
+        find.descendant(of: otherCard, matching: find.text('Listo')),
+        findsOneWidget,
+      );
+
+      verification.complete(true);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: targetCard, matching: find.text('Listo')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: targetCard, matching: find.text('Descargar')),
+        findsNothing,
+      );
+    });
+
+    toastTestWidgets(
+      'manager verification outcomes control download for $title',
+      (tester) async {
+        useTallSurface(tester);
+        final result = Completer<bool>();
+        final repository = FakeCapabilityRepository(
+          onVerify: (candidate) =>
+              candidate == capability ? result.future : Future.value(false),
+        )..ready.add(capability);
+        final container = containerWith(repository);
+        await tester.pumpWidget(mountManagement(container, tester));
+        await tester.pumpAndSettle();
+        final targetCard = find.ancestor(
+          of: find.text(title),
+          matching: find.byType(ClinicalContentCard),
+        );
+
+        await tester.tap(
+          find.descendant(
+            of: targetCard,
+            matching: find.text('Comprobar descarga'),
+          ),
+        );
+        await tester.pump();
+        expect(
+          find.descendant(of: targetCard, matching: find.text('Descargar')),
+          findsNothing,
+        );
+        result.complete(false);
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(of: targetCard, matching: find.text('Pendiente')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: targetCard, matching: find.text('Descargar')),
+          findsOneWidget,
+        );
+        expect(
+          find.text('$title: la verificación falló; vuelve a descargarlo.'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    toastTestWidgets('manager reports verified $title by operation', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      final repository = FakeCapabilityRepository(onVerify: (_) async => true)
+        ..ready.add(capability);
+      await tester.pumpWidget(
+        mountManagement(containerWith(repository), tester),
+      );
+      await tester.pumpAndSettle();
+      final targetCard = find.ancestor(
+        of: find.text(title),
+        matching: find.byType(ClinicalContentCard),
+      );
+      await tester.tap(
+        find.descendant(
+          of: targetCard,
+          matching: find.text('Comprobar descarga'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('$title: verificación completada.'), findsOneWidget);
+    });
+
+    toastTestWidgets('manager verification error can be retried for $title', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      var shouldThrow = true;
+      final repository = FakeCapabilityRepository(
+        onVerify: (candidate) async {
+          if (candidate == capability && shouldThrow) {
+            throw StateError('verification failed');
+          }
+          return false;
+        },
+      )..ready.add(capability);
+      final container = containerWith(repository);
+      await tester.pumpWidget(mountManagement(container, tester));
+      await tester.pumpAndSettle();
+      final targetCard = find.ancestor(
+        of: find.text(title),
+        matching: find.byType(ClinicalContentCard),
+      );
+
+      await tester.tap(
+        find.descendant(
+          of: targetCard,
+          matching: find.text('Comprobar descarga'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: targetCard, matching: find.text('Error')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: targetCard, matching: find.text('Descargar')),
+        findsOneWidget,
+      );
+
+      shouldThrow = false;
+      await tester.tap(
+        find.descendant(
+          of: targetCard,
+          matching: find.text('Comprobar descarga'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: targetCard, matching: find.text('Pendiente')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: targetCard, matching: find.text('Descargar')),
+        findsOneWidget,
+      );
+    });
+  }
+
+  toastTestWidgets(
     'manager refresh failure offers retry without onboarding actions',
     (tester) async {
       useTallSurface(tester);
       final repository = FakeCapabilityRepository()
         ..queryError = StateError('disco no disponible');
-      await tester.pumpWidget(mountManagement(containerWith(repository)));
+      await tester.pumpWidget(
+        mountManagement(containerWith(repository), tester),
+      );
       await tester.pumpAndSettle();
       expect(
         find.text(
@@ -488,12 +778,12 @@ void main() {
     },
   );
 
-  testWidgets('skip returns to setup without recording a choice', (
+  toastTestWidgets('skip returns to setup without recording a choice', (
     tester,
   ) async {
     useTallSurface(tester);
     final container = containerWith(FakeCapabilityRepository());
-    await tester.pumpWidget(mountManagement(container));
+    await tester.pumpWidget(mountManagement(container, tester));
     await tester.pumpAndSettle();
 
     expect(find.text('Dictado de hitos'), findsOneWidget);
@@ -502,13 +792,16 @@ void main() {
     expect(container.read(setupAwaitingContinueProvider), isFalse);
   });
 
-  testWidgets('manager header back pops to the pushed screen', (tester) async {
+  toastTestWidgets('manager header back pops to the pushed screen', (
+    tester,
+  ) async {
     useTallSurface(tester);
     final container = containerWith(FakeCapabilityRepository());
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp.router(
+          builder: (context, child) => ClinicalToastHost(child: child!),
           routerConfig: GoRouter(
             initialLocation: '/home',
             routes: [
@@ -538,26 +831,27 @@ void main() {
     expect(find.text('Abrir modelos'), findsOneWidget);
   });
 
-  testWidgets('onboarding keeps skip and continue actions without app bar', (
-    tester,
-  ) async {
-    useTallSurface(tester);
-    final repository = FakeCapabilityRepository();
-    await tester.pumpWidget(mount(containerWith(repository)));
-    await tester.pumpAndSettle();
-    expect(find.text('Ahora no'), findsOneWidget);
-    expect(find.text('Continuar'), findsNothing);
-    expect(find.byType(AppBar), findsNothing);
-    expect(find.text('Comprobar descarga'), findsNothing);
-    expect(find.text('Limpiar'), findsNothing);
-  });
+  toastTestWidgets(
+    'onboarding keeps skip and continue actions without app bar',
+    (tester) async {
+      useTallSurface(tester);
+      final repository = FakeCapabilityRepository();
+      await tester.pumpWidget(mount(containerWith(repository), tester));
+      await tester.pumpAndSettle();
+      expect(find.text('Ahora no'), findsOneWidget);
+      expect(find.text('Continuar'), findsNothing);
+      expect(find.byType(AppBar), findsNothing);
+      expect(find.text('Comprobar descarga'), findsNothing);
+      expect(find.text('Limpiar'), findsNothing);
+    },
+  );
 
-  testWidgets('onboarding downloads models only from the global action', (
+  toastTestWidgets('onboarding downloads models only from the global action', (
     tester,
   ) async {
     useTallSurface(tester);
     final repository = FakeCapabilityRepository();
-    await tester.pumpWidget(mount(containerWith(repository)));
+    await tester.pumpWidget(mount(containerWith(repository), tester));
     await tester.pumpAndSettle();
 
     expect(find.text('Descargar'), findsNothing);
@@ -572,10 +866,11 @@ void main() {
 
 /// Stands in for the real installer so the screen can be driven without network.
 class FakeCapabilityRepository implements LocalCapabilityRepository {
-  FakeCapabilityRepository({this.onInstall});
+  FakeCapabilityRepository({this.onInstall, this.onVerify});
 
   final Stream<LocalModelProgress> Function(LocalCapability capability)?
   onInstall;
+  final Future<bool> Function(LocalCapability capability)? onVerify;
   final List<LocalCapability> installed = [];
   final List<LocalCapability> cleaned = [];
   final Set<LocalCapability> ready = {};
@@ -619,7 +914,7 @@ class FakeCapabilityRepository implements LocalCapabilityRepository {
 
   @override
   Future<bool> verify(LocalCapability capability) async =>
-      ready.contains(capability);
+      onVerify?.call(capability) ?? ready.contains(capability);
 
   @override
   Future<void> clean(LocalCapability capability) async {

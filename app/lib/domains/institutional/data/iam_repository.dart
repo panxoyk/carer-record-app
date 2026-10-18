@@ -1,8 +1,8 @@
-import 'dart:math';
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'iam_models.dart';
+import '../domain/iam_entities.dart';
+import '../domain/iam_ports.dart';
+import 'iam_mappers.dart';
 
 abstract interface class IamRemote {
   Future<List<Map<String, dynamic>>> delegablePermissions();
@@ -62,28 +62,19 @@ class SupabaseIamRemote implements IamRemote {
       client.rpc<List<dynamic>>(name, params: params);
 }
 
-String newIdempotencyKey() {
-  final random = Random.secure();
-  final bytes = List<int>.generate(16, (_) => random.nextInt(256));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
-}
-
-AdminOperationAttempt newAdminOperationAttempt({bool usesValidFrom = false}) =>
-    AdminOperationAttempt(
-      idempotencyKey: newIdempotencyKey(),
-      validFrom: usesValidFrom ? DateTime.now().toUtc() : null,
-    );
-
-class IamRepository {
+class IamRepository
+    implements
+        IamContextReader,
+        IamAdministration,
+        CareAssignmentAdministration,
+        AuthorizedPatientNamesReader {
   IamRepository(SupabaseClient client, {IamRemote? remote})
     : _client = client,
       _remote = remote ?? SupabaseIamRemote(client);
   final SupabaseClient _client;
   final IamRemote _remote;
 
+  @override
   Future<List<IamPermission>> delegablePermissions() async =>
       (await _remote.delegablePermissions())
           .where(
@@ -91,9 +82,10 @@ class IamRepository {
                 row['status'] == 'active' &&
                 row['delegation_policy'] == 'ordinary',
           )
-          .map(IamPermission.fromJson)
+          .map(iamPermissionFromJson)
           .toList();
 
+  @override
   Future<AdminOperationResult> replaceRolePermissions({
     required String organizationId,
     required String roleId,
@@ -109,13 +101,15 @@ class IamRepository {
     });
   }
 
-  Future<List<IamContext>> currentContexts() async => IamContext.fromRows(
+  @override
+  Future<List<IamContext>> currentContexts() async => iamContextsFromRows(
     await _client
         .from('iam_current_context')
         .select()
         .then((rows) => List<Map<String, dynamic>>.from(rows)),
   );
 
+  @override
   Future<List<IamMember>> members(String organizationId) async {
     final rows = await _client
         .from('iam_member_directory')
@@ -123,10 +117,11 @@ class IamRepository {
         .eq('organization_id', organizationId)
         .order('display_name');
     return List<Map<String, dynamic>>.from(rows)
-        .map(IamMember.fromJson)
+        .map(iamMemberFromJson)
         .toList();
   }
 
+  @override
   Future<List<IamRole>> roles(String organizationId) async {
     final grouped = <String, Map<String, dynamic>>{};
     for (final row in await _remote.ordinaryRoleDirectory(organizationId)) {
@@ -178,6 +173,7 @@ class IamRepository {
         .toList();
   }
 
+  @override
   Future<Map<String, List<IamRoleAssignment>>> roleAssignments(
     String organizationId,
   ) async {
@@ -188,12 +184,13 @@ class IamRepository {
     final grouped = <String, List<IamRoleAssignment>>{};
     for (final row in List<Map<String, dynamic>>.from(rows)) {
       (grouped[row['membership_id'] as String] ??= []).add(
-        IamRoleAssignment.fromJson(row),
+        iamRoleAssignmentFromJson(row),
       );
     }
     return grouped;
   }
 
+  @override
   Future<void> createMember({
     required String organizationId,
     required String email,
@@ -220,11 +217,12 @@ class IamRepository {
     Map<String, dynamic> args,
   ) async {
     final result = await _remote.rpc(name, args) as List<dynamic>;
-    return AdminOperationResult.fromJson(
+    return adminOperationResultFromJson(
       Map<String, dynamic>.from(result.first as Map),
     );
   }
 
+  @override
   Future<AdminOperationResult> updateMembership({
     required String organizationId,
     required String membershipId,
@@ -238,6 +236,7 @@ class IamRepository {
     'p_idempotency_key': attempt.idempotencyKey,
   });
 
+  @override
   Future<AdminOperationResult> grantRole({
     required String organizationId,
     required String membershipId,
@@ -262,6 +261,7 @@ class IamRepository {
     });
   }
 
+  @override
   Future<AdminOperationResult> revokeRole({
     required String organizationId,
     required String assignmentId,
@@ -272,6 +272,7 @@ class IamRepository {
     'p_idempotency_key': attempt.idempotencyKey,
   });
 
+  @override
   Future<List<CareAssignmentRecord>> assignments(String organizationId) async {
     final rows = await _client
         .from('iam_assignment_hospitalizations')
@@ -281,10 +282,11 @@ class IamRepository {
         .eq('organization_id', organizationId)
         .order('admitted_at', ascending: false);
     return List<Map<String, dynamic>>.from(rows)
-        .map(CareAssignmentRecord.fromJson)
+        .map(careAssignmentRecordFromJson)
         .toList();
   }
 
+  @override
   Future<Map<String, String>> censusPatientNames(String organizationId) async {
     final rows = await _client
         .from('clinical_census_by_hospitalization')
@@ -297,6 +299,7 @@ class IamRepository {
     };
   }
 
+  @override
   Future<List<EligibleMember>> eligibleMembers(String organizationId) async {
     final rows = await _client
         .from('iam_assignment_eligible_members')
@@ -304,10 +307,11 @@ class IamRepository {
         .eq('organization_id', organizationId)
         .order('display_name');
     return List<Map<String, dynamic>>.from(rows)
-        .map(EligibleMember.fromJson)
+        .map(eligibleMemberFromJson)
         .toList();
   }
 
+  @override
   Future<AdminOperationResult> grantCareAssignment({
     required String organizationId,
     required String hospitalizationId,
@@ -332,6 +336,7 @@ class IamRepository {
     });
   }
 
+  @override
   Future<AdminOperationResult> revokeCareAssignment({
     required String organizationId,
     required String assignmentId,

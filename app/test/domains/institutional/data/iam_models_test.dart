@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:carer_record_app/domains/institutional/data/iam_models.dart';
+import 'package:carer_record_app/domains/institutional/domain/iam_entities.dart';
+import 'package:carer_record_app/domains/institutional/domain/iam_operation_attempt_factory.dart';
+import 'package:carer_record_app/domains/institutional/data/iam_mappers.dart';
 import 'package:carer_record_app/domains/institutional/data/iam_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -7,7 +9,7 @@ void main() {
   test(
     'IAM context combines permission rows without transport identity fields',
     () {
-      final context = IamContext.fromRows([
+      final context = iamContextsFromRows([
         _contextRow('iam.membership.read'),
         _contextRow('clinical.assignment.manage'),
       ]).single;
@@ -21,12 +23,12 @@ void main() {
   test(
     'IAM context without rows is not accepted as an authenticated context',
     () {
-      expect(IamContext.fromRows([]), isEmpty);
+      expect(iamContextsFromRows([]), isEmpty);
     },
   );
 
   test('contexts group permissions by organization and membership', () {
-    final contexts = IamContext.fromRows([
+    final contexts = iamContextsFromRows([
       _contextRow('iam.membership.read'),
       {
         ..._contextRow('clinical.patient.read'),
@@ -52,7 +54,7 @@ void main() {
       isNull,
     );
     expect(
-      () => IamContext.fromRows([
+      () => iamContextsFromRows([
         _contextRow('iam.membership.read'),
         {
           ..._contextRow('clinical.patient.read'),
@@ -64,7 +66,7 @@ void main() {
   });
 
   test('membership and assignment transport models parse typed fields', () {
-    final member = IamMember.fromJson({
+    final member = iamMemberFromJson({
       'membership_id': 'membership-1',
       'profile_id': 'profile-1',
       'display_name': 'Persona sintética',
@@ -75,7 +77,7 @@ void main() {
     });
     expect(member.membershipStatus, 'suspended');
     expect(member.validFrom, DateTime.utc(2026, 10, 11, 10));
-    final assignment = CareAssignmentRecord.fromJson({
+    final assignment = careAssignmentRecordFromJson({
       'hospitalization_id': 'episode-1',
       'hospitalization_status': 'admitted',
       'admitted_at': '2026-10-11T10:00:00Z',
@@ -153,7 +155,7 @@ void main() {
   });
 
   test('role assignment parses its role ID for grant eligibility', () {
-    final assignment = IamRoleAssignment.fromJson({
+    final assignment = iamRoleAssignmentFromJson({
       'assignment_id': 'assignment-1',
       'membership_id': 'membership-1',
       'role_id': 'role-1',
@@ -244,7 +246,10 @@ void main() {
   );
 
   test('idempotency keys are RFC 4122 version 4 UUIDs', () {
-    final key = newIdempotencyKey();
+    var byte = 0;
+    final key = IamOperationAttemptFactory(nextByte: () => byte++)
+        .create()
+        .idempotencyKey;
     expect(
       key,
       matches(
@@ -258,8 +263,13 @@ void main() {
   test(
     'a new gesture creates a distinct UUIDv4 attempt with UTC validFrom',
     () {
-      final first = newAdminOperationAttempt(usesValidFrom: true);
-      final second = newAdminOperationAttempt(usesValidFrom: true);
+      var byte = 0;
+      final factory = IamOperationAttemptFactory(
+        nextByte: () => byte++,
+        now: () => DateTime(2026, 1, 1, 12),
+      );
+      final first = factory.create(usesValidFrom: true);
+      final second = factory.create(usesValidFrom: true);
       expect(first.idempotencyKey, isNot(second.idempotencyKey));
       expect(first.validFrom!.isUtc, isTrue);
       expect(second.validFrom!.isUtc, isTrue);
@@ -273,7 +283,9 @@ void main() {
         SupabaseClient('http://127.0.0.1:54321', 'synthetic-test-key'),
       );
       final attempt = AdminOperationAttempt(
-        idempotencyKey: newIdempotencyKey(),
+        idempotencyKey: IamOperationAttemptFactory(nextByte: () => 0)
+            .create()
+            .idempotencyKey,
       );
       expect(
         () => repository.grantRole(

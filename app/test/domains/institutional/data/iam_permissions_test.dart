@@ -6,9 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:carer_record_app/domains/auth/presentation/auth_providers.dart';
-import 'package:carer_record_app/domains/institutional/data/iam_models.dart';
+import 'package:carer_record_app/domains/institutional/domain/iam_entities.dart';
+import 'package:carer_record_app/domains/institutional/data/iam_mappers.dart';
 import 'package:carer_record_app/domains/institutional/data/iam_repository.dart';
 import 'package:carer_record_app/domains/institutional/presentation/iam_providers.dart';
+
+import '../../../support/authorization_refresh_override.dart';
+
+import 'package:carer_record_app/core/session/authorization_refresh.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -17,7 +22,7 @@ void main() {
   test(
     'permission parser accepts complete typed rows and rejects malformed ones',
     () {
-      final permission = IamPermission.fromJson({
+      final permission = iamPermissionFromJson({
         'code': 'iam.role.read',
         'family': 'iam',
         'description': 'Leer roles',
@@ -31,13 +36,13 @@ void main() {
         {'code': 'x', 'family': null, 'description': 'Leer'},
         {'code': 'x', 'family': 'iam', 'description': false},
       ]) {
-        expect(() => IamPermission.fromJson(row), throwsFormatException);
+        expect(() => iamPermissionFromJson(row), throwsFormatException);
       }
     },
   );
 
   test('role model preserves the directory description and permission set', () {
-    final role = IamRole.fromJson({
+    final role = iamRoleFromJson({
       'role_id': 'role-1',
       'role_name': 'Clínico',
       'description': 'Lectura asignada',
@@ -359,6 +364,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            authorizationRefreshOverride,
             sessionProvider.overrideWith((ref) => _session),
             iamContextProvider.overrideWith(
               (ref) async => const IamContext(
@@ -381,7 +387,7 @@ void main() {
               builder: (context, ref, child) {
                 ref.watch(iamDelegablePermissionsProvider);
                 return ElevatedButton(
-                  onPressed: () => invalidateAuthorizationAndData(ref),
+                  onPressed: () => ref.read(authorizationRefreshProvider)(),
                   child: const Text('invalidate'),
                 );
               },

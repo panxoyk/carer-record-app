@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:carer_record_app/domains/context_note/data/wav_container.dart';
+import 'package:carer_record_app/domains/on_device_ai/data/wav_container.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

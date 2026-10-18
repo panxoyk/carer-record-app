@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/entities/context_note.dart';
+import '../domain/confirmed_milestone_writer.dart';
 
 /// Writes confirmed bitácora milestones to Supabase. RLS is the authority:
 /// the `context_notes` policies re-check active membership, `context.note.*`
@@ -10,7 +11,7 @@ import '../domain/entities/context_note.dart';
 /// the recording and its raw transcription are local artifacts and never reach
 /// this client, so the write is a single insert with the confirmed text and its
 /// non-sensitive provenance.
-class ContextNoteRepository {
+class ContextNoteRepository implements ConfirmedMilestoneWriter {
   ContextNoteRepository(this._client);
 
   final SupabaseClient _client;
@@ -18,6 +19,7 @@ class ContextNoteRepository {
   static const int maxTextLength = 20000;
 
   /// Publishes one milestone the author already confirmed.
+  @override
   Future<void> saveMilestone(ContextNoteMilestone milestone) async {
     final text = milestone.content?.trim() ?? '';
     if (text.isEmpty || text.length > maxTextLength) {

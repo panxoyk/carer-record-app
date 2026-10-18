@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design_system/clinical_design_system.dart';
+import '../../../core/design_system/clinical_toast.dart';
 import '../../../core/design_system/anchored_selector.dart';
-import '../../institutional/data/iam_models.dart';
-import '../../institutional/data/iam_repository.dart';
+import '../../institutional/domain/iam_entities.dart';
 import '../../institutional/presentation/iam_providers.dart';
+import '../../../core/session/authorization_refresh.dart';
+import 'controllers/role_permissions_controller.dart';
 
 /// Isolated role-composition view; navigation is intentionally owned by callers.
 class RolesPermissionsScreen extends ConsumerWidget {
@@ -26,7 +28,7 @@ class RolesPermissionsScreen extends ConsumerWidget {
         skipError: false,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => _retry(
-          () => invalidateAuthorizationAndData(ref),
+          () => ref.read(authorizationRefreshProvider)(),
           'No fue posible validar el acceso.',
         ),
         data: (context) {
@@ -36,7 +38,7 @@ class RolesPermissionsScreen extends ConsumerWidget {
             return const Center(child: Text('Acceso no disponible.'));
           }
           return _RolePermissionsBody(
-            key: ValueKey(context.organizationId),
+            key: ValueKey('${context.organizationId}:${context.profileId}'),
             iamContext: context,
           );
         },
@@ -111,21 +113,49 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
   /// El texto vive en el State y no en el campo: cambiar de rol remonta el
   /// editor, y el campo debe conservar lo escrito y el foco.
   final _permissionSearchController = TextEditingController();
-  String? _roleId;
-  Set<String> _draft = {};
-  Set<String> _initial = {};
-  bool _saving = false;
+  late RolePermissionsController _controller;
+  String? get _roleId => _controller.selectedRoleId;
+  Set<String> get _draft => _controller.draft;
+  bool get _saving => _controller.busy;
   int _roleSelectionRevision = 0;
+  RolePermissionsSaveSnapshot? _failedSnapshot;
+  String? _saveError;
   var _permissionQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = RolePermissionsController(
+      administration: ref.read(iamAdministrationProvider),
+      attemptFactory: ref.read(iamOperationAttemptFactoryProvider),
+      refreshAuthorization: () => ref.read(authorizationRefreshProvider)(),
+      organizationId: widget.iamContext.organizationId,
+      roles: widget.roles,
+    )..setCatalog(widget.catalog);
+    _controller.addListener(_controllerChanged);
+  }
+
+  void _controllerChanged() {
+    if (!mounted) return;
+    final failedSnapshot = _failedSnapshot;
+    if (!_controller.busy &&
+        failedSnapshot != null &&
+        _controller.retrySnapshot != failedSnapshot) {
+      _failedSnapshot = null;
+      _saveError = null;
+    }
+    setState(() {});
+  }
 
   @override
   void dispose() {
     _permissionSearchController.dispose();
+    _controller.removeListener(_controllerChanged);
+    _controller.dispose();
     super.dispose();
   }
 
-  bool get _dirty =>
-      !_draft.containsAll(_initial) || !_initial.containsAll(_draft);
+  bool get _dirty => _controller.dirty;
 
   @override
   Widget build(BuildContext context) =>
@@ -137,8 +167,7 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
     List<IamPermission> catalog,
   ) {
     final role = roles.where((item) => item.id == _roleId).firstOrNull;
-    final catalogCodes = catalog.map((permission) => permission.code).toSet();
-    final hidden = role != null && !catalogCodes.containsAll(role.permissions);
+    final hidden = role != null && _controller.hasHiddenPermissions;
     if (roles.isEmpty) {
       return const Center(child: Text('No hay roles ordinarios activos.'));
     }
@@ -159,6 +188,23 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (_saveError != null) ...[
+                Text(
+                  _saveError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                if (_failedSnapshot != null)
+                  TextButton(
+                    onPressed: _saving
+                        ? null
+                        : () => _save(
+                            context,
+                            retrySnapshot: _failedSnapshot,
+                            alreadyConfirmed: true,
+                          ),
+                    child: const Text('Reintentar guardado'),
+                  ),
+              ],
               AnchoredSelector<String>(
                 key: ValueKey(_roleSelectionRevision),
                 selectedValue: role?.id,
@@ -203,11 +249,10 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
                       controlAffinity: ListTileControlAffinity.leading,
                       onChanged: _saving
                           ? null
-                          : (checked) => setState(() {
-                              checked == true
-                                  ? _draft.add(permission.code)
-                                  : _draft.remove(permission.code);
-                            }),
+                          : (checked) => _controller.setPermission(
+                              permission.code,
+                              checked == true,
+                            ),
                     ),
                 ],
                 if (visible.isEmpty)
@@ -238,11 +283,6 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
     );
   }
 
-  void _loadRole(IamRole role) {
-    _initial = Set<String>.from(role.permissions);
-    _draft = Set<String>.from(role.permissions);
-  }
-
   Future<void> _selectRole(
     BuildContext context,
     String? id,
@@ -257,21 +297,17 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
     if (!mounted) return;
     final next = roles.where((role) => role.id == id).firstOrNull;
     if (next == null) return;
-    setState(() {
-      _roleId = id;
-      _loadRole(next);
-    });
+    _controller.selectRole(id);
+    setState(() => _roleSelectionRevision++);
   }
 
   Future<void> _save(
     BuildContext context, {
-    ({AdminOperationAttempt attempt, Set<String> permissions, String roleId})?
-    retrySnapshot,
+    RolePermissionsSaveSnapshot? retrySnapshot,
     bool alreadyConfirmed = false,
   }) async {
     final selected = _roleId;
     if (selected == null) return;
-    final messenger = ScaffoldMessenger.of(context);
     final empty = _draft.isEmpty;
     if (!alreadyConfirmed &&
         !await _confirm(
@@ -283,61 +319,43 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
       return;
     }
     if (!mounted) return;
-    final snapshot =
-        retrySnapshot ??
-        (
-          attempt: newAdminOperationAttempt(),
-          permissions: Set<String>.from(_draft),
-          roleId: selected,
-        );
-    setState(() {
-      _saving = true;
-    });
+    AdminOperationResult? result;
+    RolePermissionsSaveSnapshot? failedSnapshot;
     try {
-      final result = await ref
-          .read(iamRepositoryProvider)
-          .replaceRolePermissions(
-            organizationId: widget.iamContext.organizationId,
-            roleId: snapshot.roleId,
-            permissions: snapshot.permissions.toList()..sort(),
-            attempt: snapshot.attempt,
-          );
-      if (!mounted) return;
-      if (result.success) {
-        invalidateAuthorizationAndData(ref);
-        setState(() {
-          _saving = false;
-          _roleId = null;
-          _draft = {};
-          _initial = {};
-        });
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Permisos actualizados.')),
-        );
-      } else {
-        setState(() {
-          _saving = false;
-        });
-        messenger.showSnackBar(
-          SnackBar(content: Text(_safeResult(result.code))),
-        );
-      }
+      setState(() {
+        _saveError = null;
+      });
+      result = await _controller.save(retry: retrySnapshot);
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _saving = false);
-      final failedSnapshot = snapshot;
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('No fue posible guardar los permisos.'),
-          action: SnackBarAction(
-            label: 'Reintentar',
-            onPressed: () => _save(
-              context,
-              retrySnapshot: failedSnapshot,
-              alreadyConfirmed: true,
-            ),
-          ),
-        ),
+      failedSnapshot = _controller.retrySnapshot;
+    }
+    if (!context.mounted) return;
+    if (failedSnapshot != null) {
+      setState(() {
+        _failedSnapshot = failedSnapshot;
+        _saveError = 'No se pudo confirmar el guardado. El resultado podría haberse aplicado; reintenta el mismo cambio para verificarlo.';
+      });
+      ClinicalToast.failure(
+        context,
+        message: 'No se pudo confirmar el guardado de los permisos.',
+      );
+      return;
+    }
+    if (result == null) return;
+    if (result.success) {
+      setState(() {
+        _failedSnapshot = null;
+        _saveError = null;
+      });
+      ClinicalToast.success(context, message: 'Permisos actualizados.');
+    } else {
+      setState(() {
+        _failedSnapshot = null;
+        _saveError = _safeResult(result!.code);
+      });
+      ClinicalToast.failure(
+        context,
+        message: 'No se pudo guardar la composición de permisos.',
       );
     }
   }
