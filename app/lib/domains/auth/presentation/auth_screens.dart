@@ -17,6 +17,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;
+  bool _passwordVisible = false;
   String? _error;
   @override
   void dispose() {
@@ -27,61 +28,123 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
   @override
   Widget build(BuildContext context) => _AuthScaffold(
-    title: 'Acceder a Carer Record',
-    child: Column(
+    title: 'Carer Record',
+    subtitle: 'Contexto para el cuidado clínico',
+    footer: const Column(
       children: [
-        TextField(
-          controller: _email,
-          keyboardType: TextInputType.emailAddress,
-          decoration: clinicalInputDecoration(labelText: 'Correo electrónico'),
-        ),
-        TextField(
-          controller: _password,
-          obscureText: true,
-          decoration: clinicalInputDecoration(labelText: 'Contraseña'),
-        ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ),
-        const SizedBox(height: 20),
-        FilledButton(
-          onPressed: _busy
-              ? null
-              : () async {
-                  setState(() {
-                    _busy = true;
-                    _error = null;
-                  });
-                  try {
-                    await ref
-                        .read(authRepositoryProvider)
-                        .signIn(email: _email.text, password: _password.text);
-                  } catch (_) {
-                    if (mounted) {
-                      setState(
-                        () => _error =
-                            'No fue posible acceder. Revisa tus credenciales.',
-                      );
-                    }
-                  } finally {
-                    if (mounted) {
-                      setState(() => _busy = false);
-                    }
-                  }
-                },
-          child: Text(_busy ? 'Accediendo…' : 'Acceder'),
-        ),
-        TextButton(
-          onPressed: () => context.go('/recover'),
-          child: const Text('Olvidé mi contraseña'),
-        ),
+        SizedBox(height: ClinicalSpacing.section),
+        Text('¿No tienes acceso?'),
+        SizedBox(height: ClinicalSpacing.compact),
+        Text('Contacta al administrador de tu institución.'),
       ],
     ),
+    child: ClinicalCard(
+      padding: const EdgeInsets.all(ClinicalSpacing.section),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Iniciar sesión', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: ClinicalSpacing.compact),
+          Text(
+            'Ingresa con tu cuenta institucional.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: ClinicalSpacing.section),
+          const ExcludeSemantics(child: _AuthFieldLabel('Correo electrónico')),
+          Semantics(
+            label: 'Correo electrónico',
+            child: TextField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.username],
+              decoration: clinicalInputDecoration(),
+            ),
+          ),
+          const SizedBox(height: ClinicalSpacing.item),
+          const ExcludeSemantics(child: _AuthFieldLabel('Contraseña')),
+          Semantics(
+            label: 'Contraseña',
+            child: TextField(
+              controller: _password,
+              obscureText: !_passwordVisible,
+              autofillHints: const [AutofillHints.password],
+              decoration: clinicalInputDecoration(
+                suffixIcon: IconButton(
+                  tooltip: _passwordVisible
+                      ? 'Ocultar contraseña'
+                      : 'Mostrar contraseña',
+                  onPressed: () =>
+                      setState(() => _passwordVisible = !_passwordVisible),
+                  icon: Icon(
+                    _passwordVisible
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: TextButton(
+              onPressed: () => context.go('/recover'),
+              child: const Text('¿Olvidaste tu contraseña?'),
+            ),
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: ClinicalSpacing.item),
+              child: Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+              onPressed: _busy
+                  ? null
+                  : () async {
+                      setState(() {
+                        _busy = true;
+                        _error = null;
+                      });
+                      try {
+                        await ref
+                            .read(authRepositoryProvider)
+                            .signIn(
+                              email: _email.text,
+                              password: _password.text,
+                            );
+                      } catch (_) {
+                        if (mounted) {
+                          setState(
+                            () => _error = 'No fue posible acceder. Revisa tus credenciales.',
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _busy = false);
+                      }
+                    },
+              child: Text(_busy ? 'Accediendo…' : 'Iniciar sesión'),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _AuthFieldLabel extends StatelessWidget {
+  const _AuthFieldLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: ClinicalSpacing.compact),
+    child: Text(label, style: Theme.of(context).textTheme.labelLarge),
   );
 }
 
@@ -228,26 +291,53 @@ class _UpdatePasswordScreenState extends ConsumerState<UpdatePasswordScreen> {
 }
 
 class _AuthScaffold extends StatelessWidget {
-  const _AuthScaffold({required this.title, required this.child});
+  const _AuthScaffold({
+    required this.title,
+    required this.child,
+    this.subtitle,
+    this.footer,
+  });
   final String title;
   final Widget child;
+  final String? subtitle;
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 24),
-                child,
-              ],
+      child: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Padding(
+                  padding: const EdgeInsets.all(ClinicalSpacing.page),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                        textAlign: subtitle == null ? null : TextAlign.center,
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: ClinicalSpacing.compact),
+                        Text(
+                          subtitle!,
+                          style: Theme.of(context).textTheme.bodyLarge,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                      const SizedBox(height: ClinicalSpacing.section),
+                      child,
+                      if (footer != null) footer!,
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
