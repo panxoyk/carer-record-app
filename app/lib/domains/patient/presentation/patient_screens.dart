@@ -10,6 +10,7 @@ import '../../clinical_event/domain/entities/clinical_event.dart';
 import '../../clinical_event/presentation/clinical_event_providers.dart';
 import '../../context_note/presentation/milestone_editor_sheet.dart';
 import '../../institutional/presentation/iam_providers.dart';
+import '../../institutional/data/iam_models.dart';
 import '../domain/entities/patient.dart';
 import 'patient_providers.dart';
 
@@ -289,6 +290,7 @@ class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final contexts = ref.watch(iamContextsProvider);
     final iam = ref.watch(iamContextProvider);
     final session = ref.watch(sessionProvider);
     return Scaffold(
@@ -304,24 +306,131 @@ class SettingsScreen extends ConsumerWidget {
               child: Text('No fue posible cargar el perfil.'),
             );
           }
+          final organizations = (contexts.valueOrNull ?? const <IamContext>[])
+              .where(
+                (organization) =>
+                    organization.profileStatus == 'active' &&
+                    organization.membershipStatus == 'active',
+              )
+              .toList();
+          final selected = ref.watch(selectedOrganizationProvider);
+          final displayedContext =
+              organizations
+                  .where(
+                    (organization) =>
+                        organization.organizationId == selected?.organizationId,
+                  )
+                  .firstOrNull ??
+              organizations
+                  .where(
+                    (organization) =>
+                        organization.organizationId == profile.organizationId,
+                  )
+                  .firstOrNull;
           final administrationDestinations = administrationNavigationFor(
             profile,
           );
+          final active =
+              (displayedContext?.membershipStatus ??
+                  profile.membershipStatus) ==
+              'active';
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              ClinicalProfileCard(
-                initials: _initials(profile.displayName),
-                name: profile.displayName,
-                subtitle: profile.organizationName,
-                status:
-                    profile.profileStatus == 'active' &&
-                        profile.membershipStatus == 'active'
-                    ? 'Activo'
-                    : 'Suspendido',
+              ClinicalCard(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: ClinicalColors.mint,
+                      child: Text(_initials(profile.displayName)),
+                    ),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.displayName,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(session?.user.email ?? 'No disponible'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(height: 18),
+              ClinicalCard(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.business_outlined),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: organizations.length > 1
+                          ? DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                isExpanded: true,
+                                value: displayedContext?.organizationId,
+                                items: [
+                                  for (final org in organizations)
+                                    DropdownMenuItem<String>(
+                                      value: org.organizationId,
+                                      child: Text(org.organizationName),
+                                    ),
+                                ],
+                                onChanged: (id) {
+                                  if (id != null) {
+                                    ref
+                                        .read(
+                                          selectedOrganizationProvider.notifier,
+                                        )
+                                        .select(id);
+                                  }
+                                },
+                              ),
+                            )
+                          : Text(
+                              displayedContext?.organizationName ??
+                                  profile.organizationName,
+                            ),
+                    ),
+                    Semantics(
+                      button: true,
+                      label: active ? 'Membresía activa' : 'Membresía inactiva',
+                      child: IconButton(
+                        tooltip: active
+                            ? 'Membresía activa'
+                            : 'Membresía inactiva',
+                        icon: Icon(
+                          active
+                              ? Icons.check_circle_outline
+                              : Icons.cancel_outlined,
+                        ),
+                        onPressed: () => ScaffoldMessenger.of(context)
+                            .showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  active
+                                      ? 'Membresía activa'
+                                      : 'Membresía inactiva',
+                                ),
+                              ),
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
               if (administrationDestinations.isNotEmpty) ...[
-                const SizedBox(height: 18),
                 ClinicalSettingsSection(
                   title: 'Administración institucional',
                   children: [
@@ -342,43 +451,17 @@ class SettingsScreen extends ConsumerWidget {
                 const SizedBox(height: 18),
               ],
               ClinicalSettingsSection(
-                title: 'Perfil institucional',
+                title: 'Herramientas',
                 children: [
                   ClinicalSettingsRow(
-                    label: 'Nombre',
-                    value: profile.displayName,
-                    icon: Icons.person_outline,
-                  ),
-                  ClinicalSettingsRow(
-                    label: 'Organización',
-                    value: profile.organizationName,
-                    icon: Icons.business_outlined,
-                  ),
-                  ClinicalSettingsRow(
-                    label: 'Estado de perfil',
-                    value: profile.profileStatus,
-                    icon: Icons.verified_outlined,
-                  ),
-                  ClinicalSettingsRow(
-                    label: 'Estado de membresía',
-                    value: profile.membershipStatus,
-                    icon: Icons.groups_outlined,
+                    label: 'Dictado y redacción',
+                    icon: Icons.auto_awesome_outlined,
                     isLast: true,
+                    onTap: () => context.go('/models'),
                   ),
                 ],
               ),
               const SizedBox(height: 18),
-              ClinicalSettingsSection(
-                title: 'Seguridad',
-                children: [
-                  ClinicalSettingsRow(
-                    label: 'Correo institucional',
-                    value: session?.user.email ?? 'No disponible',
-                    icon: Icons.mail_outline,
-                    isLast: true,
-                  ),
-                ],
-              ),
               ClinicalSettingsRow(
                 label: 'Cerrar sesión',
                 icon: Icons.logout,
