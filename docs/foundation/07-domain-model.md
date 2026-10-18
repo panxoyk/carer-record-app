@@ -8,7 +8,7 @@ CRA es una capa de contexto e integración para hospitalización. Su propósito 
 
 ## Distinción entre presente y objetivo
 
-### Modelo implementado hoy
+### Baseline histórico: modelo implementado entonces
 
 La aplicación capturada en el baseline expone tres conceptos principales:
 
@@ -17,6 +17,10 @@ La aplicación capturada en el baseline expone tres conceptos principales:
 - `ClinicalEvent`: evento genérico con `kind`, fecha y un detalle que solo exige `summary` (`app/lib/domains/clinical_event/domain/entities/clinical_event.dart:1-23`).
 
 PostgreSQL refleja esa forma: `practitioners`, `patients` y `clinical_events` (`supabase/migrations/20260910000000_initial_clinical_schema.sql:7-39`). La migración de timeline agregó ubicación directamente al paciente y una restricción de resumen al payload (`supabase/migrations/20260910110000_clinical_timeline.sql:1-5`, `supabase/migrations/20260910110000_clinical_timeline.sql:45-51`). Este modelo permite la demo de consulta, pero no expresa organización, episodio, historia de ubicación, procedencia completa ni recursos clínicos tipados.
+
+### Estado actual acotado
+
+El IAM actual separa perfiles, membresías y asignaciones de permisos efectivos; la autorización clínica se evalúa por hospitalización y asignación vigente, según [ADR-018](decisions/adr-018-modulo-ia-local-compartido.md) no altera este contrato. El dominio implementa hospitalizaciones, ubicaciones y asignaciones, y una lectura mínima del censo/paciente/timeline. También existen `context_notes` confirmadas e inmutables, incluidos hitos de audio que persisten solo texto confirmado. Esto no implica ingesta FHIR completa ni la entrega de las tablas canónicas tipadas descritas en el modelo objetivo.
 
 ### Modelo objetivo
 

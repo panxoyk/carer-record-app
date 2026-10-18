@@ -37,6 +37,6 @@ Una revocación remota surte efecto en la siguiente consulta PostgreSQL; no se p
 
 ## Evidencia y límites
 
-Modelos: `app/lib/domains/patient/data/models/patient_model.dart` y `app/lib/domains/clinical_event/data/models/clinical_event_model.dart`. Repositorios y providers: `patient_repository.dart`, `clinical_event_repository.dart`, `patient_providers.dart` y `clinical_event_providers.dart`. UI/rutas: `patient_screens.dart` y `core/router/app_router.dart`.
+Modelos: `app/lib/domains/patient/data/models/patient_model.dart` y `app/lib/domains/clinical_event/data/models/clinical_event_model.dart`. Repositorios y providers: `patient_repository.dart`, `clinical_event_repository.dart`, `patient_providers.dart` y `clinical_event_providers.dart`. UI: `patient_screens.dart`; router: `app/lib/app/router/app_router.dart`. El refresh/lifecycle de autorización se compone desde `app/session/`; no cambia contratos de lectura clínica ni permisos.
 
 La cobertura incluye parsing tipado, búsqueda por nombre, ubicación segura, estado neutral y resumen tipado. La integración local comprueba censo, vista demográfica específica y timeline por `organization_id` + `hospitalization_id`, UUID manipulado y revocación con el mismo JWT clínico; Flutter tiene cobertura widget/modelo dirigida. La verificación es solo para demo sintética/local: no acredita concurrencia entre dos sesiones, producción ni datos reales.

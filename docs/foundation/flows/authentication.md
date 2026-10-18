@@ -2,7 +2,7 @@
 
 ## Estado y objetivo
 
-El baseline registra acceso por correo y contraseña, cierre de sesión y recuperación. El objetivo es autenticar una identidad institucional y resolver perfil, membresías, permisos y alcances vigentes, sin convertir el guard de interfaz en autoridad de autorización. La navegación capturada usa estado y rol global del practitioner.
+El baseline registra acceso por correo y contraseña, cierre de sesión y recuperación. El contrato actual resuelve perfiles, membresías y permisos efectivos mediante `IamRepository` y `iam_current_context`; la navegación presenta rutas conforme a ese contexto sin convertir el guard de interfaz en autoridad. La configuración opcional de modelos locales no es precondición de autenticación. Los pasos que siguen mencionan el practitioner/rol global únicamente como comportamiento histórico del baseline.
 
 Todo ejemplo, cuenta y prueba descritos aquí usa exclusivamente datos sintéticos.
 
@@ -19,14 +19,14 @@ Todo ejemplo, cuenta y prueba descritos aquí usa exclusivamente datos sintétic
 - Una persona anónima puede acceder a login y solicitar recuperación, pero no consultar perfiles ni datos clínicos.
 - No existe registro público; las cuentas se crean por administración.
 - Una cuenta autenticada puede leer su propio perfil.
-- En el baseline, una cuenta activa continúa al área permitida por su rol; en el objetivo, elige una membresía activa y la UI deriva capacidades de permisos vigentes.
+- En el comportamiento actual, la app obtiene contexto IAM y enruta según permisos efectivos; los roles globales del practitioner son solo comportamiento histórico.
 - Una cuenta suspendida solo ve la pantalla de suspensión y puede cerrar sesión; RLS debe negar acceso administrativo y clínico.
 - Solo una sesión en evento de recuperación puede definir una nueva contraseña.
 
 ## Precondiciones
 
 - Supabase Auth está disponible y el proveedor email/contraseña está habilitado con registro público deshabilitado.
-- La cuenta tiene un perfil `practitioners` con rol y estado válidos.
+- La cuenta posee perfil y membresía activa resolubles por IAM; los modelos locales pueden configurarse opcionalmente después.
 - El deep link exacto `io.carerrecord.app://login-callback/recover` está configurado en Supabase, Android e iOS.
 - El dispositivo dispone de fecha razonable y almacenamiento seguro para la sesión.
 - En desarrollo se usan cuentas y correos sintéticos bajo dominios reservados.
@@ -36,10 +36,10 @@ Todo ejemplo, cuenta y prueba descritos aquí usa exclusivamente datos sintétic
 1. La persona abre la aplicación sin sesión y es dirigida a `/login`.
 2. Ingresa correo y contraseña; el correo se normaliza con `trim` y la contraseña no se registra.
 3. Flutter llama `signInWithPassword` y espera el cambio de estado de Auth.
-4. Con sesión válida, la aplicación consulta por RLS el perfil cuyo `id` coincide con `auth.uid()`.
-5. En el baseline, el router deriva a administración para `administrator` o a pacientes para un rol asistencial. En el objetivo, la app selecciona una membresía activa y presenta solo operaciones cuyos permisos puedan evaluarse, sin tratarlos como autoridad.
+4. Con sesión válida, la aplicación consulta el contexto IAM vigente mediante `IamRepository` y `iam_current_context`.
+5. La app presenta operaciones disponibles según permisos efectivos resueltos; el servidor/RLS sigue siendo la autoridad. Si se desea, la persona puede configurar modelos locales sin que esto afecte autenticación.
 6. Cada consulta posterior conserva el JWT del usuario; RLS vuelve a evaluar autorización en servidor.
-7. Al cerrar sesión, Supabase elimina la sesión y la aplicación vuelve a `/login`; cualquier dato clínico temporal y outbox del usuario se bloquea o purga según su ciclo de vida.
+7. Al cerrar sesión, Supabase elimina la sesión, la aplicación ejecuta el hook genérico de limpieza para purgar artefactos locales de dictado registrados y vuelve a `/login`; la recuperación tras crash sigue pendiente.
 
 ```mermaid
 sequenceDiagram
@@ -70,6 +70,7 @@ sequenceDiagram
 - Recuperación abierta con la aplicación cerrada o abierta: ambos escenarios deben llevar a `/update-password`; esta validación manual sigue pendiente en el repositorio.
 - Sesión expirada: se intenta la renovación normal del SDK; si no es posible, se purga la vista sensible y se solicita autenticación.
 - Cambio de cuenta con outbox local: una cuenta nunca puede ver ni enviar artefactos pertenecientes a otra.
+- Si falla Auth al cerrar sesión, la sesión no se considera cerrada y se informa el fallo; la persona puede volver a usar el botón original de cierre de sesión. Si Auth sí cerró la sesión pero falla la limpieza local, se informa ese resultado distinto: no se intenta reabrir sesión ni se ofrece un retry desde el aviso; la limpieza conserva su mecanismo interno de reintento.
 
 ## Estados
 
@@ -126,6 +127,7 @@ La auditoría de seguridad debe registrar éxito o fallo, usuario cuando sea con
 - [`AuthRepository`](../../../app/lib/domains/auth/data/auth_repository.dart#L8-L27) implementa sesión, login, logout, recuperación y actualización de contraseña.
 - [`AuthGate`](../../../app/lib/domains/auth/presentation/auth_providers.dart#L22-L43) escucha `onAuthStateChange` y distingue `passwordRecovery`.
 - [`app_router.dart`](../../../app/lib/core/router/app_router.dart#L16-L45) protege rutas y separa cuenta activa, suspendida, administrador y rol asistencial.
+- La composición actual de rutas está en [`app_router.dart`](../../../app/lib/app/router/app_router.dart); la política de navegación y los límites de refresh/lifecycle viven en `app/router/` y `app/session/`. La selección de destino sigue siendo UX y no cambia el contrato de autorización del servidor.
 - [`config.toml`](../../../supabase/config.toml#L18-L30) deshabilita registro público y permite el redirect de recuperación.
 - [`auth_administration.sql`](../../../supabase/migrations/20260910010000_auth_administration.sql#L12-L32) define perfil propio y autoridad administrativa por RLS.
 - [Control de acceso objetivo](../05-access-control.md#vocabulario-de-seguridad) separa identidad Auth, perfil, membresía, rol, permiso y alcance.

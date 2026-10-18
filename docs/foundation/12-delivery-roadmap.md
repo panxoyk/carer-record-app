@@ -18,21 +18,21 @@ La fotografía previa a esta fundación registra un MVP local con autenticación
 
 ## Estado y secuencia
 
-| Corte | Resultado demostrable                                       | Estado documental        | Dependencias                                |
-| ----- | ----------------------------------------------------------- | ------------------------ | ------------------------------------------- |
-| V0    | Baseline local reproducible y límites declarados            | Parcialmente evidenciado | Ninguna                                     |
-| V1    | FHIR sintético validado llega a timeline                    | Propuesto                | V0, ADR-004                                 |
-| V2    | Permisos configurables y asignación gobiernan lectura       | Propuesto                | V0, ADR-005/013 y hospitalizaciones mínimas |
-| V3    | Audio sintético se captura, transcribe localmente y elimina | Propuesto                | V0, ADR-006/007/010                         |
-| V4    | Texto sintético se tokeniza y revierte localmente           | Propuesto                | V3, ADR-008                                 |
-| V5    | Síntesis cloud procesa solo texto sintético permitido       | Propuesto                | V4, ADR-009                                 |
-| V6    | Resumen temporal versionado usa caché segura                | Propuesto                | V1, V5, ADR-011                             |
-| V7    | Eliminación, auditoría y outbox resisten fallos             | Propuesto                | V2-V6                                       |
-| V8    | Evaluación académica reproducible y cierre de brechas       | Propuesto                | V1-V7                                       |
+| Corte | Resultado demostrable                                       | Estado documental            | Dependencias                                |
+| ----- | ----------------------------------------------------------- | ---------------------------- | ------------------------------------------- |
+| V0    | Baseline local reproducible y límites declarados            | Parcialmente evidenciado     | Ninguna                                     |
+| V1    | FHIR sintético validado llega a timeline                    | Propuesto                    | V0, ADR-004                                 |
+| V2    | Permisos configurables y asignación gobiernan lectura       | Parcial; corte incompleto    | V0, ADR-005/013 y hospitalizaciones mínimas |
+| V3    | Audio sintético se captura, transcribe localmente y elimina | Parcial; SP-01 abierto       | V0, ADR-006/007/010/016                     |
+| V4    | UI NER local señala entidades sin alterar el texto          | Pendiente                    | V3, ADR-017                                 |
+| V5    | Síntesis local asistida en dispositivo                      | Parcial; benchmark pendiente | ADR-017/018                                 |
+| V6    | Resumen temporal versionado usa caché segura                | Pendiente                    | V1, V5, ADR-011                             |
+| V7    | Eliminación, auditoría y outbox resisten fallos             | Propuesto                    | V2-V6                                       |
+| V8    | Evaluación académica reproducible y cierre de brechas       | Propuesto                    | V1-V7                                       |
 
-V1 y V3 pueden explorarse en paralelo mediante spikes, pero no compartir contratos inestables. V5 permanece bloqueado hasta demostrar técnicamente que el flujo cloud solo acepta procedencia sintética.
+V1 y V3 pueden explorarse en paralelo mediante spikes, pero no compartir contratos inestables. La antigua dependencia cloud de síntesis quedó sustituida por ADR-017; el benchmark sintético de la síntesis local sigue pendiente.
 
-El corte de hitos de bitácora ([ADR-015](decisions/adr-015-hitos-bitora-audio.md)) añade la escritura confirmada de `context_notes` — texto o audio almacenado en bucket privado — con RLS por episodio, pgTAP dedicado y recorrido móvil, sobre el subcorte DB de V2. No completa V3: el ASR local sigue bloqueado en su spike y no habilita NER ni síntesis.
+El corte de hitos ([ADR-015](decisions/adr-015-hitos-bitora-audio.md), sustituida en parte por ADR-016) añade escritura confirmada de `context_notes` bajo RLS y recorrido móvil. El audio almacenado en bucket fue retirado; se publica solo el texto confirmado. Esto no completa V3: la decodificación ASR real y SP-01 siguen abiertos, y la UI NER permanece pendiente.
 
 El subcorte DB de V2 implementa IAM, hospitalizaciones/asignaciones y RLS clínico por episodio. Los subcortes 4.1 (operaciones IAM), 4.2 (alta institucional Edge), 4.3 (administración institucional Flutter y asignaciones asistenciales) y 4.4 (consulta clínica Flutter por hospitalización) tienen implementación y pruebas dirigidas. La revisión integrada 4.5 y el gate 5.2 están cerrados para demo sintética/local; esto no completa V2 ni acredita producción. Fases 3 y 4 solo se consideran integradas dentro de ese alcance.
 
@@ -78,23 +78,23 @@ El subcorte DB de V2 implementa IAM, hospitalizaciones/asignaciones y RLS clíni
 
 **Valor:** con audio estrictamente sintético, una persona captura una muestra, obtiene una transcripción técnica local verificable y elimina el artefacto; la experiencia final de usuario revisará audio y síntesis en V5.
 
-**Incluye:** permiso de micrófono, consentimiento/indicador, límites, archivo privado temporal, motor ASR local detrás de interfaz, procedencia del modelo, estados y borrado idempotente. No incluye nube. El audio de hitos de bitácora ya no tiene contrato propio de bucket: ADR-016 lo retiró y V3 lo cubre de extremo a extremo (ADR-007, ADR-016).
+**Incluye:** permiso de micrófono, consentimiento/indicador, límites, archivo temporal, motor ASR local detrás de interfaz, procedencia del modelo, estados y borrado idempotente. No incluye nube. El audio de hitos ya no tiene contrato de bucket: ADR-016 lo retiró. Actualmente hay captura/flujo de revisión, cleanup básico probado y prueba de motor nativo condicionada a pesos y WAV sintético; la decodificación real no está validada y SP-01 sigue abierto.
 
 **Entidades locales:** `DictationSession`, `AsrTranscript`, `DraftVault`; en servidor solo `context_notes` con el texto confirmado y su procedencia técnica.
 
-**Pruebas:** SP-01, permisos, interrupciones, crash/restart, espacio insuficiente, checksum de modelo, ausencia de tráfico de audio y la prueba de privacidad de pgTAP.
+**Pruebas:** SP-01, permisos, interrupciones, crash/restart, espacio insuficiente, checksum de modelo, ausencia de tráfico de audio y la prueba de privacidad de pgTAP. No se afirma equivalencia nativa a partir de fakes.
 
 **Criterio de salida:** el dispositivo objetivo cumple presupuesto académico documentado; no existe fallback cloud; una operación de borrado repetida deja cero artefactos observables dentro del alcance probado.
 
 ## V4 - NER local sin tokenización
 
-**Estado:** Decidido. La tokenización reversible quedó sustituida por ADR-017: al no salir texto del dispositivo no hay mapa que custodiar. Queda la señalización local de entidades.
+**Estado:** Requisito decidido; UI pendiente. La tokenización reversible quedó sustituida por ADR-017: al no salir texto del dispositivo no hay mapa que custodiar. Queda implementar la señalización local de entidades.
 
 **Valor:** una transcripción o un hito sintético muestran al autor las entidades que el modelo local detecta, sin modificar el texto y sin construir ningún mapa.
 
 **Incluye:** taxonomía, offsets, límites por clase y visibilidad de la incertidumbre. NER no se presenta como anonimización.
 
-**Entidades:** `DetectedEntity` como resultado del puerto `SynthesisProvider`; sin `TokenizedDocument` ni `TokenMap`.
+**Entidades:** `DetectedEntity` como resultado local del puerto `SynthesisProvider`; sin `TokenizedDocument` ni `TokenMap`. El caso de uso existe, pero la UI que muestra las entidades aún no está entregada.
 
 **Pruebas:** SP-02, solapamientos, Unicode, falsos negativos críticos y textos íntegramente sintéticos.
 
@@ -102,15 +102,15 @@ El subcorte DB de V2 implementa IAM, hospitalizaciones/asignaciones y RLS clíni
 
 ## V5 - Síntesis local con modelo en el dispositivo
 
-**Estado:** Decidido e implementado en alcance local. ADR-017 sustituyó la síntesis cloud.
+**Estado:** Decidido e implementado parcialmente en alcance local; ADR-017 sustituyó la síntesis cloud. Los casos de uso y controladores existen; el benchmark sintético y la validación nativa de rendimiento siguen pendientes.
 
 **Valor:** una persona escribe un hito a mano y obtiene opcionalmente una mejor redacción generada en su propio teléfono, que siempre revisa antes de confirmar.
 
-**Incluye:** `SynthesisProvider` como puerto del dominio, adaptador GGUF, fake determinista, timeout, cancelación, códigos de error estables, idempotencia y descarga verificada del modelo. No incluye proveedor cloud, Edge Function ni guard de procedencia: no hay egreso.
+**Incluye:** `on_device_ai` y sus adaptadores; los casos de uso/controladores permanecen en `context_note`, con fake determinista, timeout, cancelación lógica, códigos de error e instalación/verificación del modelo. `LocalCapabilityRepository` es la única frontera de provisioning; los leases son genéricos. No incluye proveedor cloud, Edge Function ni guard de procedencia. La cancelación late-result no afirma detener nativamente el motor.
 
 **No incluye:** bloqueo de la publicación. Si el motor falla o el modelo no está instalado, el hito se publica tal cual.
 
-**Pruebas:** contrato compartido entre fake y adaptador, límites de longitud, cancelación, ausencia de modelo y benchmark sobre corpus sintético.
+**Pruebas:** casos de uso con fake, límites, ausencia de modelo y cancelación; benchmark sobre corpus sintético pendiente. No se afirma equivalencia funcional del adaptador nativo desde tests de fake.
 
 **Criterio de salida:** el dominio no importa SDK ni tipos del runtime; cambiar el fake por el adaptador no cambia el caso de uso; ningún texto sale del dispositivo; un hito se publica incluso con el modelo ausente.
 

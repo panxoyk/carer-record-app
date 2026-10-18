@@ -1,10 +1,10 @@
 # Seguridad y privacidad
 
-El corte RLS clínico revoca `SELECT` completo en `patients` y `clinical_events`, incluyendo RUT, referencias externas, JSONB, `recorded_by` y columnas no necesarias. Tres vistas por hospitalización usan `security_invoker=true` y `security_barrier=true`; dependen de grants de columnas y RLS del invocador y no tienen acceso para `anon`. `clinical_events.summary` es una proyección tipada sincronizada desde payload dentro de PostgreSQL; el payload bruto no se concede ni se devuelve.
+El contrato vigente revoca `SELECT` completo en `patients` y `clinical_events`, incluyendo identificadores completos, referencias externas, JSONB, `recorded_by` y columnas no necesarias. Tres vistas por hospitalización usan `security_invoker=true` y `security_barrier=true`; dependen de grants de columnas y RLS del invocador y no tienen acceso para `anon`. `clinical_events.summary` es una proyección tipada sincronizada desde payload dentro de PostgreSQL; el payload bruto no se concede ni se devuelve. Además, existe publicación de hitos confirmados en `context_notes` bajo RLS; no es solo lectura clínica.
 
 ## Propósito y límite de aseguramiento
 
-Este documento define controles y criterios de validación para el prototipo académico Carer Record. Describe una arquitectura objetivo y un método de trabajo; no certifica cumplimiento normativo, seguridad productiva, anonimización ni aptitud clínica. El estado implementado se limita a autenticación, administración de usuarios y lectura clínica sobre datos sintéticos, según `README.md:1-4`. Antes de usar datos reales se requieren, como mínimo, revisión jurídica, evaluación de impacto de privacidad, modelado institucional de amenazas, gestión operativa de incidentes y aprobación del responsable de seguridad.
+Este documento define controles y criterios de validación para el prototipo académico Carer Record. Describe una arquitectura objetivo y un método de trabajo; no certifica cumplimiento normativo, seguridad productiva, anonimización ni aptitud clínica. La implementación actual incluye autenticación, administración de usuarios, lectura clínica y publicación de hitos confirmados bajo RLS, con datos sintéticos; las capacidades objetivo no descritas como implementadas siguen pendientes. Antes de usar datos reales se requieren, como mínimo, revisión jurídica, evaluación de impacto de privacidad, modelado institucional de amenazas, gestión operativa de incidentes y aprobación del responsable de seguridad.
 
 Los términos PHI e IPS se usan aquí como categorías de ingeniería, no como una determinación jurídica. PHI designa información de salud identificable; IPS, información personal sensible. La clasificación legal aplicable, las bases de licitud, los responsables y encargados de tratamiento y los plazos obligatorios permanecen abiertos en `appendices/open-questions.md`.
 
@@ -13,7 +13,7 @@ Los términos PHI e IPS se usan aquí como categorías de ingeniería, no como u
 - Minimización: capturar y conservar solo lo imprescindible para demostrar el flujo.
 - Denegación por defecto: ninguna sesión, rol o servicio obtiene acceso por inferencia.
 - Separación de privilegios: autenticación, administración, acceso clínico y procesamiento privilegiado son autoridades distintas.
-- Procesamiento local primero: audio, ASR y detección de entidades no deben abandonar el dispositivo o entorno local en el flujo con información sensible.
+- Procesamiento local primero: audio, transcripción, borradores y prompts de inferencia permanecen locales. El texto clínico confirmado se publica deliberadamente en Supabase bajo RLS.
 - Sintéticos en nube: ningún proveedor cloud recibe PHI, IPS, audio, texto clínico real, tokens reversibles ni claves de reidentificación.
 - Trazabilidad sin contenido: registrar quién hizo qué y cuándo, evitando copiar cuerpos clínicos a logs o auditoría.
 - Borrado verificable: la eliminación incluye originales, derivados, cachés, reintentos y referencias operacionales.
@@ -27,14 +27,14 @@ Los términos PHI e IPS se usan aquí como categorías de ingeniería, no como u
 | Perfil de practitioner        | IPS                         | `practitioners`                                               | RLS; administración separada del acceso clínico                    |
 | Identidad y ficha de paciente | PHI/IPS                     | `patients`                                                    | Acceso clínico explícito, mínimo y auditable                       |
 | Evento clínico                | PHI                         | `clinical_events`                                             | Lectura o escritura según permiso específico; no por rol implícito |
-| Audio fuente                  | PHI de máxima exposición    | Almacenamiento local temporal por definir                     | Sin nube; cifrado, TTL y borrado verificable                       |
-| Transcripción                 | PHI                         | Local hasta tokenización; persistencia por decidir            | No enviar texto identificable a nube                               |
-| Mapa de tokens                | Secreto de reidentificación | Almacén local separado y cifrado                              | Nunca compartir con el proveedor de síntesis                       |
-| Texto tokenizado              | Sigue siendo sensible       | Local; nube solo en pruebas sintéticas                        | NER reduce exposición, no anonimiza                                |
+| Audio fuente                  | PHI de máxima exposición    | Almacenamiento local temporal                                 | Sin nube; purga local; TTL aprobado pendiente                      |
+| Transcripción                 | PHI                         | Local como borrador                                           | No enviar borrador a servicios remotos                             |
+| Mapa de tokens                | Secreto de reidentificación | No existe en el flujo vigente                                 | ADR-017 sustituye ADR-008; ADR-008 permanece como historia         |
+| Texto confirmado              | PHI                         | `context_notes` en Supabase bajo RLS                          | Publicación deliberada y autorizada; inmutable                     |
 | Resumen y caché               | PHI derivada                | Supabase/local según diseño final                             | Vincular a versión de fuente y caducar al cambiarla                |
 | Auditoría y outbox            | Sensible operacional        | Postgres                                                      | Metadatos mínimos; sin payload clínico ni secretos                 |
 
-La base actual ya contiene identificadores directos, fecha de nacimiento, ubicación y payload clínico (`supabase/migrations/20260910000000_initial_clinical_schema.sql:16-36` y `supabase/migrations/20260910110000_clinical_timeline.sql:1-5`). El enmascaramiento visual del RUT en Flutter (`app/lib/domains/patient/domain/entities/patient.dart:41-49`) no cambia la clasificación del valor almacenado ni limita lo que recibe el cliente.
+El esquema histórico del baseline contenía identificadores directos, fecha de nacimiento, ubicación y payload clínico (`supabase/migrations/20260910000000_initial_clinical_schema.sql:16-36` y `supabase/migrations/20260910110000_clinical_timeline.sql:1-5`). Ese código legado no es la implementación actual: las vistas clínicas proyectan campos mínimos y no devuelven identificadores completos.
 
 ## Fronteras de confianza
 
@@ -43,27 +43,27 @@ La base actual ya contiene identificadores directos, fecha de nacimiento, ubicac
 3. **Postgres:** autoridad de permisos y consistencia. Las políticas deben filtrar cada operación aun cuando la UI o el repositorio fallen.
 4. **Edge Functions:** frontera servidor para operaciones que necesitan secretos o composición de servicios. Deben revalidar identidad, autorización, método, esquema e idempotencia.
 5. **Procesamiento local ASR/NER:** frontera que puede manejar texto identificable, pero no convierte automáticamente el resultado en anónimo.
-6. **Proveedor cloud de síntesis:** frontera externa no confiable para PHI/IPS. Durante este prototipo solo recibe casos íntegramente sintéticos.
+6. **Síntesis local:** comparte el límite del dispositivo; no hay proveedor cloud de síntesis vigente (ADR-017 sustituye ADR-009, conservada como decisión histórica).
 7. **Pipeline FHIR:** frontera anticorrupción; valida procedencia, perfil, versión, cardinalidad y referencia antes de persistir.
 8. **Logs, CI y herramientas de desarrollo:** fronteras de exfiltración frecuentes. Solo deben contener datos sintéticos y metadatos sanitizados.
 
 ## Modelo de amenazas
 
-| ID   | Amenaza y escenario                                            | Controles requeridos                                                             | Validación                                                                    | Riesgo residual                                   |
-| ---- | -------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------- |
-| T-01 | Usuario anónimo o suspendido consulta PHI                      | JWT, RLS de denegación por defecto, estado activo                                | pgTAP anónimo/sin perfil/suspendido                                           | Configuración incorrecta o nueva tabla sin RLS    |
-| T-02 | Administración o excepción demo expone acceso clínico excesivo | Autoridades separadas, `clinical.organization.read` reservado, RLS y auditoría   | pgTAP admin sin permiso, Admin demo, copia/delegación denegada y tenant ajeno | Cambio futuro de matriz sin revisión              |
-| T-03 | Cliente manipula rutas o llamadas PostgREST                    | RLS en cada tabla; UI solo como guard de experiencia                             | Pruebas directas SQL/API                                                      | Política permisiva o privilegio de tabla excesivo |
-| T-04 | Service Role llega a app, repo o logs                          | Secreto solo en Edge; escaneo de secretos; cliente del caller separado           | Revisión estática y prueba de entorno                                         | Compromiso del runtime o consola del proveedor    |
-| T-05 | Audio queda en temporales, backups o reintentos                | Directorio dedicado, cifrado, TTL, borrado idempotente y barrido                 | Prueba de eliminación y fault injection                                       | Recuperación forense del dispositivo              |
-| T-06 | NER omite nombre, RUT o identificador indirecto                | Tratar salida como sensible; revisión de cobertura; tokens reversibles separados | Corpus adversarial y métricas por entidad                                     | Reidentificación por contexto clínico             |
-| T-07 | PHI se envía al proveedor cloud                                | Bloqueo de egress para flujos reales; solo fixtures sintéticos; allowlist        | E2E con proveedor simulado y test de payload                                  | Error humano o mala clasificación del dataset     |
-| T-08 | Logs capturan prompts, audio, tokens o JWT                     | Logging estructurado con allowlist y redacción en origen                         | Tests de ausencia y revisión de muestras                                      | Excepción de librería o stack trace no sanitizado |
-| T-09 | Reintento duplica evento, resumen o mensaje                    | Clave de idempotencia, restricción única, outbox transaccional                   | Repetición y concurrencia                                                     | Duplicado desde fuente sin identidad estable      |
-| T-10 | Caché muestra resumen obsoleto o de otro paciente              | Clave por paciente+versión+modelo; RLS; invalidación por fuente                  | Tests de aislamiento e invalidación                                           | Ventana de consistencia documentada               |
-| T-11 | Recurso FHIR malformado contamina el modelo                    | Validación estricta en frontera y cuarentena                                     | Fixtures válidos/inválidos y contract tests                                   | Perfil externo ambiguo o versión no soportada     |
-| T-12 | Auditoría se altera o contiene PHI                             | Append-only lógico, permisos restringidos, metadatos mínimos                     | pgTAP de escritura/lectura y revisión de esquema                              | Usuario privilegiado de base de datos             |
-| T-13 | Dependencia o workflow comprometido exfiltra secretos          | Acciones fijadas por SHA, permisos mínimos, ambientes sin PHI                    | Revisión de workflow y SBOM por definir                                       | Compromiso de cadena de suministro                |
+| ID   | Amenaza y escenario                                            | Controles requeridos                                                              | Validación                                                                    | Riesgo residual                                   |
+| ---- | -------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------- |
+| T-01 | Usuario anónimo o suspendido consulta PHI                      | JWT, RLS de denegación por defecto, estado activo                                 | pgTAP anónimo/sin perfil/suspendido                                           | Configuración incorrecta o nueva tabla sin RLS    |
+| T-02 | Administración o excepción demo expone acceso clínico excesivo | Autoridades separadas, `clinical.organization.read` reservado, RLS y auditoría    | pgTAP admin sin permiso, Admin demo, copia/delegación denegada y tenant ajeno | Cambio futuro de matriz sin revisión              |
+| T-03 | Cliente manipula rutas o llamadas PostgREST                    | RLS en cada tabla; UI solo como guard de experiencia                              | Pruebas directas SQL/API                                                      | Política permisiva o privilegio de tabla excesivo |
+| T-04 | Service Role llega a app, repo o logs                          | Secreto solo en Edge; escaneo de secretos; cliente del caller separado            | Revisión estática y prueba de entorno                                         | Compromiso del runtime o consola del proveedor    |
+| T-05 | Audio queda en temporales, backups o reintentos                | Directorio dedicado, cifrado, TTL, borrado idempotente y barrido                  | Prueba de eliminación y fault injection                                       | Recuperación forense del dispositivo              |
+| T-06 | NER omite nombre, RUT o identificador indirecto                | Si se implementa, señalización local sin alterar texto ni mapa; métrica pendiente | Corpus adversarial y métricas por entidad, pendientes                         | Reidentificación por contexto clínico             |
+| T-07 | Inferencia remota recibe PHI                                   | ASR/síntesis local; no enviar audio, transcripción, borrador ni prompt            | Captura de red y revisión de payload; publicación confirmada autorizada       | Error humano o mala clasificación del dataset     |
+| T-08 | Logs capturan prompts, audio, tokens o JWT                     | Logging estructurado con allowlist y redacción en origen                          | Tests de ausencia y revisión de muestras                                      | Excepción de librería o stack trace no sanitizado |
+| T-09 | Reintento duplica evento, resumen o mensaje                    | Clave de idempotencia, restricción única, outbox transaccional                    | Repetición y concurrencia                                                     | Duplicado desde fuente sin identidad estable      |
+| T-10 | Caché muestra resumen obsoleto o de otro paciente              | Clave por paciente+versión+modelo; RLS; invalidación por fuente                   | Tests de aislamiento e invalidación                                           | Ventana de consistencia documentada               |
+| T-11 | Recurso FHIR malformado contamina el modelo                    | Validación estricta en frontera y cuarentena                                      | Fixtures válidos/inválidos y contract tests                                   | Perfil externo ambiguo o versión no soportada     |
+| T-12 | Auditoría se altera o contiene PHI                             | Append-only lógico, permisos restringidos, metadatos mínimos                      | pgTAP de escritura/lectura y revisión de esquema                              | Usuario privilegiado de base de datos             |
+| T-13 | Dependencia o workflow comprometido exfiltra secretos          | Acciones fijadas por SHA, permisos mínimos, ambientes sin PHI                     | Revisión de workflow y SBOM por definir                                       | Compromiso de cadena de suministro                |
 
 La suite capturada en el baseline demuestra parte de T-01 a T-03: cubre anónimo, sesión sin perfil, roles clínicos, administrador y suspendido (`supabase/tests/patients_rls.test.sql:29-130`). La fotografía no contiene evidencia para audio, NER, proveedor cloud, caché u outbox.
 
@@ -78,13 +78,13 @@ RLS es la autoridad. El router impide navegación inconveniente (`app/lib/core/r
 - probar casos permitidos y denegados con el rol real de Postgres;
 - evitar que un permiso administrativo implique permiso clínico.
 
-La implementación capturada en el baseline concede lectura clínica estática a `physician`, `nurse` y `technician` activos (`supabase/migrations/20260910100000_patient_read_access.sql:3-23`) y replica esa decisión en eventos (`supabase/migrations/20260910110000_clinical_timeline.sql:53-68`). ADR-005 y ADR-013 reemplazan esta lista por permisos configurables y asignaciones vigentes a hospitalización para Personal clínico, sin relajar la denegación por defecto. La excepción del Administrador de demo requiere `clinical.organization.read` reservado, permiso concreto, alcance, RLS y auditoría; no usa nombre/ID de rol ni Service Role y no es una política de producción. La fotografía no permite inferir qué matriz ejecuta una revisión posterior del código.
+La implementación capturada en el baseline concedía lectura clínica estática a roles (`supabase/migrations/20260910100000_patient_read_access.sql:3-23`) y replicaba esa decisión en eventos (`supabase/migrations/20260910110000_clinical_timeline.sql:53-68`). ADR-005 y ADR-013 reemplazan esa lista por permisos configurables y asignaciones vigentes. La excepción del Administrador de demo requiere `clinical.organization.read` reservado, permiso concreto, alcance, RLS y auditoría; no usa nombre/ID de rol ni Service Role y no es una política de producción. Las referencias de migración anteriores describen solo el baseline.
 
 Las funciones `security definer` actuales fijan un `search_path` vacío y revocan ejecución innecesaria (`supabase/migrations/20260912000000_harden_function_privileges.sql:1-56`). Toda función nueva con elevación debe declarar propietario, roles invocantes, tablas accesibles y pruebas de abuso.
 
 ## Service Role y secretos
 
-La Service Role Key evita RLS y por ello solo puede existir en un runtime servidor controlado. No debe incluirse en Flutter, `--dart-define`, fixtures, CI de pull requests, mensajes de error ni documentación. La Edge Function de creación usa credenciales del caller para autenticar y autorizar (`supabase/functions/create-practitioner/index.ts:26-45`) y un cliente separado con Service Role para la operación administrativa (`supabase/functions/create-practitioner/index.ts:74-95`). Ese patrón es evidencia de diseño, no prueba de aislamiento productivo.
+La Service Role Key evita RLS y por ello solo puede existir en un runtime servidor controlado. No debe incluirse en Flutter, `--dart-define`, fixtures, CI de pull requests, mensajes de error ni documentación. La función de creación de practitioners usa credenciales del caller para autenticar y autorizar y un cliente separado con Service Role para la operación administrativa (`supabase/functions/create-practitioner/handler.ts`). Ese patrón es evidencia de diseño, no prueba de aislamiento productivo.
 
 Requisitos adicionales para cualquier función privilegiada:
 
@@ -96,7 +96,7 @@ Requisitos adicionales para cualquier función privilegiada:
 - hacer compensación explícita o usar una transacción/outbox cuando haya varios efectos;
 - no devolver detalles internos del proveedor.
 
-El rollback de creación de usuario actual puede fallar y solo emite un marcador (`supabase/functions/create-practitioner/index.ts:96-101`); debe considerarse riesgo operativo, no atomicidad garantizada.
+El rollback de creación de usuario puede fallar y debe considerarse riesgo operativo, no atomicidad garantizada (`supabase/functions/create-practitioner/handler.ts`).
 
 ## Audio, ASR, NER y síntesis
 
@@ -110,29 +110,24 @@ El reconocimiento ocurre localmente conforme a ADR-007. Modelo, checksum, idioma
 
 ### NER y tokenización reversible
 
-NER no anonimiza. Puede omitir entidades, conservar cuasi-identificadores y permitir reidentificación por contexto. El texto tokenizado conserva clasificación sensible. Conforme a ADR-008:
+NER no anonimiza. Su UI y comportamiento siguen pendientes; si se implementan, pueden omitir entidades, conservar cuasi-identificadores y permitir reidentificación por contexto. La tokenización reversible descrita en ADR-008 fue sustituida por ADR-017 y no es una prescripción vigente. El cuerpo de ADR-008 se conserva como historia.
 
-- cada entidad detectada se sustituye por un token opaco estable dentro del documento;
-- el mapa token→valor se cifra y almacena separado del texto;
-- el acceso al mapa exige permiso explícito y se audita;
-- la reversión solo ocurre localmente en el flujo autorizado;
-- logs, métricas y errores nunca incluyen valor original ni mapa;
-- se prueban falsos negativos, solapamientos, Unicode, fechas, direcciones, RUT y referencias indirectas.
+El requisito objetivo de NER es señalar entidades localmente sin sustituir el texto ni generar un mapa. La UI, evaluación de cobertura y pruebas de falsos negativos, solapamientos, Unicode, fechas, direcciones, RUT y referencias indirectas siguen pendientes; toda salida futura se tratará como sensible y no como anonimización.
 
 ### Síntesis cloud
 
-ADR-009 define una interfaz de proveedor para evitar acoplar dominio y payloads. Durante el prototipo, la integración cloud solo procesa escenarios completamente sintéticos y etiquetados como tales. La tokenización de un caso real no habilita su envío. Debe existir un guard técnico que rechace datasets sin procedencia sintética, además de la norma documental.
+ADR-009 y su proveedor cloud son históricos y fueron sustituidos por ADR-017: la síntesis actual es local. No se debe inferir que el texto confirmado no sale del dispositivo: la publicación manual autorizada lo persiste en Supabase.
 
 ## Retención y eliminación
 
-La política objetivo es minimizar, no archivar por defecto. Antes de implementar audio se deben resolver los plazos exactos de `Q-PRIV-03`; mientras permanezcan abiertos, ningún dato real puede entrar al flujo.
+La política objetivo es minimizar, no archivar por defecto. El borrado local se solicita en confirmación, descarte y cierre explícito de sesión; fallos conservan registro para reintento. El barrido de expiración es lazy/oportunista al inicializar el vault, no recuperación garantizada tras crash ni tarea background. El valor de 24 h en código no aprueba producto: resolver TTL exacto de `Q-PRIV-03` sigue pendiente y ningún dato real puede entrar al flujo.
 
 Una solicitud o vencimiento debe marcar el artefacto, impedir nuevas lecturas y ejecutar una eliminación idempotente de:
 
 - archivo de audio y fragmentos temporales;
 - buffers, waveform y cachés del dispositivo;
 - transcripción y resultados intermedios que no deban persistir;
-- mapa reversible cuando ya no exista finalidad autorizada;
+- temporales locales cuando ya no exista finalidad autorizada (no existe mapa reversible en el contrato vigente; ADR-017 sustituyó ese diseño);
 - trabajos pendientes y referencias de outbox que puedan reconstruir contenido;
 - copias del proveedor, si alguna integración futura fuese autorizada;
 - cachés de resumen derivadas cuando corresponda.
@@ -145,11 +140,11 @@ La auditoría conserva el hecho de la eliminación, identificadores opacos, acto
 
 Usar eventos estructurados y allowlist. Campos admisibles: timestamp, nivel, código estable, componente, versión, duración, resultado, correlation ID y actor pseudónimo cuando sea imprescindible. Campos prohibidos: JWT, cookies, email, RUT, nombre, fecha de nacimiento, ubicación clínica, texto libre, prompt, respuesta del modelo, audio, URL firmada, mapa de tokens y Service Role.
 
-Los mensajes de error deben usar códigos estables como ya hace parcialmente `create-practitioner` (`supabase/functions/create-practitioner/index.ts:14-23`), pero `console.error` y stack traces también deben pasar por sanitización.
+Los mensajes de error deben usar códigos estables como ya hace parcialmente `create-practitioner` (`supabase/functions/create-practitioner/handler.ts`), pero `console.error` y stack traces también deben pasar por sanitización.
 
 ### Auditoría
 
-Auditar eventos de seguridad y negocio relevantes: login y recuperación sin secreto, cambio de estado/rol/permiso, lectura o exportación sensible si el alcance lo exige, captura y borrado de audio, reversión de tokens, solicitud de síntesis, regeneración de resumen y fallo de outbox. La fase 2.2 implementa solo el subset de concesión/revocación de asignaciones: tenant, timestamp, actor derivado, acción, objetivo, resultado, idempotency key y metadata JSONB sanitizada. `audit.read` está protegido por RLS; no hay DML runtime directo y la bitácora es append-only. Separar auditoría de depuración. Definir quién puede consultar y cuánto se conserva antes de producción.
+Auditar eventos de seguridad y negocio relevantes: login y recuperación sin secreto, cambio de estado/rol/permiso, lectura o exportación sensible si el alcance lo exige, captura y borrado de audio, solicitud de síntesis, regeneración de resumen y fallo de outbox. La reversión de tokens pertenecía al diseño histórico de ADR-008, sustituido por ADR-017; no existe en el contrato vigente. La fase 2.2 implementa solo el subset de concesión/revocación de asignaciones: tenant, timestamp, actor derivado, acción, objetivo, resultado, idempotency key y metadata JSONB sanitizada. `audit.read` está protegido por RLS; no hay DML runtime directo y la bitácora es append-only. Separar auditoría de depuración. Definir quién puede consultar y cuánto se conserva antes de producción.
 
 ### Outbox transaccional
 

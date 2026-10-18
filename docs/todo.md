@@ -60,3 +60,15 @@ Este archivo organiza tareas secuenciales de implementación. El alcance, las de
 - [ ] Medir en un arm64 real el coste de la descompresión bzip2 en streaming y el pico de RAM durante la instalación de los 198 MB de ASR.
 - [ ] Medir y decidir el plazo de expiración de capturas pendientes (`Q-PRIV-03`) con el vault ya implementado.
 - [ ] Cerrar el arranque sin credenciales de Supabase. Hoy `initializeSupabase` lanza en `main()` y la app no llega a pintar, así que un clon sin `.env` no puede ni descargar los modelos; la pantalla de preparación no depende del backend.
+
+## Estado de arquitectura y reconciliación de notas
+
+- [x] Aplicar ADR-018: `on_device_ai` posee ASR, síntesis, UI/gestión de modelos y lifecycle de capacidades; `context_note` conserva sus tres controladores, puertos de feature, vault y casos de uso. `LocalCapabilityRepository` es la única frontera de provisioning y los leases son genéricos.
+- [x] Añadir `20261012020000_context_note_publication_reconciliation.sql` y prueba pgTAP: RPC read-only que reautoriza y solo devuelve true para payload confirmado exactamente coincidente del propio autor; no amplía grants de escritura.
+- [x] Mantener pruebas de cleanup básico: registro previo a captura, purga idempotente y retry si falla el borrado real del archivo. Esto no acredita recuperación general tras crash.
+- [ ] Habilitar/ejecutar decodificación nativa ASR real con manifiesto y asset sintético declarado; el test de integración está env-gated. Resolver incompatibilidad runtime/modelo y completar SP-01 en hardware arm64 real.
+- [ ] Implementar UI de señalización NER; el caso de uso local existe, pero no hay interfaz de entidades ni evaluación sintética de falsos negativos.
+- [ ] Registrar benchmark sintético de síntesis local. Los tests con fake no prueban equivalencia funcional ni rendimiento del adaptador nativo.
+- [ ] Implementar restauración offline/outbox, backoff y recuperación ante crash; siguen siendo requisitos, no funcionalidades cerradas.
+- [ ] Resolver Q-PRIV-03 con decisión de producto sobre TTL y validar política; las 24 horas actuales en código son default técnico, no decisión aprobada.
+- [x] Ejecutar el gate final proporcional tras los últimos cambios y registrar comandos/resultados sin reutilizar los conteos previos como gate final ([evidencia](foundation/11-testing-validation.md#gate-final-del-módulo-ia-local-compartido-2026-10-18)).

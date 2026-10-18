@@ -64,7 +64,7 @@ Qué hace la app con ellos:
 - En los arranques siguientes solo se comprueba el tamaño de los archivos: hashear 1,3 GB en cada inicio costaría más que la propia descarga.
 - La pantalla se puede saltar. Sin modelos, la bitácora sigue funcionando: solo desaparecen el hito dictado y la ayuda a redactar (ADR-016 y ADR-017).
 
-Necesitas ~1,3 GB libres en el dispositivo y conexión en el primer arranque. Después todo funciona sin red.
+Necesitas ~1,3 GB libres en el dispositivo y conexión para descargar modelos y publicar hitos. La inferencia local (dictado y asistencia) funciona sin red; la publicación confirmada requiere conexión.
 
 ## Ejecutar en simulador o emulador
 

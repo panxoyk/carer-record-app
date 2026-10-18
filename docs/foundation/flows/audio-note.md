@@ -2,7 +2,7 @@
 
 ## Estado y objetivo
 
-Convierte un dictado capturado y transcrito en el dispositivo en un hito de bitácora confirmado por su autor. El audio, su transcripción y cualquier artefacto intermedio son técnicos y locales: nada de eso sale del teléfono ni se persiste en Supabase (ADR-016). El único registro es el texto que la persona revisó y confirmó.
+Convierte un dictado capturado y transcrito en el dispositivo en un hito de bitácora confirmado por su autor. El audio, su transcripción y borradores no salen del teléfono ni se persisten en Supabase (ADR-016); el texto confirmado sí se publica allí.
 
 El motor es `sherpa_onnx` con un modelo español instalado en el dispositivo. No existe fallback a ASR cloud: si el motor local no está disponible, el flujo falla cerrado y se ofrece el hito textual.
 
@@ -12,7 +12,7 @@ El dictado dejó de ser un experimento paralelo: es la forma en que se captura e
 
 - Perfil con membresía activa y permisos `context.note.create`/`context.note.confirm` dentro del alcance de la hospitalización.
 - Micrófono, sandbox y almacenamiento cifrado del dispositivo.
-- `sherpa_onnx` como motor de ASR local y `just_audio` para la escucha previa.
+- Capacidad ASR compartida del módulo `on_device_ai`.
 - `DraftVault` para los temporales cifrados y la purga.
 - Postgres con RLS para publicar la nota final.
 
@@ -37,11 +37,11 @@ El dictado dejó de ser un experimento paralelo: es la forma en que se captura e
 2. La app comprueba que el motor local está disponible; si no, informa y ofrece escribir el hito en texto.
 3. La app solicita permiso de micrófono en contexto y graba un WAV PCM16 mono en un directorio del sandbox propio de la operación.
 4. Al detener, `sherpa_onnx` transcribe localmente el archivo.
-5. La transcripción se muestra en un campo editable como borrador, junto con la procedencia técnica del motor.
+5. La transcripción se muestra en un campo editable como borrador; la metadata de procedencia se conserva al guardar, sin exponerla en la interfaz.
 6. El autor escucha la grabación local con `just_audio`, corrige lo que el reconocimiento no entendió y confirma.
-7. Solo entonces la app inserta una única fila `context_notes` con `input_method = 'audio'`, `content` confirmado y `transcription_metadata` no sensible; RLS es la autoridad.
+7. Solo entonces la app inserta una única fila `context_notes` con `input_method = 'audio'`, `content` confirmado y `transcription_metadata` no sensible; RLS es la autoridad. La escritura es un único paso, no una outbox offline.
 8. El hito aparece en la bitácora como texto confirmado.
-9. En ambos caminos se eliminan audio, transcripción, borrador y entrada de outbox.
+9. En ambos caminos se purgan audio, transcripción y borrador. Si falla el borrado se conserva el registro para reintento.
 
 ```mermaid
 sequenceDiagram
@@ -54,24 +54,27 @@ sequenceDiagram
   A->>App: Detener
   App->>ASR: Audio local
   ASR-->>App: Transcripción local
-  App->>App: Borrador editable + procedencia
+  App->>App: Borrador editable
   A->>App: Escuchar, corregir y confirmar
   App->>DB: Insertar nota confirmada + metadata
-  DB-->>App: 201 / 23505 por client_event_id
+  DB-->>App: Confirmación de INSERT
+  App->>DB: Reconciliar resultado ambiguo (RPC autorizada)
   App->>App: Purgar audio, transcripción y outbox
 ```
 
 ## Flujos alternativos y errores
 
 - Permiso de micrófono denegado: no se graba; se explica cómo habilitarlo y se ofrece nota textual.
-- Interrupción por llamada, cambio de app o cierre: se detiene de forma segura y la operación pendiente vence y se purga sola.
+- Interrupción por llamada, cambio de app o cierre: la limpieza de ruta es best effort; el barrido de expiración es oportunista al inicializar el vault y no garantiza recuperación tras crash/background. TTL aprobado sigue pendiente.
 - Falta de espacio, audio corrupto o ASR fallido: no se envía nada a la red; se permite reintentar localmente, pasar a texto manual o descartar.
 - Transcripción vacía: no se publica; se informa y se ofrece repetir la grabación o escribir a mano.
 - Confianza baja en algún segmento: el borrador lo señala para que el autor lo revise antes de confirmar.
 - Modelo no instalado: el botón de dictado no ofrece grabar y el hito textual sigue disponible.
 - La pantalla inicial puede omitirse durante esa ejecución; el dictado sigue no disponible si falta el modelo y la comprobación vuelve a ocurrir al siguiente arranque. Desde gestión de modelos se puede verificar la integridad, limpiar o reinstalar solo el modelo de transcripción.
 - Suspensión de perfil o membresía, revocación de permiso o pérdida de alcance antes de confirmar: RLS deniega; no se exporta nada y solo se permite descartar.
-- Reinicio del dispositivo: un barrido elimina las operaciones vencidas sin depender de que el flujo vuelva a abrirse.
+- Publicar requiere conexión. Restauración offline/outbox y backoff siguen pendientes.
+- Resultado ambiguo de INSERT: `context_note_publication_matches` reautoriza al actor y devuelve true solo si coincide exactamente autor y snapshot (organización, hospitalización, paciente, método, contenido, metadata e `client_event_id`). Un `23505` arbitrario no se toma como éxito.
+- Si la publicación queda sin confirmar, el editor conserva bloqueado el mismo snapshot confirmado, incluido `client_event_id` y metadata de transcripción, y permite reintentar esa publicación; no genera otro identificador ni cambia el contenido en el retry. La purga local es un resultado separado: si la nota ya se guardó pero falla la limpieza, se comunica «hito guardado» y que la limpieza quedó pendiente, sin presentar la publicación como fallida.
 
 ## Estados
 
@@ -99,7 +102,7 @@ No existe `awaiting_review`; no se sube un borrador para que otra persona lo con
 
 ## RLS y auditoría
 
-La política de publicación exige perfil y membresía activos, `context.note.create`, `context.note.confirm`, alcance sobre la hospitalización y `author_id = auth.uid()`. La base de datos también rechaza un hito de audio sin `content`, un hito de texto con metadatos y cualquier `transcription_metadata` mal formada, sobredimensionada o con texto libre.
+La política de publicación exige perfil y membresía activos, `context.note.create`, `context.note.confirm`, alcance sobre la hospitalización y `author_id = auth.uid()`. La migración aditiva `20261012020000_context_note_publication_reconciliation.sql` añade RPC read-only que reautoriza y verifica coincidencia exacta; no amplía grants de escritura ni relaja RLS. La base de datos rechaza un hito de audio sin `content`, un hito de texto con metadatos y metadata mal formada, sobredimensionada o con texto libre.
 
 Los eventos auditables son inicio y fin de captura, resultado agregado del ASR, confirmación, descarte, publicación y purga. Logs y crash reports excluyen audio, transcripción, nota, entidades y nombres de archivo reveladores.
 
@@ -109,7 +112,7 @@ Los eventos auditables son inicio y fin de captura, resultado agregado del ASR, 
 - Inspección de red demuestra que nunca se transmiten audio, transcripción ni mapa.
 - El ASR funciona sin red en las plataformas soportadas.
 - El mismo autor confirma o descarta; no existe revisión por terceros.
-- Confirmar, descartar, cerrar sesión o vencer elimina todos los temporales.
+- Confirmar, descartar y cierre explícito de sesión solicitan purga; la limpieza de ruta es best effort. TTL (Q-PRIV-03), recuperación tras crash y ejecución background siguen pendientes.
 - RLS deniega publicación sin permiso, con membresía suspendida, a otro autor, fuera de alcance o en otro tenant.
 - Toda prueba utiliza audio y casos clínicos sintéticos.
 
@@ -127,8 +130,10 @@ Los eventos auditables son inicio y fin de captura, resultado agregado del ASR, 
 - [ADR-016](../decisions/adr-016-asr-local-transcripcion-confirmada.md) define la transcripción confirmada, la procedencia y el retiro del audio almacenado.
 - [ADR-017](../decisions/adr-017-sintesis-local.md) define la síntesis local asociada al mismo hito.
 - [Arquitectura de audio, IA y NER](../09-audio-ai-ner.md) fija el límite de confianza, el spike y la purga.
-- `app/lib/domains/context_note/domain/asr_engine.dart`: puerto del motor, sin SDK ni rutas de modelo.
-- `app/lib/domains/context_note/data/sherpa_asr_engine.dart`: adaptador local y procedencia no sensible.
+- `app/lib/domains/on_device_ai/`: capacidad y adaptadores compartidos de ASR, síntesis y gestión de modelos (ADR-018).
+- `app/lib/domains/context_note/domain/dictation_audio.dart`: puerto de captura de dictado.
+- `app/lib/domains/context_note/domain/confirmed_milestone_writer.dart`: puerto de publicación confirmada.
+- `app/lib/domains/context_note/presentation/controllers/dictation_controller.dart`: controlador de dictado.
 - `app/lib/domains/context_note/data/draft_vault.dart`: temporales cifrados y purga idempotente.
 - `app/assets/asr_model_manifest.json`: origen, licencia, versión y checksums del modelo.
 - La gestión de modelos está descrita en [Audio, IA y NER](../09-audio-ai-ner.md#síntesis-local).

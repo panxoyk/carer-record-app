@@ -2,7 +2,9 @@
 
 ## Estado y objetivo
 
-El listado, creación, cambio de rol global y cambio de estado están implementados para `administrator/active`. El objetivo evoluciona esa base hacia perfiles, membresías y roles configurables por organización sin exponer la Service Role Key ni otorgar acceso clínico por autoridad IAM. ADR-013 reserva `clinical.organization.read` para el rol seed protegido de Administrador de demo, siempre bajo RLS y solo con datos sintéticos.
+El contrato actual usa `IamRepository` y el contexto/RPCs IAM para listar y administrar perfiles, membresías, roles y asignaciones por organización; no es la gestión legacy por practitioner/rol global. ADR-013 reserva `clinical.organization.read` para el rol seed protegido de Administrador de demo, siempre bajo RLS y solo con datos sintéticos.
+
+La presentación administrativa actual coordina operaciones mediante controladores de `users/presentation/controllers/`; las entidades/puertos pertenecen a `institutional/domain/` y el acceso Supabase/mapeo a `institutional/data/`. La fábrica de intentos y la implementación concreta se conectan desde composición. Esto acota el refactor IAM y no implica uniformización de otros flujos.
 
 La entrada administrativa de Flutter está implementada dentro de la pantalla de ajustes: la sección "Administración institucional" de `/settings` presenta entradas independientes y limitadas por sus permisos efectivos a gestión de usuarios, composición de roles/permisos y «Profesionales por hospitalización», y se oculta por completo cuando el usuario no tiene ninguno de esos permisos. La sección es navegación, no concesión de autoridad; cada destino y operación vuelve a depender de sus permisos y de la autorización servidor/RLS. Desde `/`, los usuarios con permisos clínicos conservan el landing de pacientes y los demás caen en ajustes.
 
@@ -42,15 +44,12 @@ La prueba HTTP de registro usa una identidad sintética única en memoria; éxit
 
 ## Flujo principal
 
-1. El administrador abre Gestión de usuarios.
-2. Flutter lista practitioners por PostgREST; RLS verifica `is_administrator()`.
-3. El administrador elige crear usuario e ingresa correo, contraseña inicial, nombre visible y rol.
-4. Flutter invoca `create-practitioner` con el JWT del administrador.
-5. La Edge Function valida JWT con `auth.getUser()` y llama el preflight con el cliente del caller, que aplica RLS y revalida `iam.membership.manage` + `iam.role.assign`.
-6. Si no existe replay, un cliente servidor separado crea `auth.users`; nunca se usa Service Role como identidad ni autorización.
-7. El cliente del caller invoca `register_organization_member`, que crea perfil, membresía activa y asignación ordinaria delegable en una transacción, bajo tenant.
-8. Si la RPC falla de forma observable, la función intenta eliminar el usuario Auth. La respuesta nueva devuelve solo los IDs institucionales mínimos; un replay devuelve los mismos IDs.
-9. En el baseline, Flutter cambia rol/estado por `update` directo. En el objetivo, cambios de membresía, composición, asignación de rol, alcance y `care_assignment` pasan por una Edge Function/RPC auditada que exige el permiso exacto y evita autoelevación. El bootstrap crea un Administrador sintético inicial; otro Administrador efectivo puede añadir uno, pero ninguna operación puede autoasignarlo ni dejar sin Administrador efectivo a la organización.
+1. El actor abre la vista institucional; `IamRepository` consulta el directorio bajo el contexto y permisos efectivos vigentes.
+2. Para alta, la app usa el contrato institucional autenticado y RPC preflight/registro, que validan permisos, tenant y replay; las credenciales privilegiadas permanecen en servidor.
+3. Cambios de membresía, composición/ asignación de roles y `care_assignment` usan sus RPC autorizadas, sin DML directo de la UI.
+4. La UI refresca el directorio y presenta cambios; PostgreSQL/RLS es la autoridad y registra las operaciones según contrato.
+
+Los antiguos pasos de `practitioners`, `is_administrator()` y rol global describen exclusivamente el baseline histórico, no el flujo actual.
 
 ```mermaid
 sequenceDiagram
@@ -77,6 +76,7 @@ sequenceDiagram
 - Correo duplicado, contraseña inválida o fallo de Auth: código estable y neutro `registration_failed`.
 - Fallo al insertar perfil: rollback compensatorio de `auth.users`; si también falla, se emite una alerta técnica sin registrar payload ni contraseña.
 - La idempotency key UUID se limita por organización y actor; email normalizado, nombre visible y role ID conforman el payload lógico (solo se persiste su hash). Un retry completado devuelve el resultado anterior antes de crear otro usuario Auth; otro payload con la misma clave devuelve `409 idempotency_conflict`.
+- Límite conocido del retry de alta: el controlador conserva la clave estable del formulario, pero el reintento usa los campos editados actualmente; payload distinto con esa clave puede producir conflicto. Se documenta el comportamiento existente, sin corregirlo incidentalmente en este refactor.
 - La RPC exige que el email Auth de la identidad recién creada coincida con el email normalizado de la solicitud; ausencia de Auth/email o mismatch devuelve `invalid_request` auditado sin crear filas institucionales.
 - Si el actor tiene membresía resoluble pero le falta autoridad, el primer preflight deja una denegación auditada sin payload personal; repeticiones siguen siendo opacas mientras falte autoridad y solo se compara el fingerprint después de reautorizar. Sin membresía resoluble o tenant activo no se intenta auditar.
 - Límite: un crash del proceso después de `auth.admin.createUser` y antes del registro PostgreSQL puede dejar una identidad Auth huérfana. No existe transacción distribuida Auth/Postgres; la compensación cubre errores observables, no ese crash.
@@ -85,6 +85,7 @@ sequenceDiagram
 - Intento de eliminar: no forma parte del flujo; se deniega hasta definir retención y ciclo de vida.
 - Cambio que suspende a un usuario con sesión abierta: las siguientes operaciones quedan denegadas por RLS; la UI debe converger a la pantalla suspendida.
 - Conflicto concurrente: se rechaza o reevalúa con versión/`updated_at`, se recarga el registro y se evita sobrescritura silenciosa.
+- Si no se puede confirmar una mutación IAM, la fila de miembro, tarjeta de hospitalización o editor de rol conserva el error y ofrece reintentar la misma operación desde su control inline. El retry reutiliza el snapshot de operación, su clave de idempotencia y, para concesiones, el mismo `valid_from`; editar o cambiar el objetivo inicia una operación nueva. El aviso global solo resume el resultado y no es el único lugar donde se puede recuperar.
 
 ## Estados
 
@@ -144,7 +145,8 @@ La RPC de registro audita el resultado y el fingerprint del payload, sin email, 
 - Las tarjetas de usuario permanecen siempre abiertas: muestran los roles asignados y las acciones disponibles sin interacción previa.
 - Cuando está disponible, el selector «Seleccionar rol» aparece antes de «Roles asignados»; cada asignación muestra la fecha de asignación y, si corresponde, la de revocación o finalización en líneas separadas.
 - La ruta `/` dirige a `/patients` a los usuarios con permisos clínicos efectivos y a `/settings` en el resto de los casos. La sección "Administración institucional" de ajustes presenta por separado gestión de usuarios, composición de roles/permisos y «Profesionales por hospitalización», cada una solo cuando los permisos requeridos están presentes, y no aparece si el usuario no tiene ninguno; no otorga permisos ni sustituye autorización en servidor. Desde cada pantalla administrativa se vuelve a ajustes.
-- [`PractitionerRepository`](../../../app/lib/domains/practitioner/data/practitioner_repository.dart#L21-L54) usa la Edge Function para crear y PostgREST para actualizar.
+- [`IamRepository`](../../../app/lib/domains/institutional/data/iam_repository.dart) implementa las consultas y operaciones institucionales IAM actuales.
+- Entidades y puertos actuales: [`iam_entities.dart`](../../../app/lib/domains/institutional/domain/iam_entities.dart) y [`iam_ports.dart`](../../../app/lib/domains/institutional/domain/iam_ports.dart); el mapper está en [`iam_mappers.dart`](../../../app/lib/domains/institutional/data/iam_mappers.dart). Los controladores administrativos viven en `domains/users/presentation/controllers/`.
 - El directorio IAM conserva membresías `invited`, `active`, `suspended` y `ended`, además del estado de perfil; UsersScreen solo presenta perfiles activos cuya membresía esté `active` o `suspended`. La reactivación está disponible para las suspendidas. Las asignaciones históricas a roles ordinarios y care assignments siguen visibles para revocación aunque el target o rol estén inactivos; para gestores autorizados, el historial de care assignments conserva el nombre del asignado suspendido y muestra separadamente que no tiene acceso. La suspensión no modifica el intervalo ni revoca por sí misma la asignación histórica; la vista de elegibilidad para nuevas care assignments sí exige estados y permisos activos.
 - En UsersScreen no se muestra el estado global del perfil, contexto/nombre/selector de hospital ni encabezados de grupos; el estado global solo se consulta, no se modifica desde este flujo. La activación/suspensión afecta solo la membresía de la organización. Las opciones de nuevas asignaciones de rol requieren perfil y membresía activos y vigencia; se excluyen grants del mismo `role_id` cuyo intervalo no revocado se solapa. La elegibilidad del selector de care assignment es activa, sin ocultar el historial. La administración institucional se recorre desde la sección homónima de `/settings`, que ofrece únicamente usuarios, roles/permisos y «Profesionales por hospitalización» según permisos efectivos. La autorización y las mutaciones siguen bajo DB/RPC y los permisos ya definidos.
 - [`create-practitioner`](../../../supabase/functions/create-practitioner/index.ts) y [`handler.ts`](../../../supabase/functions/create-practitioner/handler.ts) implementan el endpoint institucional testeable; `20261011320000_register_organization_member.sql` y su corrección aditiva `20261011330000_harden_member_registration_authority_and_email.sql` contienen preflight, registro transaccional, guard de perfiles y vínculo email/Auth.

@@ -4,7 +4,7 @@
 
 La validación debe producir evidencia proporcionada al riesgo del prototipo, especialmente en autorización, privacidad, transformación clínica e idempotencia. No demuestra seguridad o eficacia clínica productiva. Una prueba automatizada confirma un contrato bajo condiciones conocidas; no reemplaza revisión jurídica, clínica, de usabilidad o seguridad independiente.
 
-La suite histórica del baseline protegía RLS, privilegios SQL y enmascaramiento de RUT; la consulta actual no transporta identificadores completos. El workflow observado levanta Supabase, reconstruye la base, ejecuta lint y pgTAP y luego valida Flutter (`.github/workflows/verify.yml:19-35`). La fotografía no contiene implementación ni evidencia para audio, FHIR, ASR, NER, síntesis, caché, outbox o E2E.
+La suite y los registros de ejecución del baseline son evidencia histórica, no el estado actual; el enmascaramiento de RUT dejó de ser requisito cuando se eliminó su consulta y presentación. El workflow observado levanta Supabase, reconstruye la base, ejecuta lint y pgTAP y luego valida Flutter (`.github/workflows/verify.yml:19-35`). FHIR, UI NER, resumen/cache y outbox continúan pendientes; hay evidencia parcial actual de audio/ASR, borrado básico y síntesis local, detallada más abajo.
 
 ## Principios
 
@@ -21,19 +21,19 @@ La suite histórica del baseline protegía RLS, privilegios SQL y enmascaramient
 
 ## Capas y responsabilidades
 
-| Capa                   | Contratos a validar                                        | Herramienta objetivo                                   | Estado actual              |
-| ---------------------- | ---------------------------------------------------------- | ------------------------------------------------------ | -------------------------- |
-| Postgres/RLS           | permisos, estados, privilegios, constraints, outbox, caché | pgTAP y reset local                                    | Parcialmente implementada  |
-| Flutter dominio        | reglas de privacidad, estados y transformaciones puras     | `flutter_test`                                         | Mínima                     |
-| Flutter integración/UI | captura, errores, navegación crítica y borrado             | fakes deterministas, widget/integration test selectivo | No implementada            |
-| Edge Functions         | authn/authz, esquema, idempotencia, sanitización y fallos  | tests Deno/HTTP contra local                           | Solo format/lint/typecheck |
-| Frontera FHIR          | perfiles, mappings, referencias y rechazo                  | fixtures y contract tests                              | Scaffold sin ingesta       |
-| ASR/NER                | exactitud, latencia, falsos negativos y reversibilidad     | corpus sintético versionado                            | No implementada            |
-| Proveedor cloud        | contrato abstracto, timeout, retry y payload sintético     | fake + sandbox solo sintético                          | No implementada            |
-| E2E                    | cortes verticales y aislamiento entre actores              | Supabase local + app/emulador                          | Manual y parcial           |
-| Spikes                 | factibilidad y límites, sin compromiso productivo          | protocolo reproducible                                 | Pendiente                  |
+| Capa                   | Contratos a validar                                         | Herramienta objetivo                                   | Estado actual                                                                                       |
+| ---------------------- | ----------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Postgres/RLS           | permisos, estados, privilegios, constraints, outbox, caché  | pgTAP y reset local                                    | Parcialmente implementada                                                                           |
+| Flutter dominio        | reglas de privacidad, estados y transformaciones puras      | `flutter_test`                                         | Parcial: vault, controllers, leases y casos de uso tienen pruebas dirigidas                         |
+| Flutter integración/UI | captura, errores, navegación crítica y borrado              | fakes deterministas, widget/integration test selectivo | Parcial: hay pruebas widget/controlador; no equivalen a ejecución nativa real                       |
+| Edge Functions         | authn/authz, esquema, idempotencia, sanitización y fallos   | tests Deno/HTTP contra local                           | `create-practitioner` tiene tests; las demás capacidades citadas como objetivo no se implementan    |
+| Frontera FHIR          | perfiles, mappings, referencias y rechazo                   | fixtures y contract tests                              | Scaffold sin ingesta                                                                                |
+| ASR/NER                | decodificación real, exactitud, latencia y falsos negativos | test nativo env-gated y corpus sintético               | ASR: carga/fallo cerrado probados; decodificación real y SP-01 pendientes. UI NER pendiente         |
+| Síntesis local         | contrato del caso de uso, manejo de fallo y rendimiento     | `flutter_test`, runtime nativo y benchmark sintético   | Casos de uso/fakes probados; adaptador real y benchmark aún sin evidencia de equivalencia/resultado |
+| E2E                    | cortes verticales y aislamiento entre actores               | Supabase local + app/emulador                          | Manual y parcial                                                                                    |
+| Spikes                 | factibilidad y límites, sin compromiso productivo           | protocolo reproducible                                 | Pendiente                                                                                           |
 
-El baseline fechado en esta fundación constata que todavía no existen tests HTTP, widget ni mappings. Las pruebas adicionales solo se incorporan al implementar los nuevos flujos de alto riesgo; no convierten retrospectivamente las capacidades futuras en existentes.
+Las afirmaciones de ausencia de tests HTTP/widget/mappings en la fotografía del baseline son históricas. Actualmente existen pruebas widget/controlador y tests HTTP para `create-practitioner`; FHIR/mappings siguen sin ingesta. Las pruebas adicionales no convierten capacidades futuras en existentes.
 
 ## pgTAP y base de datos
 
@@ -76,11 +76,13 @@ Cubrir reglas públicas y estables: contratos tipados por hospitalización, bús
 
 Nombrar cada test por su resultado observable y condición, mantener una regla por test y usar fixtures locales válidos que sobrescriban solo el dato relevante. Evitar mocks, setup y helpers compartidos cuando un fixture local resulte más claro.
 
+Para errores de operaciones con retry, verificar que el error permanece junto al control de la operación y que el aviso global no es el único canal ni contiene una acción imprescindible. Las mutaciones de membresía, asignación asistencial y composición de roles deben reintentar el mismo snapshot, clave de idempotencia y fecha de vigencia (`valid_from`) cuando aplique. En publicación de hitos, distinguir una escritura ambigua (retry del mismo `client_event_id`/snapshot) de publicación confirmada con limpieza local pendiente; el segundo caso no se reporta como fallo de publicación. El cierre de sesión distingue fallo de Auth, recuperable desde el botón original, de limpieza fallida tras cierre exitoso.
+
 La navegación debe verificar que `/` dirige a `/patients` a los usuarios con permisos clínicos efectivos y a `/settings` cuando no los tienen. Verificar también que las entradas de administración institucional en ajustes son independientes, aparecen según permisos efectivos, se ocultan cuando el usuario no tiene ninguno, y que la sección no concede autoridad.
 
 ### Pruebas de widget e integración selectivas
 
-Añadirlas solo para riesgos del nuevo flujo:
+Las pruebas actuales cubren controladores de dictado, editor/publicación, asistencia y vault con dependencias inyectadas; no sustituyen los siguientes objetivos aún pendientes:
 
 - indicador visible y estado de consentimiento durante grabación;
 - interrupción, cancelación y falta de permiso de micrófono;
@@ -141,20 +143,20 @@ Casos obligatorios: dos requests secuenciales iguales, dos concurrentes, mismo I
 
 ## E2E por flujo
 
-| Flujo                 | Escenario feliz                               | Escenarios críticos                                |
-| --------------------- | --------------------------------------------- | -------------------------------------------------- |
-| F-01 Acceso           | usuario activo inicia y cierra sesión         | inválido, suspendido, recuperación                 |
-| F-02 Administración   | admin crea/suspende practitioner              | no admin, rollback parcial, duplicado              |
-| F-03 Timeline         | rol autorizado lista paciente y eventos       | admin, suspendido, otro ámbito                     |
-| F-04 Ingesta FHIR     | recurso soportado crea/actualiza una vez      | inválido, referencia faltante, replay              |
-| F-05 Audio/ASR        | consentimiento, captura y transcripción local | permiso negado, interrupción, cleanup              |
-| F-06 NER/tokens       | detecta, tokeniza y revierte autorizado       | falso negativo, token alterado, sin permiso        |
-| F-07 Síntesis         | fixture sintético usa fake/proveedor sandbox  | contenido no sintético, timeout, redacción de logs |
-| F-08 Resumen/cache    | genera y reutiliza versión exacta             | fuente cambia, expiración, aislamiento RLS         |
-| F-09 Eliminación      | borra original y derivados                    | retry, artefacto ausente, fallo parcial            |
-| F-10 Outbox/auditoría | publica una vez de forma observable           | worker crash, duplicado, dead-letter               |
+| Flujo                 | Escenario feliz                                   | Escenarios críticos                                                                  |
+| --------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| F-01 Acceso           | usuario activo inicia y cierra sesión             | inválido, suspendido, recuperación                                                   |
+| F-02 Administración   | admin crea/suspende practitioner                  | no admin, rollback parcial, duplicado                                                |
+| F-03 Timeline         | rol autorizado lista paciente y eventos           | admin, suspendido, otro ámbito                                                       |
+| F-04 Ingesta FHIR     | recurso soportado crea/actualiza una vez          | inválido, referencia faltante, replay                                                |
+| F-05 Audio/ASR        | captura sintética, revisión y publicación local   | permiso negado, interrupción, cleanup; decodificación nativa env-gated aún pendiente |
+| F-06 NER              | UI señala entidades sin alterar texto (pendiente) | falsos negativos y cobertura por clase; evaluación pendiente                         |
+| F-07 Síntesis local   | borrador sintético con fake determinista          | timeout, cancelación y redacción; benchmark local pendiente                          |
+| F-08 Resumen/cache    | genera y reutiliza versión exacta                 | fuente cambia, expiración, aislamiento RLS                                           |
+| F-09 Eliminación      | borra original y derivados                        | retry, artefacto ausente, fallo parcial                                              |
+| F-10 Outbox/auditoría | publica una vez de forma observable               | worker crash, duplicado, dead-letter                                                 |
 
-Cada E2E registra requisito, ADR, fixture, versión, resultado y evidencia. No se ejecutan pruebas destructivas contra ambientes compartidos.
+La matriz anterior define objetivos y no declara que esos E2E existan. Las pruebas actuales del flujo de notas son unitarias/widget y pgTAP dirigidos; no hay afirmación de E2E móvil de ASR nativo ni de equivalencia funcional del adaptador inferida desde fakes. Cada E2E futuro registra requisito, ADR, fixture, versión, resultado y evidencia. No se ejecutan pruebas destructivas contra ambientes compartidos.
 
 ## Spikes de factibilidad
 
@@ -191,7 +193,7 @@ Los resultados negativos son válidos. No se convierten en afirmaciones clínica
 - Pipeline: `pnpm pipeline:check`, que en el baseline solo validaba el scaffold (`package.json:20`).
 - Documentación: `pnpm docs:format:check` y `pnpm docs:lint` (`package.json:27-29`).
 
-La trazabilidad objetivo está en [requirements-traceability.md](appendices/requirements-traceability.md) y las brechas vigentes en [evidence-index.md](appendices/evidence-index.md).
+La trazabilidad objetivo está en [requirements-traceability.md](appendices/requirements-traceability.md) y las brechas vigentes en [evidence-index.md](appendices/evidence-index.md). El módulo `on_device_ai` posee ASR, síntesis, UI/gestión de modelos y lifecycle de capacidades; `context_note` conserva sus tres controladores, puertos de negocio, vault y casos de uso (ADR-018). `LocalCapabilityRepository` es la única frontera de provisioning y los leases son genéricos.
 
 ### Evidencia dirigida fase 5.1 (2026-10-11)
 
@@ -215,3 +217,25 @@ La evidencia dirigida de Flutter cubre autorización por ambos permisos efectivo
 ### Registro de ejecución: historial asistencial y mutabilidad de roles (2026-10-12)
 
 Rama `main`, HEAD `3d58988ea294269d525868ecfcc067bb0a1a4b50`, working tree modificado sin commit. `pnpm db:reset` aplicó `20261011380000`, `20261011390000` y `20261011400000`; `pnpm db:lint` sin errores de esquema; `pnpm db:test` 405/405 en 10 archivos, con los 14 asserts nuevos de mutabilidad de rol dentro de `iam_administration_phase4.test.sql`; `pnpm db:upgrade:test` aprobó el upgrade aislado baseline→fase 4.3, confirmando que degradar el rol seed no rompe `bootstrap_legacy_practitioner_iam`, que se ejecuta en una migración anterior. `pnpm app:analyze` sin issues y `pnpm app:test` 103/103. `pnpm app:format:check` detectó tres archivos sin formatear y se corrigieron solo con `dart format`, sin cambio semántico; luego 42 archivos, 0 cambios. `pnpm docs:format:check`, `pnpm docs:lint` (53 archivos, 0 issues) y `git diff --check` pasaron. No se ejecutaron Edge, integración local, pipeline ni `security:evidence:phase51`: las capas que cambiaron son migración, Flutter y documentación. La carrera concurrente del último Administrador entre dos sesiones sigue sin verificarse.
+
+### Gate final del módulo IA local compartido (2026-10-18)
+
+Ejecución final en macOS 27.0.1 arm64, rama `main`, HEAD `4342c7e5d5db2c8a2882ffd50fab0b4cd68d075c`, con trabajo preexistente y actual sin commit. `pnpm app:test` pasó con 308 tests y 1 omitido; el test omitido requiere `CRA_ASR_MODEL_DIR`/`CRA_ASR_SAMPLE` para decodificación ASR real. Incluye suites existentes y pruebas nuevas de controladores, artefactos, leases, reconciliación del adaptador y arquitectura; no aporta resultado de inferencia nativa. `pnpm app:format:check` pasó (107 archivos, 0 cambios) y `pnpm app:analyze` no reportó issues. Tras los últimos arreglos exclusivamente de tests se ejecutaron 29 pruebas enfocadas; no se repitió la suite completa porque producción no cambió.
+
+`pnpm db:reset` aplicó previamente la migración aditiva `20261012020000`; `pnpm db:lint` pasó sin errores de esquema y `pnpm db:test` pasó con 453 tests en 12 archivos, incluidos 13 de reconciliación. No se editaron migraciones aplicadas ni se ampliaron grants de lectura de tablas. `pnpm functions:check` pasó formato, lint, typecheck y 14 tests Deno tras cambio de tipos de base de datos. `fvm flutter build ios --simulator --debug --no-codesign --no-pub` compiló `Runner.app`; el aviso existente de incompatibilidad de Swift Package Manager de `flutter_secure_storage` no bloqueó el build. Es compilación, no prueba UI ni validación de audio nativo.
+
+Se omitieron deliberadamente `pnpm db:upgrade:test` y el harness destructivo de integración: no cambiaron IAM ni backfill. También se omitieron benchmarks de hardware, ejecución de modelos nativos y demo manual; el pipeline FHIR permanece sin cambios. La reorganización IAM opcional no se realizó. La evidencia es local y acotada: no demuestra validez clínica, garantías de no regresión ni aptitud productiva.
+
+### Gate integrado de refactor IAM (B11, 2026-10-18)
+
+Ejecución sobre macOS 27.0.1 arm64, rama `main`, HEAD `4342c7e5d5db2c8a2882ffd50fab0b4cd68d075c`, árbol con cambios preexistentes y parte A/B sin commit. B00 pasó sus pruebas dirigidas sin fallos; las pruebas dirigidas de los workers secuenciales pasaron; las pruebas de arquitectura B11a pasaron (12, incluyendo límites de `on_device_ai`). `pnpm app:format:check` pasó con 132 archivos y 0 cambios; `pnpm app:analyze` pasó sin issues; `pnpm app:test` pasó con 334 aprobadas y 1 omitida porque `CRA_ASR_MODEL_DIR`/`CRA_ASR_SAMPLE` no estaban configuradas. Se observó el warning preexistente de tag `asr-model` no declarado.
+
+`pnpm docs:format:check`, `pnpm docs:lint` (59 archivos, 0 issues) y `git diff --check` pasaron. La revisión read-only contra el snapshot B00 no identificó hallazgos concretos de regresión; no es garantía productiva. `fvm flutter build ios --simulator --debug --no-codesign --no-pub` pasó desde `app/` (Xcode 13.6s; `build/ios/iphonesimulator/Runner.app`). Se observó el aviso preexistente de que `flutter_secure_storage` no soporta Swift Package Manager; no bloqueó la compilación. Este build no prueba UI/manual ni ASR/inferencia.
+
+No hubo smoke manual, inferencia ni benchmarks de IA. No se ejecutaron DB/Edge/pipeline/reset porque B no modificó esas capas. El alcance es el refactor IAM/capas; la parte A se preservó y otros flujos no se declaran uniformizados. La evidencia no acredita producción ni ausencia absoluta de regresiones.
+
+### Registro de ejecución: commits independientes tras el PR de arquitectura (2026-10-18)
+
+Rama `main`, HEAD `af95bd80155c1de5a138a6a95a60e93ba2fbf4dd` (merge del PR #3), con los cambios independientes de este corte aún sin commit. `pnpm db:reset` aplicó la aditiva `20261012020000_context_note_publication_reconciliation.sql`; `pnpm db:lint` sin errores de esquema; `pnpm db:test` pasó con 453 tests en 12 archivos, incluidos los 13 asserts de reconciliación. `pnpm functions:check` pasó formato, lint, typecheck y 14 tests Deno tras el cambio de tipos. `pnpm app:format:check` (132 archivos, 0 cambios), `pnpm app:analyze` sin issues, y las pruebas dirigidas de reconciliación del repositorio y de actualización de contraseña pasaron (14 tests). `pnpm pipeline:check`, `pnpm docs:format:check`, `pnpm docs:lint` (59 archivos, 0 issues) y `git diff --check` pasaron.
+
+No se ejecutaron `pnpm app:test` completa, `pnpm db:upgrade:test`, `integration:local` ni `security:evidence:phase51`: la suite Flutter completa ya pasó sobre el mismo árbol en el PR #3 y esta capa no modificó pruebas fuera de notas y autenticación. Tampoco hubo smoke manual, decodificación ASR nativa ni benchmarks. Los conteos citados en los gates anteriores corresponden a otros HEAD y no se reutilizan como gate de este corte. La evidencia es local, sintética y acotada: no acredita producción, no regresión absoluta ni aptitud productiva.
