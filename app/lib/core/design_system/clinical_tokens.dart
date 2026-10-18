@@ -6,6 +6,8 @@ abstract final class ClinicalColors {
   static const mintDark = Color(0xff2ab892);
   static const mintText = Color(0xff087f5b);
   static const softMint = Color(0xffe7faf4);
+  static const attention = Color(0xff8a5a00);
+  static const softAttention = Color(0xfffff4d6);
   static const ink = Color(0xff1c1c1e);
   static const canvas = Color(0xfff2f2f7);
   static const secondary = Color(0xff6e6e73);
