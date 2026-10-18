@@ -10,6 +10,7 @@ app/build/
 app/.flutter-plugins
 app/.flutter-plugins-dependencies
 app/.idea/
+*.iml
 app/android/build/
 app/android/.gradle/
 app/android/.kotlin/
