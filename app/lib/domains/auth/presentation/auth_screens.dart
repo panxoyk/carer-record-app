@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'auth_providers.dart';
+import '../../../core/design_system/clinical_toast.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
@@ -184,6 +185,7 @@ class _RecoverPasswordScreenState extends ConsumerState<RecoverPasswordScreen> {
                   setState(() {
                     _busy = true;
                     _error = null;
+                    _message = null;
                   });
                   try {
                     await ref
@@ -238,6 +240,7 @@ class UpdatePasswordScreen extends ConsumerStatefulWidget {
 class _UpdatePasswordScreenState extends ConsumerState<UpdatePasswordScreen> {
   final _password = TextEditingController();
   String? _error;
+  bool _busy = false;
   @override
   void dispose() {
     _password.dispose();
@@ -263,27 +266,46 @@ class _UpdatePasswordScreenState extends ConsumerState<UpdatePasswordScreen> {
           ),
         const SizedBox(height: 20),
         FilledButton(
-          onPressed: () async {
-            if (_password.text.length < 6) {
-              setState(
-                () =>
-                    _error = 'La contraseña debe tener al menos 6 caracteres.',
-              );
-              return;
-            }
-            try {
-              await ref
-                  .read(authRepositoryProvider)
-                  .updatePassword(_password.text);
-              ref.read(authGateProvider).finishPasswordRecovery();
-              if (context.mounted) context.go('/');
-            } catch (_) {
-              setState(
-                () => _error = 'No fue posible actualizar la contraseña.',
-              );
-            }
-          },
-          child: const Text('Guardar contraseña'),
+          onPressed: _busy
+              ? null
+              : () async {
+                  if (_password.text.length < 6) {
+                    setState(
+                      () => _error =
+                          'La contraseña debe tener al menos 6 caracteres.',
+                    );
+                    return;
+                  }
+                  setState(() {
+                    _busy = true;
+                    _error = null;
+                  });
+                  final messengerContext = context;
+                  try {
+                    await ref
+                        .read(authRepositoryProvider)
+                        .updatePassword(_password.text);
+                    if (!mounted) return;
+                    ref.read(authGateProvider).finishPasswordRecovery();
+                    if (messengerContext.mounted) {
+                      ClinicalToast.success(
+                        messengerContext,
+                        message: 'Contraseña actualizada.',
+                      );
+                      messengerContext.go('/');
+                    }
+                  } catch (_) {
+                    if (mounted) {
+                      setState(
+                        () =>
+                            _error = 'No fue posible actualizar la contraseña.',
+                      );
+                    }
+                  } finally {
+                    if (mounted) setState(() => _busy = false);
+                  }
+                },
+          child: Text(_busy ? 'Guardando…' : 'Guardar contraseña'),
         ),
       ],
     ),

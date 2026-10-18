@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:carer_record_app/core/design_system/clinical_design_system.dart';
+import 'package:carer_record_app/core/design_system/clinical_toast.dart';
 import 'package:carer_record_app/domains/auth/data/auth_repository.dart';
 import 'package:carer_record_app/domains/auth/presentation/auth_providers.dart';
 import 'package:carer_record_app/domains/auth/presentation/auth_screens.dart';
@@ -249,6 +250,117 @@ void main() {
     expect(find.byType(SingleChildScrollView), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('password update waits, then shows success and routes home', (
+    tester,
+  ) async {
+    final repository = _FakeAuthRepository()
+      ..updateCompleter = Completer<void>();
+    final router = GoRouter(
+      initialLocation: '/update-password',
+      routes: [
+        GoRoute(
+          path: '/update-password',
+          builder: (_, __) => const UpdatePasswordScreen(),
+        ),
+        GoRoute(path: '/', builder: (_, __) => const Text('Destino')),
+      ],
+    );
+    try {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authRepositoryProvider.overrideWithValue(repository),
+            authGateProvider.overrideWith((ref) => AuthGate.forTesting()),
+          ],
+          child: MaterialApp.router(
+            theme: ClinicalTheme.build(),
+            builder: (context, child) => ClinicalToastHost(child: child!),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'synthetic-password');
+      await tester.tap(find.byType(FilledButton));
+      await tester.pump();
+
+      expect(repository.updateCalls, 1);
+      expect(
+        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        isNull,
+      );
+      expect(find.text('Guardando…'), findsOneWidget);
+
+      repository.updateCompleter!.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('Contraseña actualizada.'), findsOneWidget);
+      expect(find.text('Destino'), findsOneWidget);
+    } finally {
+      ClinicalToast.dismissAll();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 500));
+      router.dispose();
+    }
+  });
+
+  testWidgets('password update error preserves input and allows retry', (
+    tester,
+  ) async {
+    final repository = _FakeAuthRepository()..failUpdate = true;
+    final router = GoRouter(
+      initialLocation: '/update-password',
+      routes: [
+        GoRoute(
+          path: '/update-password',
+          builder: (_, __) => const UpdatePasswordScreen(),
+        ),
+        GoRoute(path: '/', builder: (_, __) => const Text('Destino')),
+      ],
+    );
+    try {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authRepositoryProvider.overrideWithValue(repository),
+            authGateProvider.overrideWith((ref) => AuthGate.forTesting()),
+          ],
+          child: MaterialApp.router(
+            theme: ClinicalTheme.build(),
+            builder: (context, child) => ClinicalToastHost(child: child!),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'synthetic-password');
+      await tester.tap(find.byType(FilledButton));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('No fue posible actualizar la contraseña.'),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'synthetic-password',
+      );
+      expect(find.text('Contraseña actualizada.'), findsNothing);
+      expect(
+        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        isNotNull,
+      );
+      expect(find.text('Destino'), findsNothing);
+      expect(repository.updateCalls, 1);
+    } finally {
+      ClinicalToast.dismissAll();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 500));
+      router.dispose();
+    }
+  });
 }
 
 Future<void> _pumpAuth(
@@ -299,6 +411,9 @@ class _FakeAuthRepository implements AuthRepository {
   int signInCalls = 0;
   bool failSignIn = false;
   Completer<void>? signInCompleter;
+  int updateCalls = 0;
+  bool failUpdate = false;
+  Completer<void>? updateCompleter;
 
   @override
   Session? get session => null;
@@ -320,5 +435,9 @@ class _FakeAuthRepository implements AuthRepository {
   Future<void> sendPasswordRecovery(String email) async {}
 
   @override
-  Future<void> updatePassword(String password) async {}
+  Future<void> updatePassword(String password) async {
+    updateCalls++;
+    await updateCompleter?.future;
+    if (failUpdate) throw Exception('synthetic secret detail');
+  }
 }
