@@ -11,14 +11,19 @@ class FhirRecordRepositoryImpl implements FhirRecordRepository {
   final FhirMapper _mapper;
 
   @override
-  Future<List<PatientSummary>> searchPatients(String query) async {
-    if (query.trim().length < 2) return const [];
-    final raw = await _client.searchPatients(query);
-    return [
-      for (final r in raw)
-        if (r['resourceType'] == 'Patient' && r['id'] != null)
-          _mapper.patient(r),
-    ];
+  Future<PatientPage> listPatients({
+    String query = '',
+    String? pageToken,
+  }) async {
+    final page = await _client.patientsPage(query: query, pageUrl: pageToken);
+    return PatientPage(
+      patients: [
+        for (final r in page.resources)
+          if (r['resourceType'] == 'Patient' && r['id'] != null)
+            _mapper.patient(r),
+      ],
+      nextPageToken: page.next,
+    );
   }
 
   @override

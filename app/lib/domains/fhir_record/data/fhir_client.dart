@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 
 import '../domain/fhir_record_entities.dart';
@@ -43,18 +43,13 @@ class FhirClient {
       }
       return jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
     } on TimeoutException {
-      developer.log('GET $uri superó el tiempo de espera', name: 'FhirClient');
+      debugPrint('[FhirClient] GET $uri superó el tiempo de espera');
       throw const FhirException('El servidor FHIR no respondió a tiempo.');
     } on FhirException {
       rethrow;
     } catch (e, st) {
       // El detalle real queda en la consola de `flutter run`.
-      developer.log(
-        'GET $uri falló',
-        name: 'FhirClient',
-        error: e,
-        stackTrace: st,
-      );
+      debugPrint('[FhirClient] GET $uri falló: $e\n$st');
       throw FhirException(
         'No se pudo conectar con el servidor FHIR (${e.runtimeType}).',
       );
@@ -73,31 +68,45 @@ class FhirClient {
     return u.replace(scheme: _base.scheme, host: _base.host, port: _base.port);
   }
 
-  /// Busca pacientes por nombre (prefijo de nombre o apellido) o identificador.
-  Future<List<Map<String, dynamic>>> searchPatients(
-    String query, {
-    int count = 20,
+  /// Una página de pacientes. Sin [query] lista a todos ordenados por
+  /// apellido; con [query] filtra por nombre o identificador. [pageUrl] es el
+  /// enlace `next` devuelto por la página anterior.
+  Future<({List<Map<String, dynamic>> resources, String? next})> patientsPage({
+    String query = '',
+    String? pageUrl,
+    int count = 30,
   }) async {
-    final q = query.trim();
-    // UUID (MRN de Synthea) o número con guiones (SSN, RUN): se busca por
-    // identificador; cualquier otra cosa se trata como nombre.
-    final isIdentifier = RegExp(
-      r'^([0-9a-fA-F]{8}-[0-9a-fA-F-]*|\d[\d.\-]{4,}[\dkK]?)$',
-    ).hasMatch(q);
-    // Cada palabra va como un parámetro `name` repetido (AND): "Angel Upton"
-    // encuentra a Angel97 Upton904. Un solo parámetro con espacio no coincide.
-    final tokens = q.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
-    final bundle = await _getJson(
-      _resource('Patient', {
-        if (isIdentifier) 'identifier': q else 'name': tokens,
+    final Uri uri;
+    if (pageUrl != null) {
+      uri = _rebase(pageUrl);
+    } else {
+      final q = query.trim();
+      // UUID (MRN de Synthea) o número con guiones (SSN, RUN): se busca por
+      // identificador; cualquier otra cosa se trata como nombre.
+      final isIdentifier = RegExp(
+        r'^([0-9a-fA-F]{8}-[0-9a-fA-F-]*|\d[\d.\-]{4,}[\dkK]?)$',
+      ).hasMatch(q);
+      // Cada palabra va como un parámetro `name` repetido (AND): "Angel Upton"
+      // encuentra a Angel97 Upton904. Un solo parámetro con espacio no coincide.
+      final tokens = q
+          .split(RegExp(r'\s+'))
+          .where((t) => t.isNotEmpty)
+          .toList();
+      uri = _resource('Patient', {
+        if (isIdentifier)
+          'identifier': q
+        else if (tokens.isNotEmpty)
+          'name': tokens,
         '_count': '$count',
-      }),
-    );
-    return _entries(bundle);
+        '_sort': 'family',
+      });
+    }
+    final bundle = await _getJson(uri);
+    return (resources: _entries(bundle), next: _nextLink(bundle));
   }
 
-  /// La primera página de $everything es lenta en HAPI: calcula toda la
-  /// compartment del paciente. Las siguientes salen de caché.
+  /// La primera página de $everything es lenta en HAPI: calcula todo el
+  /// compartimento del paciente. Las siguientes salen de caché.
   static const everythingTimeout = Duration(seconds: 180);
 
   /// Ficha completa vía Patient/{id}/$everything, siguiendo la paginación.
@@ -115,10 +124,9 @@ class FhirClient {
       final bundle = await _getJson(uri, timeout: everythingTimeout);
       final entries = _entries(bundle);
       resources.addAll(entries);
-      developer.log(
-        'página ${page + 1}: ${entries.length} recursos en '
+      debugPrint(
+        '[FhirClient] página ${page + 1}: ${entries.length} recursos en '
         '${watch.elapsedMilliseconds} ms (acumulado ${resources.length})',
-        name: 'FhirClient',
       );
       final next = _nextLink(bundle);
       if (next == null) return (resources: resources, truncated: false);

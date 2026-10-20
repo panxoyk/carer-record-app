@@ -49,17 +49,18 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: () => context.push('/fhir/patients'),
-                icon: const Icon(Icons.search),
-                label: const Text('Buscar ficha clínica (HAPI FHIR)'),
-              ),
-            ),
-          ),
+
+          ///          Padding(
+          ///            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          ///            child: Align(
+          ///              alignment: Alignment.centerLeft,
+          ///              child: OutlinedButton.icon(
+          ///                onPressed: () => context.push('/fhir/patients'),
+          ///                icon: const Icon(Icons.search),
+          ///                label: const Text('Buscar ficha clínica (HAPI FHIR)'),
+          ///              ),
+          ///            ),
+          ///          ),
           Expanded(
             child: result.when(
               skipLoadingOnRefresh: false,

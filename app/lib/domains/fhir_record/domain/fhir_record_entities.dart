@@ -79,7 +79,17 @@ class FhirException implements Exception {
   String toString() => message;
 }
 
+/// Una página del listado de pacientes. [nextPageToken] es opaco: se
+/// devuelve tal cual a [FhirRecordRepository.listPatients] para la siguiente.
+class PatientPage {
+  const PatientPage({required this.patients, this.nextPageToken});
+
+  final List<PatientSummary> patients;
+  final String? nextPageToken;
+}
+
 abstract interface class FhirRecordRepository {
-  Future<List<PatientSummary>> searchPatients(String query);
+  /// Lista pacientes (todos si [query] está vacío) de a una página.
+  Future<PatientPage> listPatients({String query = '', String? pageToken});
   Future<ClinicalRecord> loadRecord(String patientId);
 }

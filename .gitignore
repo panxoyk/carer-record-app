@@ -30,6 +30,7 @@ supabase/.branches/
 .env
 .env.*
 !.env.example
+scripts/fhir-sync/fhir-sync.sql
 
 # OS / IDE
 .DS_Store
