@@ -74,6 +74,8 @@ Los usos, en orden: mejorar la redacción del hito escrito a mano, señalar enti
 
 Cuando el motor falla o el modelo no está instalado, el hito se publica directamente. La asistencia nunca bloquea la escritura clínica.
 
+El motor de síntesis queda cargado durante la sesión y la ayuda de redacción está disponible en las dos formas de entrada de la nota, con el mismo contrato: su salida es un borrador que el autor revisa y edita antes de confirmar. El presupuesto de tiempo de la síntesis local es de tres minutos, que cubre la carga de los pesos y la generación en el objetivo más lento soportado; al agotarse, el texto del autor se conserva. El runtime no recalcula el checksum de los pesos en cada carga, porque la instalación ya lo verificó y el arranque comprueba identidad y tamaño.
+
 ## Outbox y ciclo de vida local
 
 La outbox cifrada con restauración, reintentos y backoff es un requisito pendiente, no comportamiento implementado. Publicar manualmente requiere red. La aprobación del TTL de Q-PRIV-03 sigue pendiente: cualquier valor por defecto de 24 h en código no es una decisión aprobada de producto.
