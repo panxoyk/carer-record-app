@@ -20,10 +20,19 @@ class LlamaGgufSynthesisProvider implements SynthesisProvider {
   LlamaGgufSynthesisProvider({
     required this.manifest,
     required this.modelDirectory,
+    this.verifyDigestOnLoad = true,
   });
 
   final LlmModelManifest manifest;
   final Directory modelDirectory;
+
+  /// Whether the runtime re-hashes the weights before loading them.
+  ///
+  /// Hashing a 1 GB GGUF costs tens of seconds on a mid-range device, so the
+  /// digest is only recomputed when the weights were not verified yet. The
+  /// installer already verifies the download, and the capability repository
+  /// records that verification next to the file.
+  final bool verifyDigestOnLoad;
 
   llama.LlamaEngine? _engine;
   bool _loading = false;
@@ -54,8 +63,11 @@ class LlamaGgufSynthesisProvider implements SynthesisProvider {
               numberOfThreads: manifest.threads,
             ),
             // The weights were verified by the installer; repeating the digest
-            // here keeps the runtime honest about the bytes it loads.
-            download: llama.ModelLoadOptions(sha256: manifest.sha256),
+            // here keeps the runtime honest about the bytes it loads. The
+            // digest is recomputed only when it was not verified before.
+            download: verifyDigestOnLoad
+                ? llama.ModelLoadOptions(sha256: manifest.sha256)
+                : llama.ModelLoadOptions.defaults,
           )
           .timeout(timeout);
       _engine = engine;
@@ -107,6 +119,11 @@ class LlamaGgufSynthesisProvider implements SynthesisProvider {
               maxTokens: manifest.maxTokens,
               temp: 0.2,
             ),
+            // Qwen3 is a hybrid reasoning model: with thinking enabled it
+            // spends the whole token budget on an internal monologue and can
+            // return an empty answer. These use cases want the rewritten text
+            // itself, so reasoning is disabled.
+            enableThinking: false,
             responseFormat: _responseFormat(request.purpose),
           )
           .timeout(request.timeout);

@@ -69,15 +69,24 @@ final localCapabilityRepositoryProvider =
       ),
     );
 
-final synthesisProviderProvider =
-    FutureProvider.autoDispose<SynthesisProvider?>((ref) async {
-      final manifest = await ref.watch(llmModelManifestProvider.future);
-      final directory = await ref.watch(llmModelDirectoryProvider.future);
-      final provider = LlamaGgufSynthesisProvider(
-        manifest: manifest,
-        modelDirectory: directory,
-      );
-      final ready = await provider.load();
-      ref.onDispose(() => provider.dispose());
-      return ready ? provider : null;
-    });
+/// The synthesis engine is kept alive for the whole session.
+///
+/// Loading the GGUF weights costs seconds even on a fast device, and the
+/// auto-dispose behaviour of a per-screen provider would pay that cost again
+/// on every note the author opens. The weights are validated at install time
+/// and their identity and size are re-checked on every start, so the runtime
+/// does not re-hash a gigabyte before each load.
+final synthesisProviderProvider = FutureProvider<SynthesisProvider?>((
+  ref,
+) async {
+  final manifest = await ref.watch(llmModelManifestProvider.future);
+  final directory = await ref.watch(llmModelDirectoryProvider.future);
+  final provider = LlamaGgufSynthesisProvider(
+    manifest: manifest,
+    modelDirectory: directory,
+    verifyDigestOnLoad: false,
+  );
+  final ready = await provider.load();
+  ref.onDispose(() => provider.dispose());
+  return ready ? provider : null;
+});

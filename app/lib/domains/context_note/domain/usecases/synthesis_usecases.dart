@@ -10,7 +10,12 @@ class ImproveNoteDraft {
   const ImproveNoteDraft({
     required this.provider,
     this.promptVersion = 'note-improve.v1',
-    this.timeout = const Duration(seconds: 20),
+    // A local 1.7B model needs tens of seconds to load and to rewrite a note
+    // on a mid-range device, and considerably more on an emulator. A timeout
+    // below a couple of minutes turns a working model into a permanent
+    // failure, so the budget covers the slowest supported target. Assistance
+    // never blocks the note: the author's own text is published on timeout.
+    this.timeout = const Duration(minutes: 3),
     this.maxOutputChars = 20000,
   });
 
@@ -94,7 +99,7 @@ class FlagNoteEntities {
   const FlagNoteEntities({
     required this.provider,
     this.promptVersion = 'note-entities.v1',
-    this.timeout = const Duration(seconds: 15),
+    this.timeout = const Duration(minutes: 3),
     this.maxOutputChars = 20000,
   });
 
