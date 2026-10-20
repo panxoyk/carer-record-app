@@ -34,12 +34,14 @@ String _path(File file) => Uri.file(file.absolute.path).normalizePath().path;
 bool _within(File file, String fragment) => _path(file).contains(fragment);
 
 Set<File> _reachable(File start) {
-  final visited = <String>{};
+  final visited = <String, File>{};
   final pending = <File>[start];
   while (pending.isNotEmpty) {
     final file = pending.removeLast();
     final path = _path(file);
-    if (!visited.add(path) || !file.existsSync()) continue;
+    if (visited.containsKey(path)) continue;
+    visited[path] = file;
+    if (!file.existsSync()) continue;
     for (final uri in _directives(file)) {
       final target = _resolve(file, uri);
       if (target != null && target.absolute.path.startsWith(_lib.path)) {
@@ -47,7 +49,7 @@ Set<File> _reachable(File start) {
       }
     }
   }
-  return visited.map(File.new).toSet();
+  return visited.values.toSet();
 }
 
 void main() {

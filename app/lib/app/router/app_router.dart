@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../domains/fhir_record/presentation/fhir_record_screens.dart';
 import '../../domains/auth/presentation/auth_providers.dart';
 import '../../domains/auth/presentation/auth_screens.dart';
 import '../../domains/on_device_ai/presentation/model_setup_screen.dart';
@@ -129,6 +130,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/patients',
         builder: (_, __) => const ClinicalEntryRefresh(child: PatientsScreen()),
+      ),
+      GoRoute(
+        path: '/fhir/patients',
+        builder: (_, __) =>
+            const ClinicalEntryRefresh(child: FhirPatientSearchScreen()),
+      ),
+      GoRoute(
+        path: '/fhir/patients/:patientId',
+        builder: (_, state) => ClinicalEntryRefresh(
+          child: FhirClinicalRecordScreen(
+            patientId: state.pathParameters['patientId']!,
+          ),
+        ),
       ),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       GoRoute(
