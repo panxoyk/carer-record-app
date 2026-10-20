@@ -429,7 +429,14 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
     final provider = providerState.valueOrNull;
     final hasDraft = _textController.text.trim().isNotEmpty;
     if (providerState.isLoading) {
-      return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: ClinicalSpacing.compact),
+        child: Text(
+          'Preparando ayuda de redacción…',
+          key: const Key('assist-loading'),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      );
     }
     if (providerState.hasError) {
       return Column(
@@ -447,7 +454,12 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.offline_bolt_outlined, size: 18),
+          OutlinedButton.icon(
+            onPressed: null,
+            icon: const Icon(Icons.auto_fix_high_outlined),
+            label: const Text('Mejorar redacción', softWrap: true),
+          ),
+          const SizedBox(height: ClinicalSpacing.compact),
           Text(
             'Ayuda de redacción no disponible.',
             style: Theme.of(context).textTheme.bodySmall,
@@ -579,21 +591,25 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
           ),
         if (transcript != null) ...[
           const SizedBox(height: ClinicalSpacing.compact),
-          TextField(
-            controller: _textController,
-            readOnly: _isBusy || _publication.isPublicationLocked,
-            maxLines: 4,
-            decoration: clinicalInputDecoration(labelText: 'Nota').copyWith(
-              helper: Text(
-                transcript.hasUncertainSegments
-                    ? 'Algunas palabras pueden ser incorrectas. Revisa el texto.'
-                    : 'Revisa el texto antes de guardar.',
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: TextField(
+              key: ValueKey(transcript.text),
+              controller: _textController,
+              readOnly: _isBusy || _publication.isPublicationLocked,
+              maxLines: 4,
+              decoration: clinicalInputDecoration(labelText: 'Nota').copyWith(
+                helper: Text(
+                  transcript.hasUncertainSegments
+                      ? 'Algunas palabras pueden ser incorrectas. Revisa el texto.'
+                      : 'Revisa el texto antes de guardar.',
+                ),
               ),
-            ),
-            onChanged: (value) => _patch(
-              _session.copyWith(
-                draftText: value,
-                stage: DictationStage.readyToConfirm,
+              onChanged: (value) => _patch(
+                _session.copyWith(
+                  draftText: value,
+                  stage: DictationStage.readyToConfirm,
+                ),
               ),
             ),
           ),
