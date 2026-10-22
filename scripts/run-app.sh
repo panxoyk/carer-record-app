@@ -17,6 +17,11 @@ if [ "${1:-}" = "--" ]; then
   shift
 fi
 
+# FHIR_BASE_URL es opcional: si está vacío, la app usa su valor por defecto.
+if [ -n "${FHIR_BASE_URL:-}" ]; then
+  set -- "--dart-define=FHIR_BASE_URL=$FHIR_BASE_URL" "$@"
+fi
+
 cd app
 exec fvm flutter run \
   --dart-define="SUPABASE_URL=$SUPABASE_URL" \

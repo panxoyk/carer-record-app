@@ -13,10 +13,14 @@ pnpm install --frozen-lockfile
 cd app && fvm install && cd ..
 cp .env.example .env
 pnpm db:start
+pnpm fhir:up
+pnpm fhir:sync
 pnpm app:run
 ```
 
 Completa `SUPABASE_URL` y `SUPABASE_PUBLISHABLE_KEY` en `.env` con los valores mostrados por `pnpm db:start`. `scripts/run-app.sh` los pasa a Flutter. `.env` esta ignorado por Git.
+
+La lista de pacientes y la ficha clinica se consultan directamente en un servidor HAPI FHIR R4. La URL llega con `--dart-define=FHIR_BASE_URL=...`, que `scripts/run-app.sh` toma de `FHIR_BASE_URL` en `.env`; si esta vacia, vale `http://10.0.2.2:8080/fhir` (emulador Android). En iOS Simulator o en un dispositivo con `adb reverse` usa `http://127.0.0.1:8080/fhir`. El servidor de demostracion esta en `docker/hapi-fhir`; el README principal explica el flujo completo.
 
 ## Estructura
 
@@ -24,8 +28,9 @@ Completa `SUPABASE_URL` y `SUPABASE_PUBLISHABLE_KEY` en `.env` con los valores m
 - `lib/main.dart`: inicializa Flutter y Supabase, y crea la aplicacion.
 - `lib/core/`: elementos transversales: sistema de diseno, cliente Supabase y router.
 - `lib/domains/`: funcionalidades por dominio. Cada dominio separa acceso a datos, entidades y presentacion cuando corresponde.
+- `lib/domains/fhir_record/`: lista de pacientes y ficha clinica obtenidas de HAPI FHIR. `data/` contiene el cliente HTTP y el mapper de recursos FHIR al modelo interno, `domain/` las entidades y la regla que enlaza un paciente de FHIR con su hospitalizacion en Supabase, y `presentation/` las pantallas. La UI no ve recursos FHIR crudos.
 - `test/`: pruebas Dart y Flutter.
-- `pubspec.yaml`: manifiesto, versiones de SDK y dependencias directas.
+- `pubspec.yaml`: manifiesto, versiones de SDK y dependencias directas (incluye `http` para el cliente FHIR).
 - `pubspec.lock`: versiones exactas de las dependencias resueltas; se versiona para obtener instalaciones reproducibles.
 - `analysis_options.yaml`: reglas de analisis estatico y linter.
 - `.fvmrc`: version de Flutter usada por FVM.

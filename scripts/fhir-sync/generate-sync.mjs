@@ -8,30 +8,36 @@
 // así la app abre la bitácora sin consultar nada extra.
 //
 // Uso:
-//   node scripts/fhir-sync/generate-sync.mjs [urlBaseFhir] [salida.sql] [limite]
-// Ejemplo:
-//   node scripts/fhir-sync/generate-sync.mjs http://127.0.0.1:8080/fhir
+//   node scripts/fhir-sync/generate-sync.mjs [urlBaseFhir] [salida.sql] [limite] [--apply]
+// Ejemplos:
+//   node scripts/fhir-sync/generate-sync.mjs                 (solo genera el SQL)
+//   node scripts/fhir-sync/generate-sync.mjs --apply         (genera y lo aplica en Supabase local)
+//
+// --apply copia el SQL al contenedor supabase_db_* y lo ejecuta con psql.
+// Requiere Docker y `pnpm db:start` en marcha.
 
-import { writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { execFileSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const base = (process.argv[2] ?? 'http://127.0.0.1:8080/fhir').replace(
-  /\/$/,
-  '',
-);
+const args = process.argv.slice(2);
+const apply = args.includes("--apply");
+const positional = args.filter((arg) => !arg.startsWith("--"));
+
+const base = (positional[0] ?? "http://127.0.0.1:8080/fhir").replace(/\/$/, "");
 const outFile =
-  process.argv[3] ??
-  join(dirname(fileURLToPath(import.meta.url)), 'fhir-sync.sql');
-const limit = Number(process.argv[4] ?? 0) || Infinity;
+  positional[1] ??
+  join(dirname(fileURLToPath(import.meta.url)), "fhir-sync.sql");
+const limit = Number(positional[2] ?? 0) || Infinity;
 
-const EXT_WARD = 'urn:hospital-simulado:fhir:ward';
-const EXT_BED = 'urn:hospital-simulado:fhir:bed-number';
-const EXT_ADMISSION = 'urn:hospital-simulado:fhir:admission-date';
+const EXT_WARD = "urn:hospital-simulado:fhir:ward";
+const EXT_BED = "urn:hospital-simulado:fhir:bed-number";
+const EXT_ADMISSION = "urn:hospital-simulado:fhir:admission-date";
 
 async function getJson(url) {
   const res = await fetch(url, {
-    headers: { Accept: 'application/fhir+json' },
+    headers: { Accept: "application/fhir+json" },
   });
   if (!res.ok) throw new Error(`HAPI respondió ${res.status} en ${url}`);
   return res.json();
@@ -53,15 +59,15 @@ async function fetchPatients() {
   while (url && patients.length < limit) {
     const bundle = await getJson(url);
     for (const entry of bundle.entry ?? []) {
-      if (entry.resource?.resourceType === 'Patient') {
+      if (entry.resource?.resourceType === "Patient") {
         patients.push(entry.resource);
       }
     }
-    const next = (bundle.link ?? []).find((l) => l.relation === 'next');
+    const next = (bundle.link ?? []).find((l) => l.relation === "next");
     url = next ? rebase(next.url) : null;
     process.stdout.write(`\r${patients.length} pacientes leídos…`);
   }
-  process.stdout.write('\n');
+  process.stdout.write("\n");
   return patients.slice(0, limit);
 }
 
@@ -70,40 +76,40 @@ const extension = (resource, url, valueKey) =>
 
 const slug = (text) =>
   text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
 // Literal SQL escapado; null -> null.
 const lit = (value) =>
-  value == null ? 'null' : `'${String(value).replace(/'/g, "''")}'`;
+  value == null ? "null" : `'${String(value).replace(/'/g, "''")}'`;
 
 function toRow(patient) {
   // Solo ids numéricos (los que genera HAPI): son los que se pueden mapear
   // a un UUID determinista.
-  if (!/^\d{1,12}$/.test(patient.id ?? '')) return null;
+  if (!/^\d{1,12}$/.test(patient.id ?? "")) return null;
 
   const name =
-    patient.name?.find((n) => n.use === 'official') ?? patient.name?.[0] ?? {};
-  const given = (name.given ?? []).join(' ').trim() || 'Sin nombre';
-  const family = (name.family ?? '').trim() || 'Sin apellido';
+    patient.name?.find((n) => n.use === "official") ?? patient.name?.[0] ?? {};
+  const given = (name.given ?? []).join(" ").trim() || "Sin nombre";
+  const family = (name.family ?? "").trim() || "Sin apellido";
 
-  const birth = /^\d{4}-\d{2}-\d{2}$/.test(patient.birthDate ?? '')
+  const birth = /^\d{4}-\d{2}-\d{2}$/.test(patient.birthDate ?? "")
     ? patient.birthDate
     : null;
 
-  const ward = extension(patient, EXT_WARD, 'valueString')?.trim() || null;
-  const bed = extension(patient, EXT_BED, 'valueString')?.trim() || null;
-  const admittedRaw = extension(patient, EXT_ADMISSION, 'valueDateTime');
+  const ward = extension(patient, EXT_WARD, "valueString")?.trim() || null;
+  const bed = extension(patient, EXT_BED, "valueString")?.trim() || null;
+  const admittedRaw = extension(patient, EXT_ADMISSION, "valueDateTime");
   const admittedDate = admittedRaw ? new Date(admittedRaw) : null;
   const admitted =
     admittedDate && !Number.isNaN(admittedDate.getTime())
       ? admittedDate.toISOString()
       : null;
 
-  const padded = patient.id.padStart(12, '0');
+  const padded = patient.id.padStart(12, "0");
   return {
     fhirId: patient.id,
     patientId: `f0000000-0000-0000-0000-${padded}`,
@@ -126,14 +132,14 @@ function valuesSql(rows) {
         `${lit(r.given)}, ${lit(r.family)}, ${lit(r.birth)}::date, ` +
         `${lit(r.ward)}, ${lit(r.wardCode)}, ${lit(r.bed)}, ${lit(r.admitted)}::timestamptz)`,
     )
-    .join(',\n');
+    .join(",\n");
 }
 
 const patients = await fetchPatients();
 const rows = patients.map(toRow).filter(Boolean);
 const skipped = patients.length - rows.length;
 if (rows.length === 0) {
-  console.error('No hay pacientes con id numérico para sincronizar.');
+  console.error("No hay pacientes con id numérico para sincronizar.");
   process.exit(1);
 }
 
@@ -161,7 +167,7 @@ create temp table fhir_sync (
   admitted_at timestamptz
 ) on commit drop;
 
-${inserts.join('\n\n')}
+${inserts.join("\n\n")}
 
 do $$
 declare
@@ -251,8 +257,46 @@ select count(*) as pacientes_sincronizados from fhir_sync;
 commit;
 `;
 
-writeFileSync(outFile, sql, 'utf8');
+writeFileSync(outFile, sql, "utf8");
 console.log(
   `Listo: ${rows.length} pacientes (${skipped} omitidos por id no numérico).`,
 );
 console.log(`Archivo: ${outFile}`);
+
+if (apply) {
+  const container = execFileSync(
+    "docker",
+    ["ps", "--filter", "name=supabase_db", "--format", "{{.Names}}"],
+    { encoding: "utf8" },
+  )
+    .split(/\r?\n/)
+    .map((name) => name.trim())
+    .find(Boolean);
+  if (!container) {
+    console.error(
+      "No encuentro el contenedor supabase_db_*. ¿Está corriendo `pnpm db:start`?",
+    );
+    process.exit(1);
+  }
+  console.log(`Aplicando en ${container}…`);
+  execFileSync("docker", ["cp", outFile, `${container}:/tmp/fhir-sync.sql`], {
+    stdio: "inherit",
+  });
+  execFileSync(
+    "docker",
+    [
+      "exec",
+      container,
+      "psql",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-f",
+      "/tmp/fhir-sync.sql",
+    ],
+    { stdio: "inherit" },
+  );
+}

@@ -72,3 +72,20 @@ Este archivo organiza tareas secuenciales de implementación. El alcance, las de
 - [ ] Implementar restauración offline/outbox, backoff y recuperación ante crash; siguen siendo requisitos, no funcionalidades cerradas.
 - [ ] Resolver Q-PRIV-03 con decisión de producto sobre TTL y validar política; las 24 horas actuales en código son default técnico, no decisión aprobada.
 - [x] Ejecutar el gate final proporcional tras los últimos cambios y registrar comandos/resultados sin reutilizar los conteos previos como gate final ([evidencia](foundation/11-testing-validation.md#gate-final-del-módulo-ia-local-compartido-2026-10-18)).
+
+## Integración HAPI FHIR directa y bitácora (2026-10-21)
+
+- [x] Lista de pacientes desde HAPI FHIR R4, paginada y con búsqueda por nombre o identificador, en `app/lib/domains/fhir_record/` (cliente HTTP, mapper hacia entidades internas y pantallas). Validada manualmente en un dispositivo Android.
+- [x] Ficha clínica completa por `Patient/{id}/$everything` con paginación; es la pantalla `/fhir/patients/:patientId`, sin enlace visible desde el listado.
+- [x] Enlace con la bitácora: `scripts/fhir-sync/generate-sync.mjs` sincroniza paciente, hospitalización, ubicación y asignación asistencial en Supabase local con ids derivados del id de FHIR (`pnpm fhir:sync`). Probado con 633 pacientes.
+- [x] Servidor HAPI FHIR de demostración en `docker/hapi-fhir` con 10 pacientes sintéticos y carga automática.
+- [ ] Validar `pnpm fhir:up` y `pnpm fhir:sync` en un equipo limpio (el compose se probó con un servidor simulado, no con Docker real) y fijar `HAPI_FHIR_TAG` en una versión validada.
+- [x] ADR-019 (lectura directa de FHIR y bitácora enlazada) aceptada; ADR-004 queda en parte sustituida. Actualizados el README y el índice de foundation, el índice de ADR, la integración FHIR, los flujos de ingesta y consulta clínica, el registro de riesgos, las preguntas abiertas, la trazabilidad y el índice de evidencia.
+- [ ] Actualizar los documentos de foundation que aún no reflejan ADR-019: alcance, arquitectura objetivo, control de acceso, pruebas y validación, y roadmap.
+- [ ] Añadir pruebas Flutter del módulo `fhir_record` (mapper, cliente con respuestas simuladas, paginación del listado, navegación a la bitácora) y una prueba del script de sincronización.
+- [ ] Pedir la ficha por tipo de recurso y en paralelo. Con `$everything`, un paciente de 646 recursos tardó unos 90 s contra el HAPI local.
+- [ ] Entregar la ficha al modelo local sección por sección (ADR-017 y ADR-018).
+- [ ] Proteger el acceso a HAPI (por ejemplo, un proxy que valide el JWT de Supabase). Hoy el servidor no autentica y la restricción por rol es solo de interfaz.
+- [x] `FHIR_BASE_URL` en `.env` y `.env.example`, que `scripts/run-app.sh` pasa a Flutter cuando no está vacío.
+- [ ] Validar manualmente el recorrido lista → bitácora → información del paciente → volver, y decidir si el `push` en `patient_screens.dart` pasa a ser la regla.
+- [ ] Propagar a Supabase cambios posteriores del HAPI (altas, cambios de sala o cama); hoy solo se copia la primera vez.

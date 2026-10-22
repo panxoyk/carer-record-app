@@ -110,7 +110,7 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
                                   'clinical.timeline.read',
                                 ) ??
                                 false;
-                            context.go(
+                            context.push(
                               canReadTimeline
                                   ? '/hospitalizations/${item.hospitalizationId}'
                                   : '/hospitalizations/${item.hospitalizationId}/details',
@@ -215,7 +215,7 @@ class _HospitalizationTimeline extends ConsumerWidget {
           ListTile(
             title: Text(patient.fullName),
             subtitle: Text(patient.locationLabel),
-            onTap: () => context.go(
+            onTap: () => context.push(
               '/hospitalizations/${patient.hospitalizationId}/details',
             ),
           ),

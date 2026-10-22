@@ -34,7 +34,11 @@
     "format": "pnpm app:format && pnpm functions:format && pnpm docs:format",
     "format:check": "pnpm app:format:check && pnpm functions:format:check && pnpm docs:format:check",
     "lint": "pnpm app:analyze && pnpm functions:lint && pnpm docs:lint",
-    "check": "pnpm format:check && pnpm lint && pnpm functions:typecheck && pnpm pipeline:check"
+    "check": "pnpm format:check && pnpm lint && pnpm functions:typecheck && pnpm pipeline:check",
+    "fhir:up": "docker compose -f docker/hapi-fhir/docker-compose.yml up -d",
+    "fhir:down": "docker compose -f docker/hapi-fhir/docker-compose.yml down",
+    "fhir:logs": "docker compose -f docker/hapi-fhir/docker-compose.yml logs -f",
+    "fhir:sync": "node scripts/fhir-sync/generate-sync.mjs --apply"
   },
   "devDependencies": {
     "concurrently": "^10.0.5",

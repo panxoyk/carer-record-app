@@ -15,6 +15,8 @@ Las decisiones vinculantes son:
 5. `CapabilityStatement`, `Bundle` y `OperationOutcome` son recursos de infraestructura necesarios para negociar, transportar y diagnosticar la ingesta; no se proyectan como eventos clínicos.
 6. `DiagnosticReport`, `DocumentReference` y los restantes recursos no se implementan en el MVP. Su evaluación completa y su justificación se documentan en [Selección de recursos FHIR](appendices/fhir-resource-selection.md).
 
+Actualización 2026-10-21: [ADR-019](decisions/adr-019-lectura-fhir-directa-desde-la-app.md) sustituye en parte esta arquitectura **solo para la demo sintética/local**: la app puede leer un servidor FHIR directamente para listar pacientes y mostrar su ficha (sección 15). El pipeline de ingesta, la identidad compuesta, el raw privado y la idempotencia de las secciones 4 a 10 siguen siendo la arquitectura objetivo para cualquier dato real.
+
 ## 2. Marco normativo
 
 FHIR R4 identifica recursos intercambiables, sus elementos, referencias, búsquedas e interacciones HTTP. La especificación R4 publicada en su ubicación permanente corresponde a v4.0.1 y combina contenido normativo y de prueba de uso. La integración fija esa versión para evitar que cambios de R4B o R5 alteren silenciosamente cardinalidades, nombres o semántica.
@@ -51,6 +53,8 @@ El scaffold ya establece límites compatibles con una traducción anticorrupció
 | `app/lib/domains/clinical_event/data/clinical_event_repository.dart:10-16` lee eventos por paciente y fecha.                                                                           | El pipeline prepara vistas de consulta; la app no consulta el servidor FHIR ni resuelve referencias.                                                 |
 | `supabase/migrations/20260910100000_patient_read_access.sql:1-23` y `supabase/migrations/20260910110000_clinical_timeline.sql:53-68` restringen lectura a roles asistenciales activos. | Las proyecciones clínicas mantienen RLS; el staging crudo requiere una superficie todavía más restringida y nunca se concede a `authenticated`.      |
 | `supabase/seed.sql:22-115` y `supabase/seed.sql:117-247` cargan pacientes y eventos ficticios.                                                                                         | La demo FHIR debe conservar el mismo principio y usar identificadores claramente sintéticos y reproducibles.                                         |
+
+Actualización 2026-10-21: la fila sobre `clinical_event_repository.dart` (la app no consulta el servidor FHIR) describe el diseño objetivo. En la demo, ADR-019 permite que Flutter lea un servidor FHIR directamente desde `app/lib/domains/fhir_record/`; ver la sección 15.
 
 La columna actual `patients.external_reference` es única globalmente (`supabase/migrations/20260910000000_initial_clinical_schema.sql:16-25`). No es suficiente para varias organizaciones, fuentes y tipos; la identidad de integración definida en la sección 7 debe vivir en una capa de correspondencias propia y no debe forzarse dentro de esa columna sin una migración de diseño posterior.
 
@@ -313,3 +317,57 @@ La integración se considera demostrable cuando:
 La decisión añade almacenamiento raw, correspondencias, historial, checkpoints y cuarentena, pero reduce acoplamiento y riesgo clínico. Permite corregir mappers sin pedir nuevamente los datos, evita colisiones multifuente y hace observables los errores. También impide presentar “soporte FHIR completo”: el alcance se limita a R4, JSON, lectura y once recursos con roles distintos, de los cuales solo ocho producen dominio clínico.
 
 La evolución a una FCE real requerirá un perfil/Implementation Guide acordado, autenticación y autorización institucional, terminologías, evaluación de privacidad, retención, auditoría, volúmenes, SLA, eliminación y validación clínica. Ninguno de esos requisitos se considera resuelto por la demo sintética.
+
+## 15. Lectura directa desde la app (demo, ADR-019)
+
+### 15.1 Alcance
+
+Para la demostración, Flutter consulta un servidor FHIR R4 (HAPI) directamente y solo con `GET`. Esta ruta existe junto al pipeline objetivo y no lo sustituye: no hay raw privado, identidad compuesta, versionado, cuarentena ni checkpoints, y por eso no puede usarse con datos reales. La base del servidor llega con `FHIR_BASE_URL` y no hay credenciales.
+
+La frontera anticorrupción se conserva dentro de la app: el cliente HTTP y el mapper están en `app/lib/domains/fhir_record/data/`, y el dominio y la presentación solo reciben `PatientSummary`, `ClinicalRecord` y `RecordEntry`.
+
+### 15.2 Interacciones
+
+| Uso                | Solicitud                                                                             | Reglas                                                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Lista y búsqueda   | `GET [base]/Patient?_count=30&_sort=family`, con un `name` por palabra o `identifier` | Las palabras se combinan con AND. Un UUID o un número con guiones se busca como `identifier`; el resto, como nombre. |
+| Páginas siguientes | URL del `Bundle.link` con `relation=next`                                             | Se reescribe el host al de la URL base para que sea alcanzable desde el dispositivo.                                 |
+| Ficha clínica      | `GET [base]/Patient/{id}/$everything?_count=200`, paginada                            | Tiempo de espera de 180 s por página y tope de 60 páginas; si se alcanza, la ficha se marca incompleta.              |
+
+### 15.3 Mapeo mostrado
+
+El mapper no conserva el recurso original ni resuelve referencias. Proyecta solo lo que presenta:
+
+| Recurso              | Título                                | Detalle                                                               | Fecha                                   |
+| -------------------- | ------------------------------------- | --------------------------------------------------------------------- | --------------------------------------- |
+| `Patient`            | Nombre `official` (o el primero)      | Sexo, fecha de nacimiento, sala, cama e ingreso (extensiones propias) | `birthDate`                             |
+| `Condition`          | `code.text` o primer `coding.display` | `clinicalStatus`                                                      | `onsetDateTime`, luego `recordedDate`   |
+| `AllergyIntolerance` | `code`                                | `clinicalStatus`                                                      | `recordedDate`, luego `onsetDateTime`   |
+| `MedicationRequest`  | `medicationCodeableConcept`           | Primera `dosageInstruction.text`, luego `status`                      | `authoredOn`                            |
+| `Observation`        | `code`                                | `valueQuantity`, `valueString`, `valueCodeableConcept` o componentes  | `effectiveDateTime`, luego `issued`     |
+| `Procedure`          | `code`                                | `status`                                                              | `performedDateTime` o `performedPeriod` |
+| `Immunization`       | `vaccineCode`                         | `status`                                                              | `occurrenceDateTime`                    |
+| `DiagnosticReport`   | `code`                                | `status`                                                              | `effectiveDateTime`, luego `issued`     |
+| `Encounter`          | Primer `type` o `class.code`          | `status`                                                              | `period.start`                          |
+
+Pérdidas aceptadas en la demo, que contradicen las reglas de la sección 6 y no son aceptables con datos reales: se usa el primer nombre y el identificador de tipo `MR` (o el primero), se ignoran `modifierExtension`, estados `entered-in-error` y referencias, y no se muestran identificadores como SSN, licencia o pasaporte aunque el recurso los traiga.
+
+### 15.4 Identidad y enlace con la bitácora
+
+La bitácora vive en Supabase y exige una hospitalización y una asignación asistencial (ADR-013, ADR-015). Un script de desarrollo, `scripts/fhir-sync/generate-sync.mjs`, crea esas filas para cada paciente con `Resource.id` numérico y deriva los ids de Supabase del id de FHIR: `f0000000-0000-0000-0000-` más el id con doce dígitos para el paciente, y `f1000000-0000-0000-0000-` con la misma regla para la hospitalización. `patients.external_reference` guarda `FHIR-<id>`.
+
+Esto no es la identidad compuesta de la sección 7: no distingue organización ni fuente. Cuando exista el pipeline, el script debe retirarse y las correspondencias migrarse a la capa propia descrita allí.
+
+### 15.5 Seguridad
+
+- La lectura no tiene autorización de servidor. Las guardas de ruta (`clinical.census.read` y `clinical.patient.read`) son solo de interfaz y no impiden que otro cliente de red consulte el servidor.
+- El servidor de demostración de `docker/hapi-fhir` no autentica, guarda sus datos en memoria y no debe exponerse fuera del equipo ni recibir datos reales (RK-031, Q-AUTH-03).
+- La URL base se inyecta con `--dart-define`; la regla de la sección 11 de que Flutter nunca recibe la URL de la fuente no rige en la demo.
+
+### 15.6 Criterios de aceptación de esta ruta
+
+1. La lista muestra todos los pacientes del servidor, paginados, y la búsqueda por nombre completo o parcial.
+2. La ficha muestra las ocho secciones y avisa cuando está incompleta.
+3. Tocar un paciente abre su bitácora; un paciente sin sincronizar muestra el estado neutro de «Paciente no encontrado».
+4. Ninguna solicitud usa un método distinto de `GET`.
+5. Existen pruebas automatizadas del mapper, del cliente y de la paginación del listado. **Pendiente:** hoy solo hay validación manual.

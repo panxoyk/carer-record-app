@@ -129,6 +129,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/patients',
+
+        ///                builder: (_, __) => const ClinicalEntryRefresh(child: PatientsScreen()), ///descomentar estas 3 lineas para ver los que estaban antes de la integracion de fhir
+        ///      ),
+        ///      GoRoute(
+        ///        path: '/fhir/patients',
         builder: (_, __) =>
             const ClinicalEntryRefresh(child: FhirPatientListScreen()),
       ),

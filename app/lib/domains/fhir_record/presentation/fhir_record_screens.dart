@@ -238,7 +238,9 @@ class _PatientTile extends StatelessWidget {
           );
           return;
         }
-        context.go(
+        // push (no go): la bitácora queda sobre el listado, así al volver se
+        // conserva lo escrito en el buscador, el scroll y las páginas cargadas.
+        context.push(
           canReadTimeline
               ? '/hospitalizations/$hospitalizationId'
               : '/hospitalizations/$hospitalizationId/details',

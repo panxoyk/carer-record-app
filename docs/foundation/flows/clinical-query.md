@@ -6,6 +6,8 @@ Subtarea 4.4 migra Flutter a contratos de lectura por hospitalización. La revis
 
 El gate de cierre 5.2 repitió validaciones locales con datos sintéticos y reset del stack desechable; no añade escritura clínica, lectura fuera de la asignación vigente ni despliegue productivo.
 
+Desde 2026-10-21, en la demo sintética/local, la lista de pacientes de `/patients` proviene de un servidor FHIR y no del censo de Supabase (ver «Lista y ficha desde FHIR»). Los contratos de lectura por hospitalización siguen vigentes para la bitácora.
+
 ## Permisos y precondiciones
 
 - El censo y la demografía mínima requieren `clinical.census.read` y `clinical.patient.read` efectivos en la organización seleccionada.
@@ -35,8 +37,37 @@ Providers clínicos `autoDispose` dependen de sesión y `iamContextProvider`. En
 
 Una revocación remota surte efecto en la siguiente consulta PostgreSQL; no se promete retirada push mientras la pantalla permanece inmóvil. Loading, empty, not-found, error y denied nunca conservan contenido anterior como fallback. RLS es la autoridad final.
 
+## Lista y ficha desde FHIR (demo, ADR-019)
+
+### Alcance
+
+La ruta `/patients` presenta la lista de pacientes de un servidor FHIR R4 (`FhirPatientListScreen`). El censo de Supabase (`PatientsScreen`) permanece en el código sin ruta. Al tocar un paciente se abre la bitácora de su hospitalización de Supabase, con los contratos de lectura anteriores. La ficha clínica completa de FHIR existe en `/fhir/patients/:patientId`, pero la lista no enlaza con ella.
+
+### Permisos y autorización
+
+- `/patients` y `/fhir/` exigen `clinical.census.read` y `clinical.patient.read` en el router. Son guardas de interfaz.
+- `clinical.timeline.read` decide si el toque abre la bitácora o la pantalla de información del paciente.
+- El servidor FHIR no autentica ni aplica RLS: la lista y la ficha no están protegidas por asignación asistencial. Se acepta solo con datos sintéticos y red local (RK-031, Q-AUTH-03). La bitácora sí conserva RLS y asignación vigente.
+
+### Ubicacion contratos de lectura
+
+Las interacciones, el mapeo y sus pérdidas están en la sección 15 de [Integración FHIR R4](../06-fhir-integration.md).
+
+### Presentación
+
+- La lista pagina de a 30 al hacer scroll y se recarga con pull-to-refresh. La búsqueda se hace en el servidor, por nombre (cada palabra cuenta) o por identificador.
+- Cada fila muestra nombre, edad, sexo, sala y cama. No muestra identificadores de negocio.
+- La ficha agrupa por tipo, ordena por fecha descendente y avisa cuando está incompleta. Carga, vacío y error tienen estado propio con reintento.
+- El tiempo de espera es de 20 s para la lista y de 180 s por página de ficha.
+
+### Enlace con la bitácora
+
+El id de la hospitalización se deriva del id numérico de FHIR (sección 15.4 de la integración). Si la fila no existe en Supabase, la bitácora muestra el estado neutro «Paciente no encontrado»; no hay creación automática. El script `pnpm fhir:sync` crea las filas y debe repetirse tras cada `db:reset`.
+
 ## Evidencia y límites
 
 Modelos: `app/lib/domains/patient/data/models/patient_model.dart` y `app/lib/domains/clinical_event/data/models/clinical_event_model.dart`. Repositorios y providers: `patient_repository.dart`, `clinical_event_repository.dart`, `patient_providers.dart` y `clinical_event_providers.dart`. UI: `patient_screens.dart`; router: `app/lib/app/router/app_router.dart`. El refresh/lifecycle de autorización se compone desde `app/session/`; no cambia contratos de lectura clínica ni permisos.
 
 La cobertura incluye parsing tipado, búsqueda por nombre, ubicación segura, estado neutral y resumen tipado. La integración local comprueba censo, vista demográfica específica y timeline por `organization_id` + `hospitalization_id`, UUID manipulado y revocación con el mismo JWT clínico; Flutter tiene cobertura widget/modelo dirigida. La verificación es solo para demo sintética/local: no acredita concurrencia entre dos sesiones, producción ni datos reales.
+
+Para la lista y la ficha de FHIR: `app/lib/domains/fhir_record/` y las rutas de `app_router.dart`. La verificación es manual, en un Android real contra un HAPI en WSL2, el 2026-10-21; no existen pruebas automatizadas del módulo. La ficha de un paciente de 646 recursos tardó cerca de 90 s con `$everything`, y no se ha medido la consulta por tipo de recurso.

@@ -22,6 +22,8 @@ Las referencias `ruta:líneas` de EV-001 a EV-008 describen la fotografía hist�
 | EV-007 | La demo presenta instantes en `America/Santiago`             | `app/lib/core/time/clinical_time.dart:4-24`                                                                                                | Implementado y probado     | La zona aún no se obtiene de organización |
 | EV-008 | Las consultas clínicas se invalidan al quedar la sesión nula | `app/lib/domains/patient/presentation/patient_providers.dart`; `app/lib/domains/clinical_event/presentation/clinical_event_providers.dart` | Implementado               | Falta validación manual de expiración     |
 
+EV-005 describe la fotografía histórica. Desde 2026-10-21 existe una lectura directa de FHIR en la app (EV-INT-001); la ingesta del pipeline sigue diferida.
+
 ## Seguridad y privacidad
 
 | ID         | Afirmación acotada                                                                                                         | Fuente                                                                                                                                                                                                                           | Fuerza                                                     | Limitación                                                                                       |
@@ -76,19 +78,29 @@ EV-TST-012 — El contrato de lectura administrativo `iam_assignment_hospitaliza
 
 EV-TST-013 — Gate final 2026-10-18: Flutter 308 tests aprobados/1 omitido, DB 453 tests en 12 archivos, Edge 14 tests y build iOS Simulator completados. [Comandos, entorno y límites](../11-testing-validation.md#gate-final-del-módulo-ia-local-compartido-2026-10-18).
 
+## Integración FHIR y bitácora (2026-10-21)
+
+| ID         | Afirmación acotada                                                                                                   | Fuente                                                                    | Fuerza                                                                                                             | Limitación                                                                                                                                   |
+| ---------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| EV-INT-001 | La app lista pacientes, busca y muestra la ficha leyendo un servidor FHIR directamente                               | `app/lib/domains/fhir_record/`; rutas de `app_router.dart`                | Implementado; validado manualmente                                                                                 | Un Android real (Android 14) contra HAPI en WSL2; sin pruebas automatizadas; la ficha de 646 recursos tardó cerca de 90 s con `$everything`  |
+| EV-INT-002 | El script sincroniza pacientes de HAPI a Supabase local con ids derivados y abre la bitácora                         | `scripts/fhir-sync/generate-sync.mjs`; `domain/hospitalization_link.dart` | Implementado; ejecutado sobre 633 pacientes; el SQL se ejecutó dos veces sobre un esquema de prueba sin duplicados | Solo Supabase local; sin prueba automatizada en el repositorio                                                                               |
+| EV-INT-003 | El servidor FHIR de demostración carga 10 pacientes sintéticos con un solo comando                                   | `docker/hapi-fhir/docker-compose.yml`; `seed/demo-patients.json`          | Implementado; la lógica de carga se probó contra un servidor simulado                                              | No se ejecutó con Docker ni con HAPI reales; imagen sin versión fijada                                                                       |
+| EV-INT-004 | Con el módulo integrado, `pnpm app:analyze` no reporta incidencias y `pnpm app:test` aprueba 336 pruebas (1 omitida) | `pnpm app:analyze` y `pnpm app:test` del 2026-10-21 en Windows            | Probado                                                                                                            | Ninguna prueba cubre `fhir_record`; el test `authorization_refresh_boundaries_test.dart` requirió corregir la resolución de rutas en Windows |
+
 ## Evidencia pendiente por decisión
 
-| ADR     | Evidencia requerida para llamar “implementada”                                                                             |
-| ------- | -------------------------------------------------------------------------------------------------------------------------- |
-| ADR-004 | adapter FHIR, matriz de mapping, fixtures, contract tests e idempotencia                                                   |
-| ADR-013 | IAM, hospitalizaciones, asignaciones, validación final del corte RLS y adaptación Flutter                                  |
-| ADR-006 | interfaz de captura, permisos, storage privado y pruebas de interrupción                                                   |
-| ADR-007 | medici\u00f3n de SP-01 en dispositivo arm64 real (latencia, RTF, RAM, bater\u00eda, temperatura y tama\u00f1o de descarga) |
-| ADR-017 | corpus sint\u00e9tico del benchmark de s\u00edntesis y sus resultados de latencia y memoria                                |
-| ADR-011 | modelo temporal/cache, RLS, invalidaci\u00f3n, idempotencia y E2E                                                          |
-| ADR-010 | plazo de expiraci\u00f3n aprobado (`Q-PRIV-03`) y validaci\u00f3n del barrido tras un cierre inesperado                    |
-| ADR-004 | adapter FHIR, matriz de mapping, fixtures, contract tests e idempotencia                                                   |
-| ADR-012 | revisi\u00f3n de lenguaje/requisitos que confirme exclusi\u00f3n de turnos                                                 |
+| ADR     | Evidencia requerida para llamar “implementada”                                                                                                                                                                                 |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ADR-004 | adapter FHIR, matriz de mapping, fixtures, contract tests e idempotencia                                                                                                                                                       |
+| ADR-013 | IAM, hospitalizaciones, asignaciones, validación final del corte RLS y adaptación Flutter                                                                                                                                      |
+| ADR-006 | interfaz de captura, permisos, storage privado y pruebas de interrupción                                                                                                                                                       |
+| ADR-007 | medici\u00f3n de SP-01 en dispositivo arm64 real (latencia, RTF, RAM, bater\u00eda, temperatura y tama\u00f1o de descarga)                                                                                                     |
+| ADR-017 | corpus sint\u00e9tico del benchmark de s\u00edntesis y sus resultados de latencia y memoria                                                                                                                                    |
+| ADR-011 | modelo temporal/cache, RLS, invalidaci\u00f3n, idempotencia y E2E                                                                                                                                                              |
+| ADR-010 | plazo de expiraci\u00f3n aprobado (`Q-PRIV-03`) y validaci\u00f3n del barrido tras un cierre inesperado                                                                                                                        |
+| ADR-004 | adapter FHIR, matriz de mapping, fixtures, contract tests e idempotencia                                                                                                                                                       |
+| ADR-012 | revisi\u00f3n de lenguaje/requisitos que confirme exclusi\u00f3n de turnos                                                                                                                                                     |
+| ADR-019 | pruebas automatizadas del cliente, el mapper y la paginación; prueba del script de sincronización; validación de `pnpm fhir:up` con Docker y versión fijada; ficha por tipo de recurso; autorización de servidor (`Q-AUTH-03`) |
 
 ADR-005 salió de esta tabla: esquema de permisos, RLS, administración, auditoría y pgTAP existen en el repositorio y su evidencia está en EV-TST-011, EV-TST-012 y los archivos `iam_administration_phase4.test.sql`, `iam_phase1.test.sql` e `iam_flutter_read_contracts_phase4.test.sql`. El alcance sigue siendo la demo sintética/local, no producción.
 

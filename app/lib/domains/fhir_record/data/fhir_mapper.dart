@@ -115,7 +115,7 @@ class FhirMapper {
       case 'MedicationRequest':
         return RecordEntry(
           title: _concept(r['medicationCodeableConcept']),
-          detail: r['status'] as String?,
+          detail: _dosageText(r) ?? r['status'] as String?,
           date: _date(r['authoredOn']),
         );
       case 'Observation':
@@ -157,6 +157,17 @@ class FhirMapper {
       default:
         return RecordEntry(title: type);
     }
+  }
+
+  /// Primera posología con texto (ej. "1 g por vía intravenosa cada 24 horas").
+  String? _dosageText(Map<String, dynamic> r) {
+    final dosages = ((r['dosageInstruction'] as List?) ?? const [])
+        .whereType<Map<String, dynamic>>();
+    for (final dosage in dosages) {
+      final text = dosage['text'];
+      if (text is String && text.isNotEmpty) return text;
+    }
+    return null;
   }
 
   String? _observationValue(Map<String, dynamic> r) {

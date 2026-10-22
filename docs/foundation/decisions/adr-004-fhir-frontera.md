@@ -1,8 +1,9 @@
 # ADR-004: FHIR como frontera anticorrupción
 
-- Estado: Aceptada
+- Estado: Aceptada, en parte sustituida por ADR-019
 - Fecha: 2026-09-27
 - Alcance: importación e interoperabilidad; no el modelo interno ni la UI
+- Relación: **sustituida en parte por** ADR-019, que permite a la app leer un servidor FHIR directamente en la demo sintética/local. Conserva vigencia como arquitectura objetivo de ingesta y como regla de que dominio y UI no vean recursos FHIR
 
 ## Contexto
 
@@ -42,4 +43,6 @@ Cada mapping documenta path fuente, campo destino, transformación, terminologí
 - `app/lib/domains/patient/data/models/patient_model.dart:15-27` mapea filas internas a una entidad, sin tipos FHIR.
 - `app/lib/domains/clinical_event/data/models/clinical_event_model.dart:12-21` hace lo mismo para eventos.
 
-No existe aún adapter, matriz de mapping ni prueba FHIR; la decisión es arquitectura objetivo.
+No existe aún adapter, matriz de mapping ni prueba FHIR de ingesta; la decisión es arquitectura objetivo.
+
+Actualización 2026-10-21: ADR-019 añade un cliente y un mapper FHIR de solo lectura en `app/lib/domains/fhir_record/data/` para la demo. No cubre la ingesta persistente, la identidad compuesta, la idempotencia ni la cuarentena de esta ADR.

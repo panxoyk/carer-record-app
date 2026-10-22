@@ -6,6 +6,8 @@ Este flujo operacionaliza la decisión de [Integración FHIR R4](../06-fhir-inte
 
 El flujo acepta los recursos de dominio `Organization`, `Patient`, `Encounter`, `Location`, `Condition`, `Observation`, `AllergyIntolerance` y `MedicationRequest`; usa `CapabilityStatement`, `Bundle` y `OperationOutcome` como infraestructura. La lista es cerrada para la demo. Un tipo distinto se cuenta como no soportado y no se proyecta.
 
+Este flujo es el diseño objetivo de ingesta. La lectura directa de la demo (ADR-019) no implementa ninguno de sus estados: ver la sección 19.
+
 ## 2. Precondiciones
 
 Antes de una ejecución deben existir:
@@ -411,3 +413,13 @@ La proyección interna puede cambiar por reproceso, pero nunca origina un recurs
 - [FHIR R4 Resource metadata](https://hl7.org/fhir/R4/resource.html#metadata)
 - [FHIR R4 References](https://hl7.org/fhir/R4/references.html)
 - [FHIR R4 Provenance](https://hl7.org/fhir/R4/provenance.html)
+
+## 19. Relación con la lectura directa de la demo (ADR-019)
+
+Desde 2026-10-21 la app puede leer un servidor FHIR directamente para listar pacientes y mostrar su ficha (sección 15 de [Integración FHIR R4](../06-fhir-integration.md)). Esa ruta **no es** una ejecución de este flujo:
+
+- No descubre capacidades, no registra fuente ni checkpoints y no conserva raw, hash ni procedencia.
+- No tiene resultado `projected`, `noop` ni `quarantined`: lo que no sabe mostrar, lo ignora.
+- No es idempotente por identidad compuesta; la repetición solo vuelve a leer.
+
+El script `scripts/fhir-sync/generate-sync.mjs` copia a Supabase local, solo en desarrollo, el paciente, la hospitalización, la ubicación y las asignaciones de demostración de cada paciente FHIR. Es idempotente por UUID derivado del id de FHIR, no por la tupla `(organization, data_source, resource_type, external_id)`. Cuando se implemente este flujo, el script y la convención `external_reference = FHIR-<id>` deben reemplazarse por la capa de correspondencias y la proyección definidas aquí.
