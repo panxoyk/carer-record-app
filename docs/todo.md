@@ -81,7 +81,7 @@ Este archivo organiza tareas secuenciales de implementación. El alcance, las de
 - [x] Servidor HAPI FHIR de demostración en `docker/hapi-fhir` con 10 pacientes sintéticos y carga automática.
 - [ ] Validar `pnpm fhir:up` y `pnpm fhir:sync` en un equipo limpio (el compose se probó con un servidor simulado, no con Docker real) y fijar `HAPI_FHIR_TAG` en una versión validada.
 - [x] ADR-019 (lectura directa de FHIR y bitácora enlazada) aceptada; ADR-004 queda en parte sustituida. Actualizados el README y el índice de foundation, el índice de ADR, la integración FHIR, los flujos de ingesta y consulta clínica, el registro de riesgos, las preguntas abiertas, la trazabilidad y el índice de evidencia.
-- [ ] Actualizar los documentos de foundation que aún no reflejan ADR-019: alcance, arquitectura objetivo, control de acceso, pruebas y validación, y roadmap.
+- [x] Actualizados también los documentos de foundation que reflejan ADR-019: alcance, arquitectura objetivo, control de acceso, pruebas y validación, y roadmap.
 - [ ] Añadir pruebas Flutter del módulo `fhir_record` (mapper, cliente con respuestas simuladas, paginación del listado, navegación a la bitácora) y una prueba del script de sincronización.
 - [ ] Pedir la ficha por tipo de recurso y en paralelo. Con `$everything`, un paciente de 646 recursos tardó unos 90 s contra el HAPI local.
 - [ ] Entregar la ficha al modelo local sección por sección (ADR-017 y ADR-018).

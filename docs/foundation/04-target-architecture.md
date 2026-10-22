@@ -18,6 +18,7 @@ El repositorio `carer-record-app` es la implementación canónica de CRA. El rep
 8. `clinical_events` es un read model reconstruible para la línea de tiempo. Nunca es la fuente canónica de condiciones, observaciones, procedimientos, documentos, notas de contexto u hospitalizaciones.
 9. La primera capacidad clínica continúa siendo de lectura. Toda futura escritura originada en CRA debe tener permiso explícito, autoría, procedencia, auditoría y una tabla canónica propia; no se habilita por inferencia desde un permiso de lectura.
 10. Las operaciones privilegiadas de identidad, administración e ingesta se ejecutan en Edge Functions o procesos de integración confiables. La Service Role Key no se distribuye a Flutter ni a gateways hospitalarios generales (`AGENTS.md:12-15`, `supabase/functions/create-practitioner/index.ts:74-101`).
+11. En la demo sintética/local, Flutter puede leer un servidor FHIR directamente mediante un cliente y un mapper en `data/`, sin recursos FHIR en dominio ni presentación y sin autorización de servidor. Es una excepción acotada de ADR-019: no sustituye la frontera de ingesta ni la autoridad de RLS (decisión 2) para datos reales.
 
 ## Baseline y brecha
 
@@ -131,6 +132,8 @@ flowchart TB
 
 Mantiene la separación `data/domain/presentation` ya exigida por el repositorio (`AGENTS.md:10-13`). Sus responsabilidades son presentar, validar interacción local, mantener estado efímero, invocar repositorios y ocultar opciones que el usuario no puede ejercer. No decide autorización, no contiene Service Role Key, no confía en claims de rol enviados por sí mismo y no persiste datos clínicos sensibles fuera de una política futura explícita de almacenamiento local.
 
+El dominio `fhir_record` (ADR-019) contiene un cliente HTTP de solo lectura y un mapper en `data/`, las entidades `PatientSummary`, `ClinicalRecord` y `RecordEntry` en `domain/` y las pantallas de lista y ficha en `presentation/`. La interfaz nunca ve recursos FHIR crudos. La regla que enlaza un paciente de FHIR con su hospitalización de Supabase vive en `domain/hospitalization_link.dart`.
+
 Los repositorios Flutter son la frontera del cliente. Una pantalla no consulta Supabase directamente. Los modelos de transporte no sustituyen entidades de dominio y los cambios del esquema físico no deben propagarse indiscriminadamente a presentación.
 
 En el corte IAM actualmente implementado, `institutional/domain/` contiene entidades, reglas, puertos y fábrica de intentos; `institutional/data/` contiene mappers y adaptadores Supabase. `users/presentation/` mantiene widgets y controladores consumidores de puertos. La composición raíz en `app/` reúne refresh de autorización, router/política, lifecycle y ajustes; IAM no depende de providers clínicos y la composición de rutas no reside en `core`. Estos límites describen el corte IAM, no uniformizan los flujos aún pendientes ni declaran completa toda la arquitectura Flutter. La parte A de IA local y notas se preserva.
@@ -176,6 +179,7 @@ El worker valida el lote, deduplica por procedencia, conserva el recurso recibid
 | Edge Function/Service Role | Secreto cargado en entorno servidor            | Cualquier autorización previa implícita por poseer el secreto                       | Autenticar actor, autorizar, validar, auditar, cliente privilegiado separado |
 | Hospital/gateway           | Credencial de integración acotada a una fuente | Contenido FHIR, IDs, orden, timestamps y reintentos                                 | Esquema, firma/mTLS según despliegue, idempotencia, límites, cuarentena      |
 | FHIR/CRA canónico          | Recurso original conservado e identificable    | Suposición de que un recurso está completo, vigente o usa códigos locales conocidos | Capa anticorrupción, terminología, procedencia, estado de mapeo              |
+| App/servidor FHIR (demo)   | Nada: el servidor de demostración no autentica | Cualquier cliente de red que alcance el puerto                                      | Solo datos sintéticos y red local; guardas de ruta son UX; Q-AUTH-03         |
 | Canónico/read model        | FKs canónicas y versión de proyección          | Escritura directa en `clinical_events`                                              | Escritor técnico único, unicidad de origen, reconstrucción y reconciliación  |
 
 La Service Role omite RLS y, por tanto, amplía el daño de un error. Debe existir únicamente en secretos de Edge Functions o workers administrados, nunca en Flutter, `.env` compartidos, logs, payloads, gateways genéricos o repositorios. La clave publishable sí pertenece al cliente y no representa autoridad (`README.md:27-47`).
@@ -214,6 +218,29 @@ Reglas de la frontera:
 - Una eliminación lógica o estado `entered-in-error` se proyecta según semántica del recurso; no provoca cascadas físicas de historial.
 - CRA no escribe de vuelta al servidor FHIR en la fase inicial.
 
+### Lectura directa en la demo (ADR-019)
+
+Junto a la frontera de ingesta, la demo permite que la app lea un servidor FHIR sin pasar por el modelo canónico. La frontera anticorrupción se conserva dentro del cliente: el mapper proyecta solo lo que se presenta y el resto se ignora.
+
+```mermaid
+flowchart LR
+    F[Servidor FHIR de demostración]
+    C[Cliente HTTP y mapper en data]
+    U[Entidades y pantallas]
+    S[Script fhir-sync solo desarrollo]
+    B[Hospitalización y bitácora en Supabase]
+
+    F -->|GET| C
+    C --> U
+    F -->|pacientes| S
+    S -->|copia mínima| B
+    U -->|abre por id derivado| B
+```
+
+- No hay raw, procedencia, identidad compuesta, idempotencia por recurso ni cuarentena: no es una ingesta.
+- La bitácora y su autorización siguen en Supabase bajo RLS. El script crea la hospitalización y las asignaciones de demostración de cada paciente, con ids derivados del id de FHIR.
+- La lectura de FHIR no pasa por RLS ni por ninguna autorización de servidor (RK-031).
+
 ## Flujos críticos
 
 ### Consulta de pacientes hospitalizados
@@ -225,6 +252,8 @@ El corte DB `20261011270000_clinical_rls_contracts.sql` y su corrección `202610
 3. La consulta parte desde `hospitalizations`, une el paciente y su ubicación vigente y retorna solo episodios autorizados.
 4. Abrir un paciente no amplía autoridad: cada consulta de condiciones, observaciones o timeline vuelve a aplicar RLS por hospitalización.
 5. El detalle ofrece vínculo de procedencia hacia la entidad canónica y, cuando esté permitido, hacia metadatos de la fuente.
+
+En la demo (ADR-019), la lista de pacientes proviene del servidor FHIR y no de `clinical_census_by_hospitalization`; al tocar un paciente se abre la hospitalización enlazada y desde ahí aplican los pasos 1 a 4.
 
 La lista no se deriva de `patients.care_unit` ni de un texto de cama. El modelo del baseline sí lo hacía (`supabase/migrations/20260910110000_clinical_timeline.sql:1-5`), por lo que esa interfaz debe migrar hacia una consulta centrada en hospitalizaciones.
 

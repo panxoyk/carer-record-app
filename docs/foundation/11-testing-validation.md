@@ -126,6 +126,19 @@ El pipeline del baseline era solo un scaffold que informaba que la ingesta estab
 9. Cuarentena con razón estable; nunca ingesta parcial silenciosa.
 10. Compatibilidad explícita por versión; no prometer soporte FHIR general.
 
+### Lectura directa de FHIR y sincronización (ADR-019)
+
+La lectura directa de la demo no sustituye estas pruebas de ingesta. Para el módulo `fhir_record` y el script `scripts/fhir-sync` se exigen, con fixtures sintéticos:
+
+1. Mapper: cada tipo soportado, campos ausentes o parciales, fechas incompletas, nombres e identificadores múltiples y tipos ignorados.
+2. Cliente: búsqueda por nombre (una palabra y varias) y por identificador, paginación con reescritura del enlace `next`, tiempos de espera, errores HTTP y que solo se emite `GET`.
+3. Listado: paginación al hacer scroll, búsqueda con debounce, descarte de respuestas obsoletas y estados de carga, vacío y error.
+4. Regla de enlace `hospitalizationIdForFhirPatient`: ids numéricos y no numéricos.
+5. Script de sincronización: escape de SQL, ids derivados, omisión de ids no numéricos e idempotencia al ejecutarlo dos veces sobre un esquema de prueba.
+6. Servidor de demostración: la carga de la semilla es idempotente.
+
+**Pendiente:** ninguna de estas pruebas existe en el repositorio; la evidencia actual es manual (ver el registro de ejecución del 2026-10-21).
+
 No se exige round-trip perfecto si el modelo interno descarta campos por decisión. Toda pérdida debe estar documentada y probada. Los datos de producción de una institución no pueden transformarse en fixtures sin un proceso aprobado de desidentificación.
 
 ## Idempotencia y concurrencia
@@ -192,6 +205,7 @@ Los resultados negativos son válidos. No se convierten en afirmaciones clínica
 - Integración local fases 3+4: `pnpm integration:local` hace reset al inicio y en `finally` al terminar, autentica actores seed, llama RPC/PostgREST y Edge local, y restablece el baseline sintético. Es destructivo exclusivamente para Supabase local desechable; nunca borrar historia/auditoría manualmente ni usar con proyecto remoto. No imprime tokens, contraseñas, correos ni cuerpos de respuesta.
 - Pipeline: `pnpm pipeline:check`, que en el baseline solo validaba el scaffold (`package.json:20`).
 - Documentación: `pnpm docs:format:check` y `pnpm docs:lint` (`package.json:27-29`).
+- Servidor FHIR de demostración: `pnpm fhir:up`, `pnpm fhir:logs`, `pnpm fhir:sync` y `pnpm fhir:down`; validación estática con `docker compose -f docker/hapi-fhir/docker-compose.yml config` y `node --check scripts/fhir-sync/generate-sync.mjs`.
 
 La trazabilidad objetivo está en [requirements-traceability.md](appendices/requirements-traceability.md) y las brechas vigentes en [evidence-index.md](appendices/evidence-index.md). El módulo `on_device_ai` posee ASR, síntesis, UI/gestión de modelos y lifecycle de capacidades; `context_note` conserva sus tres controladores, puertos de negocio, vault y casos de uso (ADR-018). `LocalCapabilityRepository` es la única frontera de provisioning y los leases son genéricos.
 
@@ -239,3 +253,11 @@ No hubo smoke manual, inferencia ni benchmarks de IA. No se ejecutaron DB/Edge/p
 Rama `main`, HEAD `af95bd80155c1de5a138a6a95a60e93ba2fbf4dd` (merge del PR #3), con los cambios independientes de este corte aún sin commit. `pnpm db:reset` aplicó la aditiva `20261012020000_context_note_publication_reconciliation.sql`; `pnpm db:lint` sin errores de esquema; `pnpm db:test` pasó con 453 tests en 12 archivos, incluidos los 13 asserts de reconciliación. `pnpm functions:check` pasó formato, lint, typecheck y 14 tests Deno tras el cambio de tipos. `pnpm app:format:check` (132 archivos, 0 cambios), `pnpm app:analyze` sin issues, y las pruebas dirigidas de reconciliación del repositorio y de actualización de contraseña pasaron (14 tests). `pnpm pipeline:check`, `pnpm docs:format:check`, `pnpm docs:lint` (59 archivos, 0 issues) y `git diff --check` pasaron.
 
 No se ejecutaron `pnpm app:test` completa, `pnpm db:upgrade:test`, `integration:local` ni `security:evidence:phase51`: la suite Flutter completa ya pasó sobre el mismo árbol en el PR #3 y esta capa no modificó pruebas fuera de notas y autenticación. Tampoco hubo smoke manual, decodificación ASR nativa ni benchmarks. Los conteos citados en los gates anteriores corresponden a otros HEAD y no se reutilizan como gate de este corte. La evidencia es local, sintética y acotada: no acredita producción, no regresión absoluta ni aptitud productiva.
+
+### Registro de ejecución: lectura directa de FHIR y bitácora enlazada (2026-10-21)
+
+Windows 11, Flutter 3.47.7 con FVM, Android 14 en un dispositivo físico, Supabase local en Docker y un HAPI FHIR R4 en WSL2 con pacientes de Synthea. `pnpm app:format` no cambió archivos; `pnpm app:analyze` no reportó incidencias; `pnpm app:test` pasó con 336 pruebas y 1 omitida (requiere `CRA_ASR_MODEL_DIR` y `CRA_ASR_SAMPLE`). El test de arquitectura `authorization_refresh_boundaries_test.dart` fallaba en Windows al construir rutas y se corrigió en su resolución de rutas; con la corrección pasan sus 8 casos.
+
+Manualmente se comprobó la lista paginada de pacientes del servidor FHIR, la búsqueda por nombre completo y parcial, la ficha completa (un paciente de 646 recursos tardó cerca de 90 s con `$everything`) y la apertura de la bitácora tras sincronizar 633 pacientes con `scripts/fhir-sync`. El SQL del script se ejecutó además dos veces sobre un esquema de prueba sin errores ni duplicados, y la lógica de carga del compose se probó contra un servidor simulado.
+
+No se ejecutaron `pnpm db:*`, pgTAP, `integration:local`, `pnpm fhir:up` con Docker real ni pruebas en iOS. No existen pruebas automatizadas del módulo. La evidencia es local y acotada: no acredita producción, rendimiento general ni seguridad de la lectura directa.

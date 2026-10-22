@@ -112,6 +112,8 @@ Este corte no incluye ingesta FHIR completa, escritura clínica, solicitudes de 
 
 **Decidido.** La fundación selecciona FHIR R4 y ocho recursos de dominio para la primera integración; el contrato, procedencia y criterios de aceptación están en [`06-fhir-integration.md`](06-fhir-integration.md).
 
+**Demo de lectura directa (2026-10-21, [ADR-019](decisions/adr-019-lectura-fhir-directa-desde-la-app.md)).** Por delante de este incremento y solo en la demo sintética/local, la app lee un servidor FHIR directamente para listar pacientes y mostrar su ficha, y un script de desarrollo enlaza cada paciente con una hospitalización de Supabase para conservar la bitácora. No cumple este incremento: no hay procedencia, identidad compuesta, idempotencia por recurso ni cuarentena, y la lectura no tiene autorización de servidor. La viñeta anterior sobre la lectura clínica como única exposición móvil queda exceptuada por esa ADR.
+
 ### Incremento C: captura contextual
 
 - definir qué constituye un evento propio de Carer Record;
@@ -150,6 +152,7 @@ Este corte no incluye ingesta FHIR completa, escritura clínica, solicitudes de 
 
 - conexión, certificación o despliegue dentro de un hospital real;
 - uso de datos clínicos reales;
+- exponer fuera del equipo el servidor FHIR de la demo, o usar la lectura directa con datos reales, mientras carezca de autorización de servidor (ADR-019);
 - reemplazo o escritura de vuelta en una FCE/SIH;
 - diagnóstico, prescripción, alertas autónomas o priorización clínica automatizada;
 - comunicación directa con familiares;

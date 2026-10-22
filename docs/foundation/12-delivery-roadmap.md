@@ -18,21 +18,23 @@ La fotografía previa a esta fundación registra un MVP local con autenticación
 
 ## Estado y secuencia
 
-| Corte | Resultado demostrable                                       | Estado documental            | Dependencias                                |
-| ----- | ----------------------------------------------------------- | ---------------------------- | ------------------------------------------- |
-| V0    | Baseline local reproducible y límites declarados            | Parcialmente evidenciado     | Ninguna                                     |
-| V1    | FHIR sintético validado llega a timeline                    | Propuesto                    | V0, ADR-004                                 |
-| V2    | Permisos configurables y asignación gobiernan lectura       | Parcial; corte incompleto    | V0, ADR-005/013 y hospitalizaciones mínimas |
-| V3    | Audio sintético se captura, transcribe localmente y elimina | Parcial; SP-01 abierto       | V0, ADR-006/007/010/016                     |
-| V4    | UI NER local señala entidades sin alterar el texto          | Pendiente                    | V3, ADR-017                                 |
-| V5    | Síntesis local asistida en dispositivo                      | Parcial; benchmark pendiente | ADR-017/018                                 |
-| V6    | Resumen temporal versionado usa caché segura                | Pendiente                    | V1, V5, ADR-011                             |
-| V7    | Eliminación, auditoría y outbox resisten fallos             | Propuesto                    | V2-V6                                       |
-| V8    | Evaluación académica reproducible y cierre de brechas       | Propuesto                    | V1-V7                                       |
+| Corte | Resultado demostrable                                       | Estado documental               | Dependencias                                |
+| ----- | ----------------------------------------------------------- | ------------------------------- | ------------------------------------------- |
+| V0    | Baseline local reproducible y límites declarados            | Parcialmente evidenciado        | Ninguna                                     |
+| V1    | FHIR sintético validado llega a timeline                    | Propuesto; demo directa parcial | V0, ADR-004                                 |
+| V2    | Permisos configurables y asignación gobiernan lectura       | Parcial; corte incompleto       | V0, ADR-005/013 y hospitalizaciones mínimas |
+| V3    | Audio sintético se captura, transcribe localmente y elimina | Parcial; SP-01 abierto          | V0, ADR-006/007/010/016                     |
+| V4    | UI NER local señala entidades sin alterar el texto          | Pendiente                       | V3, ADR-017                                 |
+| V5    | Síntesis local asistida en dispositivo                      | Parcial; benchmark pendiente    | ADR-017/018                                 |
+| V6    | Resumen temporal versionado usa caché segura                | Pendiente                       | V1, V5, ADR-011                             |
+| V7    | Eliminación, auditoría y outbox resisten fallos             | Propuesto                       | V2-V6                                       |
+| V8    | Evaluación académica reproducible y cierre de brechas       | Propuesto                       | V1-V7                                       |
 
 V1 y V3 pueden explorarse en paralelo mediante spikes, pero no compartir contratos inestables. La antigua dependencia cloud de síntesis quedó sustituida por ADR-017; el benchmark sintético de la síntesis local sigue pendiente.
 
 El corte de hitos ([ADR-015](decisions/adr-015-hitos-bitora-audio.md), sustituida en parte por ADR-016) añade escritura confirmada de `context_notes` bajo RLS y recorrido móvil. El audio almacenado en bucket fue retirado; se publica solo el texto confirmado. Esto no completa V3: la decodificación ASR real y SP-01 siguen abiertos, y la UI NER permanece pendiente.
+
+El corte de lectura directa de FHIR ([ADR-019](decisions/adr-019-lectura-fhir-directa-desde-la-app.md), 2026-10-21) adelanta, solo para la demo sintética/local, parte del valor de V1: la app lista pacientes y muestra su ficha leyendo un servidor FHIR, y cada paciente se enlaza con la bitácora de Supabase. No cumple V1: no hay procedencia, identidad compuesta, idempotencia, cuarentena ni matriz de mapping completa, y la lectura no tiene autorización de servidor. Quedan pendientes las pruebas del módulo, la ficha por tipo de recurso y su entrega al modelo local por sección.
 
 El subcorte DB de V2 implementa IAM, hospitalizaciones/asignaciones y RLS clínico por episodio. Los subcortes 4.1 (operaciones IAM), 4.2 (alta institucional Edge), 4.3 (administración institucional Flutter y asignaciones asistenciales) y 4.4 (consulta clínica Flutter por hospitalización) tienen implementación y pruebas dirigidas. La revisión integrada 4.5 y el gate 5.2 están cerrados para demo sintética/local; esto no completa V2 ni acredita producción. Fases 3 y 4 solo se consideran integradas dentro de ese alcance.
 
@@ -51,6 +53,8 @@ El subcorte DB de V2 implementa IAM, hospitalizaciones/asignaciones y RLS clíni
 - riesgos P0 tienen tratamiento o bloqueo explícito.
 
 ## V1 - Frontera FHIR a timeline
+
+**Estado:** Propuesto. La lectura directa de la demo (ADR-019) no lo completa: no ingiere, no conserva procedencia y no tiene autorización de servidor.
 
 **Valor:** un Bundle o conjunto mínimo de recursos FHIR sintéticos soportados produce pacientes y eventos internos consultables.
 

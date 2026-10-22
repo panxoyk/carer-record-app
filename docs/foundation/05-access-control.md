@@ -304,6 +304,15 @@ La Edge Function `clinical-summary` del baseline solo validaba la existencia de 
 - la salida se marca como generada y revisable;
 - el resumen nunca se convierte en fuente clínica ni revela filas fuera de alcance.
 
+## Lectura directa de FHIR (demo, ADR-019)
+
+La lista de pacientes y la ficha clínica de la demo se leen de un servidor FHIR que queda **fuera del alcance de RLS**: la solicitud no lleva `auth.uid()` y ningún perfil, membresía, permiso o asignación se evalúa en el servidor.
+
+- **Controles actuales:** el router exige `clinical.census.read` y `clinical.patient.read` para `/patients` y `/fhir/`, y `clinical.timeline.read` decide si el toque abre la bitácora. Son guardas de interfaz, no autorización.
+- **Brecha aceptada:** cualquier cliente de red con la URL del servidor puede leer todas las fichas. No existe prueba de denegación porque no existe control que probar (RK-031).
+- **Bitácora:** conserva RLS y exige asignación vigente a la hospitalización. El script de sincronización crea asignaciones de demostración para Ana Torres y Matías Rojas sobre cada paciente sincronizado; viven solo en ese script, no en migraciones ni seeds, y no modifican el contrato de ADR-013 (RK-034).
+- **Condiciones para salir de la demo:** autorización de servidor que valide el JWT de Supabase (proxy o Edge Function), asignación por paciente en esa lectura y resolución de `Q-AUTH-03`.
+
 ## Claims, caché y revocación
 
 Los permisos no se almacenan como fuente de verdad en JWT. Pueden existir claims de UX no autoritativos, pero RLS consulta el estado vigente. Así, suspender una membresía, revocar una asignación o retirar un permiso surte efecto en la siguiente consulta aunque el access token siga criptográficamente válido.
@@ -342,6 +351,7 @@ La estrategia canónica exige pgTAP para todo cambio de política, rol, estado u
 - Personal clínico asignado/no asignado, vigencia, revocación y múltiples episodios;
 - escritor de ingesta limitado a su organización y fuente;
 - ausencia de privilegios RPC para `anon` y funciones internas no ejecutables por `authenticated`.
+- lectura de FHIR (cuando exista autorización de servidor): una solicitud sin JWT válido o de un usuario sin asignación es rechazada. **Pendiente:** hoy no existe ese control.
 
 Las pruebas capturadas ofrecen el patrón de identidad simulada mediante `request.jwt.claim.sub`, casos permitidos/denegados y rollback (`supabase/tests/patients_rls.test.sql:1-53`, `supabase/tests/patients_rls.test.sql:56-169`). No deben depender del seed.
 
