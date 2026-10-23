@@ -472,7 +472,7 @@ end $$
     if (select array_agg(column_name order by ordinal_position)::text
         from information_schema.columns where table_schema='public'
           and table_name='clinical_timeline_by_hospitalization') <>
-      '{organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at}'
+      '{organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,author_display_name}'
       then raise exception 'clinical timeline column contract mismatch'; end if;
     if has_column_privilege('authenticated','public.clinical_events','payload','select')
        or has_column_privilege('authenticated','public.clinical_events','recorded_by','select')

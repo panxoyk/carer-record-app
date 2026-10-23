@@ -9,6 +9,7 @@ class ClinicalEvent {
     required this.createdAt,
     required this.summary,
     this.sourceKind = 'clinical_event',
+    this.authorDisplayName,
   });
 
   final String organizationId;
@@ -23,6 +24,9 @@ class ClinicalEvent {
   /// Origin of the row in the timeline view: `clinical_event` or
   /// `context_note` (bitácora milestone).
   final String sourceKind;
+
+  /// Nullable display name resolved for a confirmed context note by Postgres.
+  final String? authorDisplayName;
 
   /// Milestone authored by dictation. The published row is the text its author
   /// confirmed after local transcription; the audio itself is never stored

@@ -94,6 +94,7 @@ La tabla es un modelo conceptual objetivo; `queued_offline` y `syncing` y su out
 - Persistencia: `context_notes` con `organization_id`, `hospitalization_id`, `patient_id`, `author_id = auth.uid()`, `input_method = 'text'`, `content`, `status = 'confirmed'` y `client_event_id`.
 - El hito de audio usa además `transcription_metadata`, que nunca contiene texto (ADR-016).
 - `clinical_timeline_by_hospitalization` es una proyección reconstruible, no la fuente de escritura.
+- La proyección resuelve `author_display_name` desde `author_id` hacia `profiles.auth_user_id` únicamente para lectores autorizados a la nota confirmada y su episodio; es nullable y no expone UUID ni correo del autor.
 - Cualquier JSONB auxiliar requiere modelo Dart tipado y constraints SQL antes de habilitar escritura.
 - Auditoría y logs no incluyen el cuerpo de la nota, sugerencias ni prompts.
 

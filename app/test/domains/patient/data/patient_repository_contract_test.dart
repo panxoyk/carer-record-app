@@ -118,6 +118,7 @@ void main() {
       'summary': 'Synthetic summary',
       'patient_id': patient,
       'created_at': '2026-01-01T00:00:00Z',
+      'author_display_name': null,
     };
     final fake = CapturingClinicalReadClient([event]);
     final result = await ClinicalEventRepository(fake)
@@ -127,7 +128,7 @@ void main() {
     expect(query.viewName, 'clinical_timeline_by_hospitalization');
     expect(
       query.columns,
-      'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind',
+      'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,author_display_name',
     );
     expect(query.organizationId, org);
     expect(query.hospitalizationId, episode);
@@ -147,6 +148,7 @@ void main() {
         'summary': 'Must not be accepted',
         'patient_id': patient,
         'created_at': '2026-01-01T00:00:00Z',
+        'author_display_name': null,
       },
     ]);
     await expectLater(

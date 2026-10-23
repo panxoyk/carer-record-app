@@ -11,6 +11,7 @@ class ClinicalEventModel extends ClinicalEvent {
     required super.createdAt,
     required super.summary,
     super.sourceKind,
+    super.authorDisplayName,
   });
 
   factory ClinicalEventModel.fromJson(Map<String, dynamic> json) {
@@ -23,6 +24,7 @@ class ClinicalEventModel extends ClinicalEvent {
       'summary',
       'patient_id',
       'created_at',
+      'author_display_name',
     ];
     if (required.any((key) => !json.containsKey(key))) {
       throw const FormatException('Incomplete clinical timeline row');
@@ -37,6 +39,7 @@ class ClinicalEventModel extends ClinicalEvent {
       patientId: json['patient_id'] as String,
       createdAt: DateTime.parse(json['created_at'] as String).toUtc(),
       sourceKind: (json['source_kind'] as String?) ?? 'clinical_event',
+      authorDisplayName: json['author_display_name'] as String?,
     );
   }
 }

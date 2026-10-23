@@ -234,4 +234,5 @@ Map<String, dynamic> _timeline(String organizationId) => {
   'summary': 'Previously authorized summary',
   'patient_id': '00000000-0000-4000-8000-000000000003',
   'created_at': '2026-01-01T00:00:00Z',
+  'author_display_name': null,
 };

@@ -177,7 +177,7 @@ def integration():
                 "assigned episode demographics view did not expose its explicit contract")
 
         timeline_query = urllib.parse.urlencode({
-            "select": "hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at",
+            "select": "hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,author_display_name",
             "organization_id": f"eq.{org}",
             "hospitalization_id": "eq.a1000000-0000-0000-0000-000000000001",
         })

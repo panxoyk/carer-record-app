@@ -55,7 +55,7 @@ select is((select array_agg(column_name order by ordinal_position)::text
 select is((select array_agg(column_name order by ordinal_position)::text
   from information_schema.columns where table_schema='public'
     and table_name='clinical_timeline_by_hospitalization'),
-  '{organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind}',
+   '{organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,author_display_name}',
   'timeline exposes exactly the contracted event and milestone columns');
 select ok(not has_column_privilege('authenticated','public.clinical_events','recorded_by','select')
   and not has_column_privilege('authenticated','public.clinical_events','payload','select'),

@@ -37,7 +37,7 @@ class ClinicalReadQuery {
     ClinicalReadView.demographics => 'organization_id,hospitalization_id,patient_id,given_name,family_name,birth_date',
     // ADR-016 withdrew the audio columns: a milestone is the text its author
     // confirmed, and its provenance stays in `context_notes`.
-    ClinicalReadView.timeline => 'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind',
+    ClinicalReadView.timeline => 'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,author_display_name',
   };
   List<String> get filterColumns => [
     'organization_id',

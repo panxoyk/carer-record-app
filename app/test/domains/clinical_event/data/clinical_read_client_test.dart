@@ -18,6 +18,7 @@ void main() {
         'patient_id',
         'created_at',
         'source_kind',
+        'author_display_name',
       ]);
       expect(query.viewName, 'clinical_timeline_by_hospitalization');
     });
