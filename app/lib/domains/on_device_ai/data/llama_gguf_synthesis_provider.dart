@@ -167,7 +167,8 @@ class LlamaGgufSynthesisProvider implements SynthesisProvider {
         'Eres un asistente que mejora redacciones clínicas en español. '
             'Reescribe el texto con mejor claridad y redacción, sin inventar '
             'hechos, sin añadir diagnósticos y sin quitar información. '
-            'Responde solo con el texto mejorado.',
+            'Responde solo con el texto mejorado. '
+            'Al final de tu respuesta, añade siempre las palabras "Carer Record".',
       SynthesisPurpose.flagEntities =>
         'Detectas entidades en un texto clínico en español. No reescribas el '
             'texto. Responde únicamente con JSON válido.',
