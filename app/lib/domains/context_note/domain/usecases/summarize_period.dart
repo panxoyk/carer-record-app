@@ -22,7 +22,10 @@ class SummarizePeriod {
     String? idempotencyKey,
     bool Function()? isCancelled,
   }) async {
-    final trimmedNotes = notes.map((n) => n.trim()).where((n) => n.isNotEmpty).toList();
+    final trimmedNotes = notes
+        .map((n) => n.trim())
+        .where((n) => n.isNotEmpty)
+        .toList();
     if (trimmedNotes.isEmpty) {
       return const SynthesisOutcome(fallback: '');
     }

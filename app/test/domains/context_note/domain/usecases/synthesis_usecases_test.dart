@@ -148,7 +148,9 @@ void main() {
 
     test('does not call the model with empty notes', () async {
       final provider = FakeSynthesisProvider();
-      final outcome = await SummarizePeriod(provider: provider)(notes: const []);
+      final outcome = await SummarizePeriod(provider: provider)(
+        notes: const [],
+      );
       expect(outcome.hasSuggestion, isFalse);
       expect(provider.calls, isEmpty);
     });

@@ -88,4 +88,5 @@ cd app
 fvm flutter run \
   --dart-define="SUPABASE_URL=$SUPABASE_URL" \
   --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" \
+  --dart-define="FHIR_BASE_URL=$FHIR_HOST_URL" \
   "$@"

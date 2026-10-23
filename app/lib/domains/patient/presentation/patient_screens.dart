@@ -215,9 +215,14 @@ class PatientDetailScreen extends ConsumerWidget {
                   icon: const Icon(Icons.summarize_outlined),
                   onPressed: () {
                     final events = ref
-                        .read(hospitalizationClinicalEventsProvider(hospitalizationId))
+                        .read(
+                          hospitalizationClinicalEventsProvider(
+                            hospitalizationId,
+                          ),
+                        )
                         .valueOrNull;
-                    final notes = events
+                    final notes =
+                        events
                             ?.where((e) => e.isMilestone)
                             .map((e) => e.summary)
                             .where((s) => s.trim().isNotEmpty)

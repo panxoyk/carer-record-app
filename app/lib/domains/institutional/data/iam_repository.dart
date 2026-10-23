@@ -92,11 +92,11 @@ class IamRepository
     required String description,
     required AdminOperationAttempt attempt,
   }) => _rpc('create_iam_role', {
-        'p_organization_id': organizationId,
-        'p_name': name,
-        'p_description': description,
-        'p_idempotency_key': attempt.idempotencyKey,
-      });
+    'p_organization_id': organizationId,
+    'p_name': name,
+    'p_description': description,
+    'p_idempotency_key': attempt.idempotencyKey,
+  });
 
   @override
   Future<AdminOperationResult> replaceRolePermissions({
