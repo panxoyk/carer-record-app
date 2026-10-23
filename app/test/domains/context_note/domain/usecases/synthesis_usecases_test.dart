@@ -1,5 +1,6 @@
 import 'package:carer_record_app/domains/on_device_ai/data/fake_synthesis_provider.dart';
 import 'package:carer_record_app/domains/on_device_ai/domain/synthesis_provider.dart';
+import 'package:carer_record_app/domains/context_note/domain/usecases/summarize_period.dart';
 import 'package:carer_record_app/domains/context_note/domain/usecases/synthesis_usecases.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -131,6 +132,33 @@ void main() {
         text: 'texto de la autora',
       );
       expect(outcome.entities, isEmpty);
+      expect(outcome.errorCode, SynthesisErrorCode.unavailable);
+    });
+  });
+
+  group('SummarizePeriod', () {
+    test('produces a summary when the local model works', () async {
+      final provider = FakeSynthesisProvider();
+      final outcome = await SummarizePeriod(provider: provider)(
+        notes: const ['nota uno', 'nota dos'],
+      );
+      expect(outcome.hasSuggestion, isTrue);
+      expect(provider.calls.single.purpose, SynthesisPurpose.periodSummary);
+    });
+
+    test('does not call the model with empty notes', () async {
+      final provider = FakeSynthesisProvider();
+      final outcome = await SummarizePeriod(provider: provider)(notes: const []);
+      expect(outcome.hasSuggestion, isFalse);
+      expect(provider.calls, isEmpty);
+    });
+
+    test('reports unavailability instead of throwing', () async {
+      final provider = FakeSynthesisProvider(available: false);
+      final outcome = await SummarizePeriod(provider: provider)(
+        notes: const ['nota'],
+      );
+      expect(outcome.hasSuggestion, isFalse);
       expect(outcome.errorCode, SynthesisErrorCode.unavailable);
     });
   });
