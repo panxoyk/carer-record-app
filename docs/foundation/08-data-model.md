@@ -1,5 +1,11 @@
 # Modelo de datos objetivo
 
+## Estado vigente FHIR (2026-10-23)
+
+Las migraciones aditivas de ADR-020 implementan `fhir_sources`, vínculos Patient/Encounter/Location y `fhir_location_period_links`, además de la vista filtrada `fhir_clinical_census_by_hospitalization`.
+Estos vínculos estructurales no reemplazan el modelo clínico objetivo ni convierten la copia en una ingesta completa; hitos y timeline conservan sus contratos existentes.
+Para esquema, constraints y autorización canónicos, consultar [ADR-020](decisions/adr-020-fhir-server-structural-sync.md).
+
 ## Alcance
 
 Este documento propone el modelo relacional objetivo de CRA en PostgreSQL/Supabase. Es un diseño lógico detallado, no una migración y no contiene SQL ejecutable. Los nombres, constraints e índices descritos deben materializarse en migraciones aditivas revisadas y probadas cuando se implemente cada corte vertical.

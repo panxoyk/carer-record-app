@@ -5,6 +5,9 @@ import 'package:carer_record_app/domains/clinical_event/presentation/clinical_ev
 import 'package:carer_record_app/domains/patient/domain/entities/patient.dart';
 import 'package:carer_record_app/domains/patient/presentation/patient_providers.dart';
 import 'package:carer_record_app/domains/patient/presentation/patient_screens.dart';
+import 'package:carer_record_app/domains/fhir_record/domain/authorized_clinical_record.dart';
+import 'package:carer_record_app/domains/fhir_record/presentation/fhir_record_providers.dart';
+import 'package:carer_record_app/core/session/authorization_refresh.dart';
 import 'package:carer_record_app/app/presentation/settings_screen.dart';
 import 'package:carer_record_app/domains/auth/presentation/auth_providers.dart';
 import 'package:flutter/material.dart';
@@ -33,7 +36,7 @@ final episode = Patient(
   organizationId: orgId,
   hospitalizationId: hospitalizationId,
   patientId: patientId,
-  hospitalizationStatus: 'active',
+  hospitalizationStatus: 'admitted',
   admittedAt: DateTime.utc(2026),
   dischargedAt: null,
   unitId: 'secret-unit-uuid',
@@ -43,9 +46,29 @@ final episode = Patient(
   birthDate: null,
 );
 
+const _record = AuthorizedClinicalRecord(
+  status: 'complete',
+  truncated: false,
+  freshness: ClinicalRecordFreshness(retrievedAt: '2026-01-01T00:00:00Z'),
+  patient: ClinicalRecordPatient(id: 'fhir-3', name: 'Ana Prueba'),
+  hospitalization: ClinicalHospitalization(
+    id: hospitalizationId,
+    status: 'admitted',
+    admittedAt: '2026-01-01T00:00:00Z',
+    bed: '12',
+  ),
+  sections: [],
+  timeline: [],
+);
+
 Widget screen(Widget child, List<Override> overrides) => ProviderScope(
   key: UniqueKey(),
-  overrides: overrides,
+  overrides: [
+    authorizationRefreshProvider.overrideWithValue(() {}),
+    authorizedClinicalTimelineProvider(hospitalizationId)
+        .overrideWith((ref) async => _record),
+    ...overrides,
+  ],
   child: MaterialApp(theme: ClinicalTheme.build(), home: child),
 );
 
@@ -860,7 +883,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Ana Prueba'), findsOneWidget);
-    expect(find.text('Cama 12'), findsOneWidget);
+    expect(find.textContaining('Cama 12'), findsOneWidget);
     expect(find.textContaining('secret-unit-uuid'), findsNothing);
     expect(find.textContaining(patientId), findsNothing);
     expect(find.textContaining(episode.hospitalizationId), findsNothing);
@@ -1076,10 +1099,7 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     pending.completeError(StateError('synthetic'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('No fue posible cargar la hospitalización.'),
-      findsOneWidget,
-    );
+    expect(find.text('Reintentar carga de hospitalización'), findsOneWidget);
     expect(find.text('Ana Prueba'), findsNothing);
   });
 
@@ -1100,7 +1120,10 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     pending.completeError(StateError('synthetic'));
     await tester.pumpAndSettle();
-    expect(find.text('No fue posible cargar los eventos.'), findsOneWidget);
+    expect(
+      find.text('No fue posible cargar las notas de contexto.'),
+      findsOneWidget,
+    );
     expect(find.text('summary-anterior'), findsNothing);
   });
 
@@ -1114,7 +1137,7 @@ void main() {
       ]),
     );
     await tester.pumpAndSettle();
-    expect(find.text('No hay eventos clínicos disponibles.'), findsOneWidget);
+    expect(find.text('No hay eventos disponibles.'), findsOneWidget);
     expect(find.text('Ana Prueba'), findsOneWidget);
   });
 
@@ -1182,7 +1205,7 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     pending.complete(const []);
     await tester.pumpAndSettle();
-    expect(find.text('No hay eventos clínicos disponibles.'), findsOneWidget);
+    expect(find.text('No hay eventos disponibles.'), findsOneWidget);
   });
 
   testWidgets('milestone action appears only with create and confirm', (
@@ -1270,7 +1293,7 @@ void main() {
     );
     expect(find.textContaining('Dictado local'), findsOneWidget);
     expect(find.byIcon(Icons.play_arrow), findsNothing);
-    expect(find.byIcon(Icons.flag_outlined), findsOneWidget);
+    expect(find.textContaining('Nota de contexto'), findsOneWidget);
   });
 
   testWidgets('settings renders IAM context without practitioner role', (

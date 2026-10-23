@@ -47,7 +47,7 @@ Carer Record es una capa de contexto clínico e integración para hospitalizaci�
 12. Un resumen de periodo es una vista temporal con caché invalidable; nunca se publica automáticamente como nota.
 13. Gestión de turnos, RRHH, handoff formal, FHIR universal, datos reales y cumplimiento productivo quedan fuera del prototipo.
 14. Los hitos de bitácora son notas de contexto confirmadas e inmutables; el hito de audio se dicta y se transcribe en el dispositivo, y solo su texto confirmado llega al servidor (ADR-016).
-15. En la demo sintética/local la app lee un servidor FHIR R4 directamente para listar pacientes y mostrar su ficha, y cada paciente se enlaza con una hospitalización de Supabase para conservar la bitácora; esa lectura no tiene autorización de servidor y no reemplaza la ingesta de ADR-004 (ADR-019).
+15. La app nunca consulta HAPI directamente: el corte vigente usa sincronización estructural FHIR y consulta autorizada por pasarela; ADR-020 sucede y sustituye la dirección de consulta de ADR-019. La pasarela protege `record` y `timeline`; HAPI local sigue siendo solo sintético y solo loopback en la configuración documentada.
 
 ## Mapa de lectura
 

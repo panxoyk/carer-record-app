@@ -1,6 +1,6 @@
 # ADR-019: Lectura directa de FHIR desde la app y bitácora enlazada
 
-- Estado: Aceptada
+- Estado: Sustituida por ADR-020 (2026-10-23)
 - Fecha: 2026-10-21
 - Alcance: demo sintética/local; lista de pacientes y ficha clínica leídas de un servidor FHIR R4 y enlace con la bitácora; no es una ingesta persistente ni admite datos reales
 - Relación: **sustituye en parte a** ADR-004 (solo la exigencia de que FHIR se consuma únicamente desde una ingesta de servidor); conserva su principio de que dominio y UI no vean recursos FHIR. Depende de ADR-003, ADR-013, ADR-015, ADR-017 y ADR-018

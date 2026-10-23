@@ -1,6 +1,17 @@
 # Backlog operativo
 
-Este archivo organiza tareas secuenciales de implementación. El alcance, las decisiones y los criterios de aceptación canónicos permanecen en [`foundation/`](foundation/README.md), especialmente en el [roadmap de entrega](foundation/12-delivery-roadmap.md).
+Este archivo es una lluvia de ideas operativa por revisar, no una secuencia comprometida. El alcance, las decisiones, estados y criterios canónicos permanecen en [`foundation/`](foundation/README.md), especialmente en el [roadmap de entrega](foundation/12-delivery-roadmap.md). Las tareas históricas cerradas se conservan como historial, no como promesas vigentes.
+
+## Corte FHIR autorizado (2026-10-23)
+
+- [x] Fixture reproducible de cinco pacientes; los diez pacientes HAPI legacy se conservaron. Sincronización estructural idempotente produce 15 episodios locales; los usuarios clínicos ven tres asignados cada uno.
+- [x] Pasarela `clinical-record` y DTOs tipados; censo filtrado por RLS, autorización `record`/`timeline`, retiro del bypass de consulta directa desde Flutter. No equivale a ingesta FHIR completa.
+- [x] Integración HTTP para Ana y Matías (tres episodios por cuenta), foreign 404, anónimo 404/401 según frontera, service-role 401 y rechazo de insert cerrado.
+- [x] Gate final ejecutado por sesión principal; evidencia, comandos y límites en [gate FHIR autorizado](foundation/11-testing-validation.md#gate-fhir-autorizado-2026-10-23) y [EV-INT-005](foundation/appendices/evidence-index.md#integración-fhir-autorizada-2026-10-23).
+- [ ] GUI/hardware/manual: recorrido físico no ejecutado en este corte.
+- [ ] Cerrar exposición del HAPI legado: el runtime aún escucha en `0.0.0.0`; compose loopback no cierra RK-031.
+
+El detalle contractual y de evidencia está en [ADR-020](foundation/decisions/adr-020-fhir-server-structural-sync.md) y [testing y validación](foundation/11-testing-validation.md); los ítems FHIR anteriores que describen lectura directa, fixture de diez o validación manual son históricos/obsoletos frente a ADR-020.
 
 ## Gate de cierre fase 5.2
 
@@ -73,7 +84,9 @@ Este archivo organiza tareas secuenciales de implementación. El alcance, las de
 - [ ] Resolver Q-PRIV-03 con decisión de producto sobre TTL y validar política; las 24 horas actuales en código son default técnico, no decisión aprobada.
 - [x] Ejecutar el gate final proporcional tras los últimos cambios y registrar comandos/resultados sin reutilizar los conteos previos como gate final ([evidencia](foundation/11-testing-validation.md#gate-final-del-módulo-ia-local-compartido-2026-10-18)).
 
-## Integración HAPI FHIR directa y bitácora (2026-10-21)
+## Historial sustituido: integración HAPI FHIR directa (2026-10-21)
+
+Histórico obsoleto: la dirección de lectura directa descrita abajo fue sustituida por ADR-020; no tomar estas casillas cerradas como estado vigente ni las pendientes como secuencia comprometida.
 
 - [x] Lista de pacientes desde HAPI FHIR R4, paginada y con búsqueda por nombre o identificador, en `app/lib/domains/fhir_record/` (cliente HTTP, mapper hacia entidades internas y pantallas). Validada manualmente en un dispositivo Android.
 - [x] Ficha clínica completa por `Patient/{id}/$everything` con paginación; es la pantalla `/fhir/patients/:patientId`, sin enlace visible desde el listado.

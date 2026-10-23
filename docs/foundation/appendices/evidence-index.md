@@ -22,7 +22,7 @@ Las referencias `ruta:líneas` de EV-001 a EV-008 describen la fotografía hist�
 | EV-007 | La demo presenta instantes en `America/Santiago`             | `app/lib/core/time/clinical_time.dart:4-24`                                                                                                | Implementado y probado     | La zona aún no se obtiene de organización |
 | EV-008 | Las consultas clínicas se invalidan al quedar la sesión nula | `app/lib/domains/patient/presentation/patient_providers.dart`; `app/lib/domains/clinical_event/presentation/clinical_event_providers.dart` | Implementado               | Falta validación manual de expiración     |
 
-EV-005 describe la fotografía histórica. Desde 2026-10-21 existe una lectura directa de FHIR en la app (EV-INT-001); la ingesta del pipeline sigue diferida.
+EV-005 describe la fotografía histórica. EV-INT-001 documenta el corte directo histórico, sustituido por ADR-020 y el corte autorizado EV-INT-005.
 
 ## Seguridad y privacidad
 
@@ -89,22 +89,32 @@ EV-TST-013 — Gate final 2026-10-18: Flutter 308 tests aprobados/1 omitido, DB 
 
 ## Evidencia pendiente por decisión
 
-| ADR     | Evidencia requerida para llamar “implementada”                                                                                                                                                                                 |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ADR-004 | adapter FHIR, matriz de mapping, fixtures, contract tests e idempotencia                                                                                                                                                       |
-| ADR-013 | IAM, hospitalizaciones, asignaciones, validación final del corte RLS y adaptación Flutter                                                                                                                                      |
-| ADR-006 | interfaz de captura, permisos, storage privado y pruebas de interrupción                                                                                                                                                       |
-| ADR-007 | medici\u00f3n de SP-01 en dispositivo arm64 real (latencia, RTF, RAM, bater\u00eda, temperatura y tama\u00f1o de descarga)                                                                                                     |
-| ADR-017 | corpus sint\u00e9tico del benchmark de s\u00edntesis y sus resultados de latencia y memoria                                                                                                                                    |
-| ADR-011 | modelo temporal/cache, RLS, invalidaci\u00f3n, idempotencia y E2E                                                                                                                                                              |
-| ADR-010 | plazo de expiraci\u00f3n aprobado (`Q-PRIV-03`) y validaci\u00f3n del barrido tras un cierre inesperado                                                                                                                        |
-| ADR-004 | adapter FHIR, matriz de mapping, fixtures, contract tests e idempotencia                                                                                                                                                       |
-| ADR-012 | revisi\u00f3n de lenguaje/requisitos que confirme exclusi\u00f3n de turnos                                                                                                                                                     |
-| ADR-019 | pruebas automatizadas del cliente, el mapper y la paginación; prueba del script de sincronización; validación de `pnpm fhir:up` con Docker y versión fijada; ficha por tipo de recurso; autorización de servidor (`Q-AUTH-03`) |
+| ADR     | Evidencia requerida para llamar “implementada”                                                                                                                               |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ADR-004 | adapter FHIR, matriz de mapping, fixtures, contract tests e idempotencia                                                                                                     |
+| ADR-013 | IAM, hospitalizaciones, asignaciones, validación final del corte RLS y adaptación Flutter                                                                                    |
+| ADR-006 | interfaz de captura, permisos, storage privado y pruebas de interrupción                                                                                                     |
+| ADR-007 | medici\u00f3n de SP-01 en dispositivo arm64 real (latencia, RTF, RAM, bater\u00eda, temperatura y tama\u00f1o de descarga)                                                   |
+| ADR-017 | corpus sint\u00e9tico del benchmark de s\u00edntesis y sus resultados de latencia y memoria                                                                                  |
+| ADR-011 | modelo temporal/cache, RLS, invalidaci\u00f3n, idempotencia y E2E                                                                                                            |
+| ADR-010 | plazo de expiraci\u00f3n aprobado (`Q-PRIV-03`) y validaci\u00f3n del barrido tras un cierre inesperado                                                                      |
+| ADR-004 | adapter FHIR, matriz de mapping, fixtures, contract tests e idempotencia                                                                                                     |
+| ADR-012 | revisi\u00f3n de lenguaje/requisitos que confirme exclusi\u00f3n de turnos                                                                                                   |
+| ADR-020 | completar recorrido GUI/dispositivo y cerrar configuración de exposición de HAPI antes de cualquier uso fuera de loopback; la ingesta clínica completa sigue siendo objetivo |
 
 ADR-005 salió de esta tabla: esquema de permisos, RLS, administración, auditoría y pgTAP existen en el repositorio y su evidencia está en EV-TST-011, EV-TST-012 y los archivos `iam_administration_phase4.test.sql`, `iam_phase1.test.sql` e `iam_flutter_read_contracts_phase4.test.sql`. El alcance sigue siendo la demo sintética/local, no producción.
 
 EV-TST-014 — Gate B integrado y tests de arquitectura B11a; ver [registro y límites](../11-testing-validation.md#gate-integrado-de-refactor-iam-b11-2026-10-18), incluido el build iOS Simulator aprobado. La compilación no demuestra UI/manual ni ASR/inferencia.
+
+## Integración FHIR autorizada (2026-10-23)
+
+### EV-INT-005 — Gate final de implementación
+
+Contrato/evidencia: [ADR-020](../decisions/adr-020-fhir-server-structural-sync.md), [migraciones 130000–130300](../../../supabase/migrations/20261013000000_fhir_structural_links.sql), [pruebas SQL](../../../supabase/tests/fhir_structural_links.test.sql), [pasarela](../../../supabase/functions/clinical-record/index.ts), [generador de sync](../../../scripts/fhir-sync/generate-sync.mjs), [fixture](../../../scripts/fhir-sync/generate-demo-fixture.mjs), [tests de sync](../../../scripts/fhir-sync/generate-sync.test.mjs) y [pruebas DTO/widget](../../../app/test/domains/fhir_record/).
+
+HAPI 8.12 / R4 4.0.1; fixture de 140 recursos, cinco pacientes, tres episodios abiertos y dos cerrados. Diez pacientes HAPI legacy se conservaron; sync da 15 episodios locales y cada cuenta clínica consultada ve tres. `pnpm app:test` 357 aprobadas/1 omitida env-gated; `pnpm db:test` 477/477 en 13 archivos; `pnpm functions:check` con 30 pruebas; `FHIR_SYNC_PG_INTEGRATION=1 pnpm fhir:sync:test` 9 aprobadas; `pnpm db:lint` sin errores; `pnpm app:analyze` limpio; `pnpm integration:fhir` pasó: Ana/Matías tres episodios, foreign 404, anónimo/service-role rechazados, nota cerrada denegada, `record` devuelve timeline vacío y `timeline` devuelve eventos. HAPI image digest: `sha256:0ff86aac4c7bd13a1ee226444a70263bb46ed1c28ef543c30a44f865b80ca04e`.
+
+Se preservó el estado de datos local: no se hizo reset después de la integración; las migraciones aditivas se aplicaron por upgrade. Sin validación GUI/dispositivo, ASR de calidad ni `pnpm app:format:check` final. Los checks de documentación se ejecutan después de esta edición. Compose limita HAPI a loopback; el runtime legado sigue en `0.0.0.0`, por lo que RK-031 permanece abierto y no se admiten datos reales. Gate local/sintético, no producción ni ingesta completa.
 
 ## Reglas de actualización
 

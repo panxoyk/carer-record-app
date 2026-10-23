@@ -1,5 +1,11 @@
 # Control de acceso
 
+## Estado vigente FHIR (2026-10-23)
+
+La consulta FHIR pasa por Edge `clinical-record` con JWT; `record` exige permiso clínico y asignación vigente exacta al episodio, y `timeline` además `clinical.timeline.read`.
+La lectura cerrada se conserva; las notas nuevas solo se insertan en estados permitidos. No hay acceso móvil directo ni escritura FHIR desde el cliente.
+La excepción demo del Administrador conserva el permiso reservado `clinical.organization.read`, alcance y RLS; no depende del nombre del rol. ADR-020 es el contrato canónico.
+
 El reemplazo de policies clínicas se implementa en `20261011270000_clinical_rls_contracts.sql` y se endurece en `20261011280000_harden_clinical_runtime_writes_and_views.sql`: lectura exacta por hospitalización, permiso concreto y una de dos rutas (Administrador con `clinical.organization.read` reservado o Personal clínico con `clinical.assigned.read` y asignación vigente). La fila de censo incluye demografía, por lo que acumula `clinical.census.read` y `clinical.patient.read` a través de RLS de `patients`. Las vistas clínicas son `security_invoker`/`security_barrier` y no sustituyen RLS ni grants del invocador. No hay DML clínico runtime en `patients` ni `clinical_events`, incluido `service_role`; `context_notes` sí permite la inserción autorizada de hitos confirmados bajo RLS/RPC, con reconciliación de publicación controlada. Solo propietario/migraciones y bridges `SECURITY DEFINER` controlados escriben las demás tablas clínicas.
 
 ## Objetivo
@@ -311,7 +317,7 @@ La lista de pacientes y la ficha clínica de la demo se leen de un servidor FHIR
 - **Controles actuales:** el router exige `clinical.census.read` y `clinical.patient.read` para `/patients` y `/fhir/`, y `clinical.timeline.read` decide si el toque abre la bitácora. Son guardas de interfaz, no autorización.
 - **Brecha aceptada:** cualquier cliente de red con la URL del servidor puede leer todas las fichas. No existe prueba de denegación porque no existe control que probar (RK-031).
 - **Bitácora:** conserva RLS y exige asignación vigente a la hospitalización. El script de sincronización crea asignaciones de demostración para Ana Torres y Matías Rojas sobre cada paciente sincronizado; viven solo en ese script, no en migraciones ni seeds, y no modifican el contrato de ADR-013 (RK-034).
-- **Condiciones para salir de la demo:** autorización de servidor que valide el JWT de Supabase (proxy o Edge Function), asignación por paciente en esa lectura y resolución de `Q-AUTH-03`.
+- **Condiciones para salir de la demo:** autorización por JWT y episodio está implementada en `clinical-record` (ADR-020); aún debe resolverse exposición/configuración del runtime HAPI, mantener sintéticos y cerrar RK-031 antes de cualquier uso fuera de loopback.
 
 ## Claims, caché y revocación
 

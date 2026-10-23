@@ -9,17 +9,17 @@ name: carer-record-fhir
 
 services:
   hapi-fhir:
-    # Fija HAPI_FHIR_TAG a una versión concreta cuando el equipo valide una.
-    image: hapiproject/hapi:${HAPI_FHIR_TAG:-latest}
+    # HAPI 8.12.0, validado con FHIR R4 v4.0.1.
+    image: ${HAPI_FHIR_IMAGE:-hapiproject/hapi@sha256:0ff86aac4c7bd13a1ee226444a70263bb46ed1c28ef543c30a44f865b80ca04e}
     container_name: carer-record-hapi-fhir
     ports:
-      - "${HAPI_FHIR_PORT:-8080}:8080"
+      - "127.0.0.1:${HAPI_FHIR_PORT:-8080}:8080"
     environment:
       # El servidor por defecto reserva mucha memoria; con 10 pacientes sobra 1 GB.
       JAVA_TOOL_OPTIONS: "-Xms256m -Xmx1g"
 
   # Tarea de un solo uso: espera a HAPI y carga docker/hapi-fhir/seed/demo-patients.json.
-  # Es idempotente: si el paciente CRA-0101 ya existe, no vuelve a cargar nada.
+  # El transaction usa PUT por Resource/id: repetir reescribe la misma versión demo.
   hapi-seed:
     image: curlimages/curl:8.11.1
     depends_on:
@@ -44,16 +44,16 @@ services:
           fi
           sleep 5
         done
-        existing="$$(curl -s "$$FHIR_BASE_URL/Patient?identifier=urn:carer-record:demo:mrn%7CCRA-0101&_summary=count")"
-        if echo "$$existing" | grep -Eq '"total" *: *[1-9]'; then
-          echo "Los pacientes de demostración ya estaban cargados."
-          exit 0
-        fi
         status="$$(curl -sS -o /tmp/seed-result.json -w '%{http_code}' \
           -X POST -H 'Content-Type: application/fhir+json' \
           --data-binary @/seed/demo-patients.json "$$FHIR_BASE_URL")"
         if [ "$$status" != "200" ] && [ "$$status" != "201" ]; then
           echo "La carga falló (HTTP $$status):" >&2
+          cat /tmp/seed-result.json >&2
+          exit 1
+        fi
+        if grep -q '"resourceType"[[:space:]]*:[[:space:]]*"OperationOutcome"' /tmp/seed-result.json; then
+          echo "HAPI devolvió OperationOutcome; no se considera seed exitoso:" >&2
           cat /tmp/seed-result.json >&2
           exit 1
         fi

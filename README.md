@@ -48,7 +48,7 @@ pnpm db:reset
 
 ### 3. Inicia el servidor FHIR de demostración
 
-La app lista los pacientes y consulta su ficha clínica directamente en un servidor HAPI FHIR R4. El repositorio incluye uno de demostración con 10 pacientes sintéticos (ver [docker/hapi-fhir](docker/hapi-fhir/README.md)):
+La app consulta censo y ficha mediante la pasarela autorizada `clinical-record`; no lee HAPI directamente. El repositorio incluye un HAPI FHIR R4 de demostración con diez pacientes sintéticos legacy (ver [docker/hapi-fhir](docker/hapi-fhir/README.md)):
 
 ```bash
 pnpm fhir:up
@@ -61,7 +61,7 @@ pnpm fhir:logs
 pnpm fhir:sync
 ```
 
-`pnpm fhir:sync` copia a Supabase local el mínimo que necesita la bitácora de cada paciente. Repítelo después de cada `pnpm db:reset`. Si el puerto 8080 está ocupado, usa `HAPI_FHIR_PORT=8081 pnpm fhir:up` y define `FHIR_BASE_URL=http://127.0.0.1:8081/fhir` en `.env`.
+`pnpm fhir:sync` sincroniza estructura mínima para enlazar pacientes, episodios y periodos de ubicación con la bitácora; no es ingesta clínica completa. Repítelo después de cada `pnpm db:reset`. Si el puerto 8080 está ocupado, usa `HAPI_FHIR_PORT=8081 pnpm fhir:up` y define `FHIR_BASE_URL=http://127.0.0.1:8081/fhir` en `.env`.
 
 ### 4. Ejecuta la app
 
@@ -160,7 +160,7 @@ cd ../..
 | `admin@example.test`        | Administrador | Activa     |
 | `camila.vera@example.test`  | Médico        | Suspendida |
 
-`pnpm fhir:up` carga 10 pacientes sintéticos en el servidor HAPI FHIR. Son ficticios, no representan indicaciones clínicas reales y deben mantenerse así.
+`pnpm fhir:up` carga diez pacientes sintéticos en HAPI; fixture reproducible de la nueva sincronización contiene cinco pacientes. Los diez registros HAPI legacy no se borran. Son ficticios, no representan indicaciones clínicas reales y deben mantenerse así.
 
 | Ficha    | Paciente          | Ubicación                     | Escenario sintético                               |
 | -------- | ----------------- | ----------------------------- | ------------------------------------------------- |
@@ -175,7 +175,7 @@ cd ../..
 | CRA-0109 | Lucía Paredes     | Maternidad, cama 09           | Puerperio posterior a cesárea                     |
 | CRA-0110 | Héctor Vega       | Medicina interna, cama 05     | Enfermedad renal crónica, diabetes e hipertensión |
 
-Los pacientes del HAPI y los del censo de Supabase (`pnpm db:reset`) son conjuntos distintos: la lista de la app sale del HAPI y `pnpm fhir:sync` crea en Supabase la hospitalización de cada uno para que tengan bitácora.
+El censo de la app proviene de la vista RLS de Supabase. `pnpm fhir:sync` enlaza los recursos del servidor; la pasarela entrega ficha y timeline solo tras autorización. El corte de demo sincroniza quince episodios; cada cuenta clínica asignada ve tres.
 
 ## Operaciones diarias
 
@@ -195,7 +195,7 @@ Los pacientes del HAPI y los del censo de Supabase (`pnpm db:reset`) son conjunt
 
 `pnpm db:purge` es destructivo. Úsalo si se introducen datos reales por error, elimina cualquier exportación o log afectado y revisa las credenciales antes de continuar. No expongas Supabase local mediante túneles ni redes compartidas no confiables.
 
-El servidor HAPI FHIR de demostración no tiene autenticación y guarda sus datos en memoria: `pnpm fhir:down` los elimina y `pnpm fhir:up` los vuelve a cargar. Tampoco lo expongas fuera de tu equipo, y no cargues en él datos clínicos reales.
+El servidor HAPI FHIR de demostración no tiene autenticación y guarda sus datos en memoria: `pnpm fhir:down` los elimina y `pnpm fhir:up` los vuelve a cargar. El compose de desarrollo se limita a loopback; el runtime legado aún escucha en `0.0.0.0`, por lo que no lo expongas fuera de tu equipo ni cargues datos clínicos reales.
 
 ## Verificación por cambio
 
@@ -214,7 +214,7 @@ CI ejecuta `pnpm check` y las pruebas de Flutter. La estrategia completa está e
 - RLS es la autoridad de autorización. La UI no agrega permisos clínicos.
 - No edites migraciones aplicadas: crea una migración aditiva.
 - No versiones secretos, credenciales, firmas ni datos clínicos reales. Tampoco versiones `scripts/fhir-sync/fhir-sync.sql`: se genera en cada equipo.
-- La app consulta el servidor HAPI FHIR directamente y sin autenticación propia; la restricción por rol es solo de interfaz. Úsalo únicamente con datos sintéticos.
+- La app usa la pasarela autenticada para consultas FHIR; HAPI de demostración no autentica solicitudes y debe permanecer local y sintético.
 - Cuando cambie una decisión, alcance o contrato, actualiza las ADR y secciones de foundation afectadas.
 
 El contrato de autorización objetivo está en [control de acceso](docs/foundation/05-access-control.md). Para conocer el comportamiento implementado, revisa directamente las políticas, migraciones y pruebas RLS.

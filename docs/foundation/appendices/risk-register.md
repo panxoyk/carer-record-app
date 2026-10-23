@@ -1,5 +1,11 @@
 # Registro de riesgos
 
+## Estado vigente HAPI (2026-10-23)
+
+El bypass móvil fue retirado y la consulta pasa por la pasarela de ADR-020; esto no cierra el riesgo de exposición del servidor HAPI.
+El compose actual se fija a loopback, pero el runtime servidor legado aún escucha en `0.0.0.0`; HAPI no autentica. No usar datos reales ni exponerlo fuera del entorno local.
+Mantener activo RK-031 hasta cerrar y verificar la configuración de runtime, no solo la del compose.
+
 ## Escala
 
 - Probabilidad: Baja, Media, Alta.
