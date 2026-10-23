@@ -71,7 +71,9 @@ class _PeriodSummarySheetState extends ConsumerState<_PeriodSummarySheet> {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 12),
-          if (_busy)
+          if (widget.notes.isEmpty)
+            const Text('No hay notas de contexto para resumir en este periodo.')
+          else if (_busy)
             const Center(child: CircularProgressIndicator())
           else if (_summary != null)
             SelectableText(_summary!)
@@ -84,7 +86,7 @@ class _PeriodSummarySheetState extends ConsumerState<_PeriodSummarySheet> {
             const Text('Genera un resumen local de las notas del periodo.'),
           const SizedBox(height: 12),
           FilledButton(
-            onPressed: _busy ? null : _generate,
+            onPressed: _busy || widget.notes.isEmpty ? null : _generate,
             child: const Text('Generar resumen'),
           ),
         ],
