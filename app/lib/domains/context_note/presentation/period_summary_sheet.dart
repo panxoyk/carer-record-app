@@ -23,7 +23,8 @@ class _PeriodSummarySheet extends ConsumerStatefulWidget {
   final List<String> notes;
 
   @override
-  ConsumerState<_PeriodSummarySheet> createState() => _PeriodSummarySheetState();
+  ConsumerState<_PeriodSummarySheet> createState() =>
+      _PeriodSummarySheetState();
 }
 
 class _PeriodSummarySheetState extends ConsumerState<_PeriodSummarySheet> {
@@ -65,15 +66,20 @@ class _PeriodSummarySheetState extends ConsumerState<_PeriodSummarySheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Resumen del periodo',
-              style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            'Resumen del periodo',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 12),
           if (_busy)
             const Center(child: CircularProgressIndicator())
           else if (_summary != null)
             SelectableText(_summary!)
           else if (_error != null)
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            )
           else
             const Text('Genera un resumen local de las notas del periodo.'),
           const SizedBox(height: 12),

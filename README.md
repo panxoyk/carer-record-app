@@ -115,7 +115,7 @@ SUPABASE_URL=http://10.0.2.2:54321
 
 `127.0.0.1` dentro de Android apunta al emulador, no a tu Mac. En iOS Simulator ocurre lo contrario para este flujo: usa `127.0.0.1`. Cambia solo el host; el puerto y la clave siguen siendo los mostrados por `pnpm db:start`.
 
-No configures URL FHIR en Flutter. La pasarela lo consulta desde servidor.
+`FHIR_BASE_URL` se configura en Flutter (por `--dart-define` o `.env`) y apunta al servidor HAPI de demostración (`http://10.0.2.2:8080/fhir` en Android Emulator). La pasarela autorizada `clinical-record` consulta HAPI desde el servidor.
 
 ### Dispositivo Android físico (opcional)
 
@@ -139,6 +139,39 @@ cd ../..
 ```
 
 `app/ios/Pods/` se regenera y no se versiona. En iOS no hay un flujo documentado para dispositivos físicos.
+
+## Setup en Windows (manual)
+
+`pnpm app:run` es un script bash (Linux/macOS). En Windows nativo, ejecuta los pasos equivalentes manualmente:
+
+```powershell
+# 1. Dependencias y configuración
+pnpm install
+cp .env.example .env
+# Edita .env con SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY y FHIR_BASE_URL
+
+# 2. Base de datos
+pnpm db:start
+pnpm db:reset
+
+# 3. Servidor FHIR de demostración
+pnpm fhir:up
+pnpm fhir:sync
+pnpm fhir:demo:assignments
+
+# 4. Gateway (en una terminal aparte, con Git Bash)
+bash scripts/serve-fhir-gateway.sh
+
+# 5. App (en otra terminal)
+cd app
+flutter run -d <device> --dart-define=SUPABASE_URL=http://10.0.2.2:54321 --dart-define=SUPABASE_PUBLISHABLE_KEY=<clave> --dart-define=FHIR_BASE_URL=http://10.0.2.2:8080/fhir
+```
+
+Notas:
+- `10.0.2.2` es el alias del host desde el emulador Android; en iOS Simulator usa `127.0.0.1`.
+- Si el puerto 8080 está ocupado, usa `HAPI_FHIR_PORT=8081` y ajusta `FHIR_BASE_URL`.
+- El teclado del emulador se habilita en `E:\.android\avd\<avd>\config.ini` con `hw.keyboard = yes`.
+- Los modelos (LLM + ASR) se descargan en el primer arranque; se pueden pre-instalar con `adb push` a `files/llm` y `files/asr`.
 
 ## Datos de demostración
 
