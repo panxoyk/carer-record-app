@@ -341,17 +341,17 @@ async function main(args = process.argv.slice(2)) {
       with: { type: "json" },
     });
     const tuples = manifest.encounters
-      .map((item) => `(${quote(item.fhirId)},${quote(item.authUserId)}::uuid)`)
+      .map((item) => `(${quote(item.fhirId)},${quote(item.authUserId)}::uuid,${quote(item.validFrom)}::timestamptz,${quote(item.validUntil)}::timestamptz)`)
       .join(",");
     const sql = [
       "do $assign$ declare org uuid; source_uuid uuid; creator uuid; item record; member_id uuid; episode_id uuid; begin",
       "select id into strict org from public.organizations where slug='demo-hospital';",
       "select id into strict source_uuid from public.fhir_sources where organization_id=org and logical_key='demo-hapi';",
       "select id into strict creator from public.organization_memberships where organization_id=org and profile_id=(select id from public.profiles where auth_user_id='33333333-3333-3333-3333-333333333333');",
-      `for item in select * from (values ${tuples}) as entries(fhir_id,auth_user_id) loop`,
+       `for item in select * from (values ${tuples}) as entries(fhir_id,auth_user_id,valid_from,valid_until) loop`,
       "select hospitalization_id into strict episode_id from public.fhir_encounter_links where organization_id=org and source_id=source_uuid and fhir_id=item.fhir_id;",
       "select m.id into strict member_id from public.organization_memberships m join public.profiles p on p.id=m.profile_id where m.organization_id=org and p.auth_user_id=item.auth_user_id::uuid;",
-      "if not exists(select 1 from public.care_assignments a where a.organization_id=org and a.hospitalization_id=episode_id and a.membership_id=member_id) then insert into public.care_assignments(organization_id,hospitalization_id,membership_id,valid_from,created_by_membership_id) values(org,episode_id,member_id,now()-interval '1 day',creator); end if;",
+       "if not exists(select 1 from public.care_assignments a where a.organization_id=org and a.hospitalization_id=episode_id and a.membership_id=member_id) then insert into public.care_assignments(organization_id,hospitalization_id,membership_id,valid_from,valid_until,created_by_membership_id) values(org,episode_id,member_id,item.valid_from,item.valid_until,creator); end if;",
       "end loop; end $assign$;",
     ].join("\n");
     writeFileSync(output, sql);

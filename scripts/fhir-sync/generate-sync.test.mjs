@@ -164,7 +164,7 @@ test(
       statement,
       `insert into public.hospitalization_locations(organization_id,hospitalization_id,unit_id,bed_label,started_at,ended_at) select h.organization_id,h.id,l.unit_id,'test-owned-preserved', h.admitted_at - interval '1 day',h.admitted_at - interval '12 hours' from public.hospitalizations h cross join lateral (select unit_id from public.hospitalization_locations where hospitalization_id=h.id limit 1) l where h.id='${mapping.encounters[0].id}';`,
       `create temporary table preserved_location as select id from public.hospitalization_locations where hospitalization_id='${mapping.encounters[0].id}' and bed_label='test-owned-preserved';`,
-      `do $assert$ declare org uuid; src uuid; begin select id into strict org from public.organizations where slug='demo-hospital'; select id into strict src from public.fhir_sources where organization_id=org and logical_key='test-fhir-sync-isolated'; if (select count(*) from public.fhir_patient_links where organization_id=org and source_id=src)<>5 then raise exception 'patient links not idempotent'; end if; if (select count(*) from public.fhir_encounter_links where organization_id=org and source_id=src)<>5 then raise exception 'encounter links not idempotent'; end if; if (select count(*) from public.hospitalization_locations l join public.fhir_encounter_links e on e.organization_id=l.organization_id and e.hospitalization_id=l.hospitalization_id where e.organization_id=org and e.source_id=src and l.bed_label is distinct from 'test-owned-preserved')<>6 then raise exception 'location periods not reconciled'; end if; if (select count(*) from public.hospitalization_locations l join public.fhir_encounter_links e on e.organization_id=l.organization_id and e.hospitalization_id=l.hospitalization_id where e.organization_id=org and e.source_id=src and l.ended_at is null and l.bed_label is distinct from 'test-owned-preserved')<>3 then raise exception 'current locations incorrect'; end if; if not exists(select 1 from public.hospitalization_locations l join preserved_location p on p.id=l.id where l.bed_label='test-owned-preserved') then raise exception 'unowned location was not preserved'; end if; if (select count(*) from public.care_assignments)<>(select assignments from sync_baseline) or (select count(*) from public.context_notes)<>(select notes from sync_baseline) then raise exception 'application data changed'; end if; end $assert$;`,
+      `do $assert$ declare org uuid; src uuid; begin select id into strict org from public.organizations where slug='demo-hospital'; select id into strict src from public.fhir_sources where organization_id=org and logical_key='test-fhir-sync-isolated'; if (select count(*) from public.fhir_patient_links where organization_id=org and source_id=src)<>${mapping.patients.length} then raise exception 'patient links not idempotent'; end if; if (select count(*) from public.fhir_encounter_links where organization_id=org and source_id=src)<>${mapping.encounters.length} then raise exception 'encounter links not idempotent'; end if; if (select count(*) from public.hospitalization_locations l join public.fhir_encounter_links e on e.organization_id=l.organization_id and e.hospitalization_id=l.hospitalization_id where e.organization_id=org and e.source_id=src and l.bed_label is distinct from 'test-owned-preserved')<>${mapping.encounters.reduce((n, e) => n + e.locations.length, 0)} then raise exception 'location periods not reconciled'; end if; if (select count(*) from public.hospitalization_locations l join public.fhir_encounter_links e on e.organization_id=l.organization_id and e.hospitalization_id=l.hospitalization_id where e.organization_id=org and e.source_id=src and l.ended_at is null and l.bed_label is distinct from 'test-owned-preserved')<>${mapping.encounters.reduce((n, e) => n + e.locations.filter((l) => l.ended_at === null).length, 0)} then raise exception 'current locations incorrect'; end if; if not exists(select 1 from public.hospitalization_locations l join preserved_location p on p.id=l.id where l.bed_label='test-owned-preserved') then raise exception 'unowned location was not preserved'; end if; if (select count(*) from public.care_assignments)<>(select assignments from sync_baseline) or (select count(*) from public.context_notes)<>(select notes from sync_baseline) then raise exception 'application data changed'; end if; end $assert$;`,
       changedStatement,
       `do $assert$ declare org uuid; src uuid; episode uuid := '${changedEpisode.id}'; begin select id into strict org from public.organizations where slug='demo-hospital'; select id into strict src from public.fhir_sources where organization_id=org and logical_key='test-fhir-sync-isolated'; if exists(select 1 from public.fhir_location_period_links where organization_id=org and source_id=src and hospitalization_id=episode) then raise exception 'removed source period remains owned'; end if; if not exists(select 1 from public.hospitalizations where organization_id=org and id=episode and status='discharged') then raise exception 'closed episode not reconciled'; end if; if not exists(select 1 from public.hospitalization_locations l join preserved_location p on p.id=l.id where l.bed_label='test-owned-preserved') then raise exception 'unowned location removed on source closure'; end if; if (select count(*) from public.care_assignments)<>(select assignments from sync_baseline) or (select count(*) from public.context_notes)<>(select notes from sync_baseline) then raise exception 'application data changed by reconciliation'; end if; end $assert$;`,
       "rollback;",
@@ -191,7 +191,7 @@ test(
     assert.match(result.trim(), /ROLLBACK$/);
   },
 );
-test("demo seed is a stable five-patient, three-open/two-finished inpatient transaction", async () => {
+test("demo seed is a stable twenty-patient, fourteen-open/six-finished inpatient transaction", async () => {
   const bundle = JSON.parse(
     await readFile(
       new URL(
@@ -207,15 +207,29 @@ test("demo seed is a stable five-patient, three-open/two-finished inpatient tran
   const encounters = bundle.entry.filter(
     (x) => x.resource.resourceType === "Encounter",
   );
-  assert.equal(patients.length, 5);
+  assert.equal(patients.length, 20);
+  assert.equal(new Set(patients.map((x) => x.resource.id)).size, 20);
+  assert.ok(patients.every((x) => /^a1000000-0000-4000-8000-[0-9]{12}$/.test(x.resource.id)));
+  assert.equal(encounters.length, 20);
+  assert.equal(new Set(encounters.map((x) => x.resource.subject.reference)).size, 20);
   assert.equal(
     encounters.filter((x) => x.resource.status === "in-progress").length,
-    3,
+    14,
   );
   assert.equal(
     encounters.filter((x) => x.resource.status === "finished").length,
-    2,
+    6,
   );
+  for (const { resource: encounter } of encounters) {
+    const start = Date.parse(encounter.period.start);
+    const end = encounter.period.end ? Date.parse(encounter.period.end) : Infinity;
+    assert.ok(start < end, `${encounter.id} has a valid episode period`);
+    for (const { resource } of bundle.entry.filter((x) => x.resource.encounter?.reference === `Encounter/${encounter.id}`)) {
+      if (resource.effectiveDateTime) assert.ok(Date.parse(resource.effectiveDateTime) >= start && Date.parse(resource.effectiveDateTime) <= end, `${resource.id} measurement outside episode`);
+      // Condition onset may describe a prior history; it is not an episode measurement.
+      assert.ok((resource.subject?.reference ?? resource.patient?.reference) === encounter.subject.reference, `${resource.id} patient mismatch`);
+    }
+  }
   assert.ok(
     bundle.entry.every(
       (x) =>
