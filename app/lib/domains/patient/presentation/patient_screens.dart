@@ -8,6 +8,7 @@ import '../../../core/time/clinical_time.dart';
 import '../../clinical_event/domain/entities/clinical_event.dart';
 import '../../clinical_event/presentation/clinical_event_providers.dart';
 import '../../context_note/presentation/milestone_editor_sheet.dart';
+import '../../context_note/presentation/period_summary_sheet.dart';
 import '../../institutional/presentation/iam_providers.dart';
 import '../../fhir_record/presentation/fhir_record_providers.dart';
 import '../../fhir_record/domain/authorized_clinical_record.dart';
@@ -207,35 +208,52 @@ class PatientDetailScreen extends ConsumerWidget {
       appBar: clinicalBackAppBar(
         context,
         title: 'Bitácora',
-        actions: canAddMilestone && patient.valueOrNull != null
+        actions: patient.valueOrNull != null
             ? [
                 IconButton(
-                  tooltip: 'Añadir nota de contexto',
-                  icon: const Icon(Icons.add_task_outlined),
+                  tooltip: 'Resumir bitácora',
+                  icon: const Icon(Icons.summarize_outlined),
                   onPressed: () {
-                    final item = patient.valueOrNull;
-                    if (item == null) return;
-                    showMilestoneEditorSheet(
-                      context,
-                      patient: item,
-                      onSaved: (cleanupPending) {
-                        if (!context.mounted) return;
-                        ref.invalidate(
-                          hospitalizationClinicalEventsProvider(
-                            hospitalizationId,
-                          ),
-                        );
-                        ClinicalToast.success(
-                          context,
-                          message: cleanupPending
-                              ? 'Nota guardada. La limpieza local quedó pendiente.'
-                              : 'Nota guardada.',
-                          withDetails: cleanupPending,
-                        );
-                      },
-                    );
+                    final events = ref
+                        .read(hospitalizationClinicalEventsProvider(hospitalizationId))
+                        .valueOrNull;
+                    final notes = events
+                            ?.where((e) => e.isMilestone)
+                            .map((e) => e.summary)
+                            .where((s) => s.trim().isNotEmpty)
+                            .toList() ??
+                        const <String>[];
+                    showPeriodSummarySheet(context, notes: notes);
                   },
                 ),
+                if (canAddMilestone)
+                  IconButton(
+                    tooltip: 'Añadir nota de contexto',
+                    icon: const Icon(Icons.add_task_outlined),
+                    onPressed: () {
+                      final item = patient.valueOrNull;
+                      if (item == null) return;
+                      showMilestoneEditorSheet(
+                        context,
+                        patient: item,
+                        onSaved: (cleanupPending) {
+                          if (!context.mounted) return;
+                          ref.invalidate(
+                            hospitalizationClinicalEventsProvider(
+                              hospitalizationId,
+                            ),
+                          );
+                          ClinicalToast.success(
+                            context,
+                            message: cleanupPending
+                                ? 'Nota guardada. La limpieza local quedó pendiente.'
+                                : 'Nota guardada.',
+                            withDetails: cleanupPending,
+                          );
+                        },
+                      );
+                    },
+                  ),
               ]
             : null,
       ),

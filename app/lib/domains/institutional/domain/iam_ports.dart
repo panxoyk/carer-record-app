@@ -17,6 +17,12 @@ abstract interface class IamAdministration {
     required Iterable<String> permissions,
     required AdminOperationAttempt attempt,
   });
+  Future<AdminOperationResult> createRole({
+    required String organizationId,
+    required String name,
+    required String description,
+    required AdminOperationAttempt attempt,
+  });
   Future<void> createMember({
     required String organizationId,
     required String email,

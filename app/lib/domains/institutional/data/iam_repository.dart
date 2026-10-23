@@ -86,6 +86,19 @@ class IamRepository
           .toList();
 
   @override
+  Future<AdminOperationResult> createRole({
+    required String organizationId,
+    required String name,
+    required String description,
+    required AdminOperationAttempt attempt,
+  }) => _rpc('create_iam_role', {
+        'p_organization_id': organizationId,
+        'p_name': name,
+        'p_description': description,
+        'p_idempotency_key': attempt.idempotencyKey,
+      });
+
+  @override
   Future<AdminOperationResult> replaceRolePermissions({
     required String organizationId,
     required String roleId,
