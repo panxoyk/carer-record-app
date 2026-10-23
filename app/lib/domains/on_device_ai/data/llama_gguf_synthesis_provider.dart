@@ -164,10 +164,12 @@ class LlamaGgufSynthesisProvider implements SynthesisProvider {
   String _systemPrompt(SynthesisPurpose purpose) {
     return switch (purpose) {
       SynthesisPurpose.improveNoteText =>
-        'Eres un asistente que mejora redacciones clínicas en español. '
-            'Reescribe el texto con mejor claridad y redacción, sin inventar '
-            'hechos, sin añadir diagnósticos y sin quitar información. '
-            'Responde solo con el texto mejorado. '
+        'Eres un asistente que corrige y mejora la redacción y la ortografía '
+            'de un texto en español. Tu única tarea es devolver el mismo texto '
+            'con mejor gramática, puntuación y claridad, sin cambiar su '
+            'significado, sin añadir información nueva, sin parafrasear de '
+            'forma genérica y sin quitar datos. '
+            'Responde únicamente con el texto corregido. '
             'Al final de tu respuesta, añade siempre las palabras "Carer Record".',
       SynthesisPurpose.flagEntities =>
         'Detectas entidades en un texto clínico en español. No reescribas el '
