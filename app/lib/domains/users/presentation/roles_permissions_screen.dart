@@ -157,6 +157,71 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
 
   bool get _dirty => _controller.dirty;
 
+  Future<void> _createRole(BuildContext context, WidgetRef ref) async {
+    final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Crear rol'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Nombre'),
+            ),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(labelText: 'Descripción'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Crear'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!context.mounted) return;
+    final name = nameController.text.trim();
+    final description = descriptionController.text.trim();
+    if (name.isEmpty) {
+      ClinicalToast.failure(context, message: 'El nombre es obligatorio.');
+      return;
+    }
+    try {
+      final admin = ref.read(iamAdministrationProvider);
+      final attempt = ref.read(iamOperationAttemptFactoryProvider).create();
+      final result = await admin.createRole(
+        organizationId: widget.iamContext.organizationId,
+        name: name,
+        description: description,
+        attempt: attempt,
+      );
+      if (!context.mounted) return;
+      if (result.code != 'created') {
+        ClinicalToast.failure(
+          context,
+          message: 'No se pudo crear el rol (${result.code}).',
+        );
+        return;
+      }
+      ref.invalidate(iamRolesProvider);
+      ClinicalToast.success(context, message: 'Rol creado.');
+    } catch (error) {
+      if (!context.mounted) return;
+      ClinicalToast.failure(context, message: 'No se pudo crear el rol.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) =>
       _ready(context, widget.roles, widget.catalog);
@@ -184,6 +249,17 @@ class _RoleEditorState extends ConsumerState<_RoleEditor> {
     }
     return Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              onPressed: _saving ? null : () => _createRole(context, ref),
+              icon: const Icon(Icons.add),
+              label: const Text('Crear rol'),
+            ),
+          ),
+        ),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(16),
