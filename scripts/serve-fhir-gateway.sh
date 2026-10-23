@@ -2,7 +2,6 @@
 set -euo pipefail
 
 network="supabase_network_carer-record"
-runtime="supabase_edge_runtime_carer-record"
 hapi="carer-record-hapi-fhir"
 env_file="docker/hapi-fhir/gateway.env.local"
 
@@ -12,10 +11,6 @@ if ! docker network inspect "$network" >/dev/null 2>&1; then
 fi
 if ! docker ps --format '{{.Names}}' | grep -Fxq "$hapi"; then
   echo "Missing running HAPI container $hapi; start it with pnpm fhir:up first." >&2
-  exit 1
-fi
-if ! docker ps --format '{{.Names}}' | grep -Fxq "$runtime"; then
-  echo "Missing Supabase Edge Runtime container $runtime; run pnpm db:start first." >&2
   exit 1
 fi
 if ! docker network inspect "$network" --format '{{range .Containers}}{{.Name}}{{"\n"}}{{end}}' | grep -Fxq "$hapi"; then

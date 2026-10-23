@@ -24,48 +24,41 @@ cd ..
 
 La instalación registra un hook de pre-commit que ejecuta `pnpm check`.
 
-### 2. Inicia Supabase y configura la app
+### 2. Configura la app
 
 ```bash
 cp .env.example .env
-pnpm db:start
 ```
 
-El comando muestra `Project URL` y una clave `anon` o `publishable`. Copia esos valores en `.env`:
+Configura `.env` con la URL móvil apropiada (`10.0.2.2` para Android Emulator, `127.0.0.1` para iOS Simulator) y la clave publishable local. `SUPABASE_LOCAL_URL` es la URL loopback del host para scripts y por defecto es `http://127.0.0.1:54321`.
 
 ```env
-SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_URL=http://10.0.2.2:54321
+SUPABASE_LOCAL_URL=http://127.0.0.1:54321
 SUPABASE_PUBLISHABLE_KEY=<clave-mostrada-por-supabase>
-```
-
-Después carga las migraciones y datos sintéticos:
-
-```bash
-pnpm db:reset
 ```
 
 `.env` es local e ignorado por Git. Nunca agregues una Service Role Key ni datos clínicos reales.
 
 ### 3. Inicia el servidor FHIR de demostración
 
-La app consulta censo y ficha mediante la pasarela autorizada `clinical-record`; no lee HAPI directamente. El repositorio incluye un HAPI FHIR R4 de demostración con diez pacientes sintéticos legacy (ver [docker/hapi-fhir](docker/hapi-fhir/README.md)):
+La app consulta censo y ficha mediante la pasarela autorizada `clinical-record`; no lee HAPI directamente. `pnpm app:run` inicia/reutiliza Supabase y HAPI, espera su seed, sincroniza vínculos y asignaciones, levanta/espera la pasarela y luego inicia Flutter. No borra datos ni ejecuta reset. El repositorio incluye 20 pacientes sintéticos FHIR (ver [docker/hapi-fhir](docker/hapi-fhir/README.md)):
 
 ```bash
-pnpm fhir:up
-pnpm fhir:logs
+pnpm app:run
 ```
 
-`pnpm fhir:up` levanta HAPI en `http://127.0.0.1:8080/fhir` y carga los pacientes. La primera vez descarga la imagen y el servidor tarda unos minutos en arrancar: espera a que `pnpm fhir:logs` muestre «Pacientes de demostración cargados» y sal con `Ctrl+C`. Después enlaza los pacientes con la bitácora de Supabase:
+La primera vez descarga imágenes y puede tardar varios minutos. `pnpm app:run` inicia HAPI y ejecuta su seed en primer plano con PUTs idempotentes antes de sincronizar; conserva recursos no incluidos en el bundle. `pnpm fhir:up` se puede ejecutar por separado para operar HAPI y seed.
 
 ```bash
 pnpm fhir:sync
 ```
 
-`pnpm fhir:sync` sincroniza estructura mínima para enlazar pacientes, episodios y periodos de ubicación con la bitácora; no es ingesta clínica completa. Repítelo después de cada `pnpm db:reset`. Si el puerto 8080 está ocupado, usa `HAPI_FHIR_PORT=8081 pnpm fhir:up` y define `FHIR_BASE_URL=http://127.0.0.1:8081/fhir` en `.env`.
+`pnpm fhir:sync` sincroniza estructura mínima; `pnpm app:run` además aplica las asignaciones declaradas. No es ingesta clínica completa. Si el puerto 8080 está ocupado, usa `HAPI_FHIR_PORT=8081 pnpm app:run`.
 
 ### 4. Ejecuta la app
 
-Consulta la sección de tu plataforma y ejecuta `pnpm app:run`. El comando pasa la URL y clave publishable de `.env` a Flutter mediante `--dart-define`. La URL del servidor FHIR (`FHIR_BASE_URL`) se lee de `.env` y vale por defecto `http://10.0.2.2:8080/fhir`, la que corresponde al emulador Android; en otras plataformas defínela en `.env` (ver más abajo).
+Consulta la sección de tu plataforma y ejecuta `pnpm app:run`. El comando conserva los argumentos Flutter y pasa solo URL móvil de Supabase y clave publishable mediante `--dart-define`. HAPI no se expone al móvil; la Edge Function obtiene acceso por red Docker.
 
 ## Modelos en el dispositivo
 
@@ -100,10 +93,10 @@ Selecciona un dispositivo iniciado y usa su UDID para lanzar la app:
 pnpm app:run -- -d <SIMULATOR_UDID>
 ```
 
-Para iOS Simulator, conserva `SUPABASE_URL=http://127.0.0.1:54321`: el simulador puede acceder al servidor local del Mac mediante loopback. Para el servidor FHIR, define también en `.env` la URL con loopback:
+Para iOS Simulator configura `SUPABASE_URL=http://127.0.0.1:54321`; `SUPABASE_LOCAL_URL` permanece loopback del host:
 
 ```env
-FHIR_BASE_URL=http://127.0.0.1:8080/fhir
+SUPABASE_URL=http://127.0.0.1:54321
 ```
 
 ### Emulador Android
@@ -122,7 +115,7 @@ SUPABASE_URL=http://10.0.2.2:54321
 
 `127.0.0.1` dentro de Android apunta al emulador, no a tu Mac. En iOS Simulator ocurre lo contrario para este flujo: usa `127.0.0.1`. Cambia solo el host; el puerto y la clave siguen siendo los mostrados por `pnpm db:start`.
 
-El servidor FHIR sigue la misma regla: el valor por defecto de `FHIR_BASE_URL` (`http://10.0.2.2:8080/fhir`) ya sirve para el emulador y puedes dejarlo vacío en `.env`.
+No configures URL FHIR en Flutter. La pasarela lo consulta desde servidor.
 
 ### Dispositivo Android físico (opcional)
 
@@ -130,8 +123,7 @@ Los dispositivos físicos no forman parte del entorno de desarrollo soportado, p
 
 ```bash
 adb reverse tcp:54321 tcp:54321
-adb reverse tcp:8080 tcp:8080
-fvm flutter run -d <ID_DEL_DISPOSITIVO> --dart-define=SUPABASE_URL=http://127.0.0.1:54321 --dart-define=SUPABASE_PUBLISHABLE_KEY=<clave> --dart-define=FHIR_BASE_URL=http://127.0.0.1:8080/fhir
+fvm flutter run -d <ID_DEL_DISPOSITIVO> --dart-define=SUPABASE_URL=http://127.0.0.1:54321 --dart-define=SUPABASE_PUBLISHABLE_KEY=<clave>
 ```
 
 Ejecuta `fvm flutter run` desde `app/`. Hay que repetir `adb reverse` cada vez que se reconecta el dispositivo. La app usa HTTP sin TLS contra estas direcciones locales solo en desarrollo; si Android lo bloquea, habilita `android:usesCleartextTraffic="true"` únicamente en `app/android/app/src/debug/AndroidManifest.xml`.
@@ -160,7 +152,7 @@ cd ../..
 | `admin@example.test`        | Administrador | Activa     |
 | `camila.vera@example.test`  | Médico        | Suspendida |
 
-`pnpm fhir:up` carga diez pacientes sintéticos en HAPI; fixture reproducible de la nueva sincronización contiene cinco pacientes. Los diez registros HAPI legacy no se borran. Son ficticios, no representan indicaciones clínicas reales y deben mantenerse así.
+`pnpm fhir:up` carga 20 pacientes sintéticos en HAPI; no borra recursos legacy adicionales. Son ficticios, no representan indicaciones clínicas reales y deben mantenerse así.
 
 | Ficha    | Paciente          | Ubicación                     | Escenario sintético                               |
 | -------- | ----------------- | ----------------------------- | ------------------------------------------------- |
@@ -175,7 +167,7 @@ cd ../..
 | CRA-0109 | Lucía Paredes     | Maternidad, cama 09           | Puerperio posterior a cesárea                     |
 | CRA-0110 | Héctor Vega       | Medicina interna, cama 05     | Enfermedad renal crónica, diabetes e hipertensión |
 
-El censo de la app proviene de la vista RLS de Supabase. `pnpm fhir:sync` enlaza los recursos del servidor; la pasarela entrega ficha y timeline solo tras autorización. El corte de demo sincroniza quince episodios; cada cuenta clínica asignada ve tres.
+El censo de la app proviene de la vista RLS de Supabase. `pnpm fhir:sync` enlaza los recursos del servidor; la pasarela entrega ficha y timeline solo tras autorización. El dataset actual sincroniza 20 pacientes y 20 episodios, 14 abiertos (8 asignados y 6 sin asignar) y 6 cerrados históricos.
 
 ## Operaciones diarias
 

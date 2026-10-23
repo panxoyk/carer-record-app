@@ -2,7 +2,7 @@
 
 ## Estado vigente (2026-10-23)
 
-El corte entregado no es el pipeline de ingesta clínica completa descrito en este flujo: sincroniza vínculos estructurales mínimos y habilita lectura en vivo autorizada por `clinical-record`.
+El corte entregado no es el pipeline de ingesta clínica completa descrito en este flujo: sincroniza vínculos estructurales mínimos y habilita lectura en vivo autorizada por `clinical-record`. `pnpm app:run` orquesta el arranque local reutilizable de Supabase/HAPI, re-aplica el seed FHIR con PUT, sincroniza vínculos y asignaciones y espera la pasarela antes de iniciar Flutter; no ejecuta reset ni borra recursos FHIR.
 La ficha y timeline llegan por pasarela con JWT; el cliente no consulta HAPI directamente. No se escribe de vuelta a FCE.
 Las etapas objetivo siguientes siguen siendo diseño futuro; para el corte actual prevalece [ADR-020](../decisions/adr-020-fhir-server-structural-sync.md).
 
@@ -428,4 +428,4 @@ Desde 2026-10-21 la app puede leer un servidor FHIR directamente para listar pac
 - No tiene resultado `projected`, `noop` ni `quarantined`: lo que no sabe mostrar, lo ignora.
 - No es idempotente por identidad compuesta; la repetición solo vuelve a leer.
 
-El script `scripts/fhir-sync/generate-sync.mjs` copia a Supabase local, solo en desarrollo, el paciente, la hospitalización, la ubicación y las asignaciones de demostración de cada paciente FHIR. Es idempotente por UUID derivado del id de FHIR, no por la tupla `(organization, data_source, resource_type, external_id)`. Cuando se implemente este flujo, el script y la convención `external_reference = FHIR-<id>` deben reemplazarse por la capa de correspondencias y la proyección definidas aquí.
+El script `scripts/fhir-sync/generate-sync.mjs` copia a Supabase local, solo en desarrollo, los 20 pacientes, sus episodios y ubicaciones; el manifest aplica 8 asignaciones y deja 6 de los 14 episodios abiertos sin asignar, además de 6 episodios cerrados históricos con `validUntil`. El sync es idempotente por UUID derivado del id de FHIR, no por la tupla `(organization, data_source, resource_type, external_id)`. Cuando se implemente este flujo, el script y la convención `external_reference = FHIR-<id>` deben reemplazarse por la capa de correspondencias y la proyección definidas aquí.

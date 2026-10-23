@@ -15,7 +15,7 @@ services:
     ports:
       - "127.0.0.1:${HAPI_FHIR_PORT:-8080}:8080"
     environment:
-      # El servidor por defecto reserva mucha memoria; con 10 pacientes sobra 1 GB.
+      # Límite de heap para el servidor local de demostración.
       JAVA_TOOL_OPTIONS: "-Xms256m -Xmx1g"
 
   # Tarea de un solo uso: espera a HAPI y carga docker/hapi-fhir/seed/demo-patients.json.
@@ -36,7 +36,7 @@ services:
         set -eu
         echo "Esperando a HAPI FHIR en $$FHIR_BASE_URL ..."
         tries=0
-        until [ "$$(curl -s -o /dev/null -w '%{http_code}' "$$FHIR_BASE_URL/metadata")" = "200" ]; do
+        until [ "$$(curl --max-time 5 -s -o /dev/null -w '%{http_code}' "$$FHIR_BASE_URL/metadata")" = "200" ]; do
           tries=$$((tries + 1))
           if [ "$$tries" -gt 120 ]; then
             echo "HAPI FHIR no respondió a tiempo." >&2
@@ -45,15 +45,10 @@ services:
           sleep 5
         done
         status="$$(curl -sS -o /tmp/seed-result.json -w '%{http_code}' \
-          -X POST -H 'Content-Type: application/fhir+json' \
+          --max-time 120 -X POST -H 'Content-Type: application/fhir+json' \
           --data-binary @/seed/demo-patients.json "$$FHIR_BASE_URL")"
         if [ "$$status" != "200" ] && [ "$$status" != "201" ]; then
           echo "La carga falló (HTTP $$status):" >&2
-          cat /tmp/seed-result.json >&2
-          exit 1
-        fi
-        if grep -q '"resourceType"[[:space:]]*:[[:space:]]*"OperationOutcome"' /tmp/seed-result.json; then
-          echo "HAPI devolvió OperationOutcome; no se considera seed exitoso:" >&2
           cat /tmp/seed-result.json >&2
           exit 1
         fi

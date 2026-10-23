@@ -271,3 +271,7 @@ Gate final de implementación ejecutado por la sesión principal sobre HAPI 8.12
 La migración de autorización previa al lock verifica permiso antes de revelar existencia. Repositorio DTO FHIR: 16 pruebas; widgets FHIR: 5 pruebas; suites Flutter afectadas: 48 pruebas. Hubo fallos iniciales por aislamiento de tests y expectativa de vista legacy; corregidos y las ejecuciones enfocadas y gates finales pasaron. No se ejecutó `db:reset` después de la integración para preservar los datos locales actuales; el reset se había ejecutado antes del contrato y las cuatro migraciones aditivas se aplicaron por upgrade.
 
 `pnpm app:format:check` pasó con 143 archivos y 0 cambios; `pnpm docs:format:check`, `pnpm docs:lint` (63 archivos, 0 issues) y `git diff --check` pasaron. No se ejecutaron pruebas manuales GUI/dispositivo ni evaluación ASR/calidad. La configuración compose de HAPI está fijada a loopback, pero el runtime legado aún escucha en `0.0.0.0`; RK-031 sigue abierto. Esta evidencia local/sintética no declara producción ni ingesta clínica completa. Ver [EV-INT-005](appendices/evidence-index.md#integración-fhir-autorizada-2026-10-23).
+
+### Orquestación local de `app:run`
+
+Se actualizó la orquestación para esperar la tarea seed de HAPI antes de sincronizar, verificar la pasarela y luego iniciar Flutter. No se ejecutaron pruebas, checks ni arranque de servicios para esta actualización; el comportamiento de arranque queda pendiente de validación.
