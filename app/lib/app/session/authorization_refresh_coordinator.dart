@@ -4,6 +4,7 @@ import '../../core/session/authorization_refresh.dart';
 import '../../domains/clinical_event/presentation/clinical_event_providers.dart';
 import '../../domains/institutional/presentation/iam_providers.dart';
 import '../../domains/patient/presentation/patient_providers.dart';
+import '../../domains/fhir_record/presentation/fhir_record_providers.dart';
 
 void invalidateAuthorizationAndData(Ref ref) {
   // The SQL context is authoritative; invalidate its source before all dependents.
@@ -19,6 +20,8 @@ void invalidateAuthorizationAndData(Ref ref) {
   ref.invalidate(patientsProvider);
   ref.invalidate(patientProvider);
   ref.invalidate(hospitalizationClinicalEventsProvider);
+  ref.invalidate(authorizedClinicalRecordProvider);
+  ref.invalidate(authorizedClinicalTimelineProvider);
 }
 
 AuthorizationRefresh authorizationRefreshFor(Ref ref) =>

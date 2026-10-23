@@ -1,5 +1,11 @@
 # Arquitectura objetivo
 
+## Estado vigente (2026-10-23)
+
+El corte ADR-020 implementa sincronización estructural y lectura clínica en vivo mediante `clinical-record`; el censo filtrado procede de Supabase/RLS.
+Flutter no accede directamente a HAPI ni a las tablas de vínculos FHIR; la pasarela recibe JWT y la autorización por episodio se aplica en servidor/RLS.
+Las secciones de arquitectura objetivo e históricas siguientes no implican ingesta completa ni reemplazan este límite implementado.
+
 ## Propósito y carácter de este documento
 
 Este documento define la arquitectura objetivo de Carer Record App (CRA). Es una especificación de destino: guía la evolución incremental del repositorio, pero no afirma que todos los componentes, tablas o controles descritos ya estén implementados.
@@ -171,16 +177,16 @@ El worker valida el lote, deduplica por procedencia, conserva el recurso recibid
 
 ## Límites de confianza
 
-| Límite                     | Dentro se confía en                            | Fuera no se confía en                                                               | Controles obligatorios                                                       |
-| -------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Dispositivo/Supabase       | Validación criptográfica del JWT               | UI, parámetros, caché, rutas y claims fabricados por el cliente                     | TLS, JWT, grants, RLS, validación de payload                                 |
-| Auth/dominio               | `auth.uid()` como identidad técnica            | Existencia, rol o institución inferidos solo desde Auth                             | `profiles`, membresía activa y asignaciones consultadas en DB                |
-| API/PostgreSQL             | Constraints y transacción confirmada           | Filtros enviados por Flutter como mecanismo de seguridad                            | RLS en toda tabla expuesta y deny by default                                 |
-| Edge Function/Service Role | Secreto cargado en entorno servidor            | Cualquier autorización previa implícita por poseer el secreto                       | Autenticar actor, autorizar, validar, auditar, cliente privilegiado separado |
-| Hospital/gateway           | Credencial de integración acotada a una fuente | Contenido FHIR, IDs, orden, timestamps y reintentos                                 | Esquema, firma/mTLS según despliegue, idempotencia, límites, cuarentena      |
-| FHIR/CRA canónico          | Recurso original conservado e identificable    | Suposición de que un recurso está completo, vigente o usa códigos locales conocidos | Capa anticorrupción, terminología, procedencia, estado de mapeo              |
-| App/servidor FHIR (demo)   | Nada: el servidor de demostración no autentica | Cualquier cliente de red que alcance el puerto                                      | Solo datos sintéticos y red local; guardas de ruta son UX; Q-AUTH-03         |
-| Canónico/read model        | FKs canónicas y versión de proyección          | Escritura directa en `clinical_events`                                              | Escritor técnico único, unicidad de origen, reconstrucción y reconciliación  |
+| Límite                     | Dentro se confía en                                  | Fuera no se confía en                                                                 | Controles obligatorios                                                             |
+| -------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Dispositivo/Supabase       | Validación criptográfica del JWT                     | UI, parámetros, caché, rutas y claims fabricados por el cliente                       | TLS, JWT, grants, RLS, validación de payload                                       |
+| Auth/dominio               | `auth.uid()` como identidad técnica                  | Existencia, rol o institución inferidos solo desde Auth                               | `profiles`, membresía activa y asignaciones consultadas en DB                      |
+| API/PostgreSQL             | Constraints y transacción confirmada                 | Filtros enviados por Flutter como mecanismo de seguridad                              | RLS en toda tabla expuesta y deny by default                                       |
+| Edge Function/Service Role | Secreto cargado en entorno servidor                  | Cualquier autorización previa implícita por poseer el secreto                         | Autenticar actor, autorizar, validar, auditar, cliente privilegiado separado       |
+| Hospital/gateway           | Credencial de integración acotada a una fuente       | Contenido FHIR, IDs, orden, timestamps y reintentos                                   | Esquema, firma/mTLS según despliegue, idempotencia, límites, cuarentena            |
+| FHIR/CRA canónico          | Recurso original conservado e identificable          | Suposición de que un recurso está completo, vigente o usa códigos locales conocidos   | Capa anticorrupción, terminología, procedencia, estado de mapeo                    |
+| App/servidor FHIR (demo)   | JWT en pasarela `clinical-record`; HAPI no autentica | Cliente autenticado y autorizado por episodio; exposición de HAPI sigue siendo riesgo | Solo datos sintéticos/loopback; runtime legado `0.0.0.0`; RK-031 abierto (ADR-020) |
+| Canónico/read model        | FKs canónicas y versión de proyección                | Escritura directa en `clinical_events`                                                | Escritor técnico único, unicidad de origen, reconstrucción y reconciliación        |
 
 La Service Role omite RLS y, por tanto, amplía el daño de un error. Debe existir únicamente en secretos de Edge Functions o workers administrados, nunca en Flutter, `.env` compartidos, logs, payloads, gateways genéricos o repositorios. La clave publishable sí pertenece al cliente y no representa autoridad (`README.md:27-47`).
 

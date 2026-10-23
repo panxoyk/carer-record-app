@@ -36,3 +36,6 @@ scripts/fhir-sync/fhir-sync.sql
 .DS_Store
 .vscode/
 .idea/
+# Generated local SQL from the synthetic HAPI structural sync.
+scripts/fhir-sync/*.local.sql
+docker/hapi-fhir/gateway.env.local

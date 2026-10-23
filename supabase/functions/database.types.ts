@@ -1327,6 +1327,21 @@ export type Database = {
       };
     };
     Functions: {
+      fhir_authorized_encounter_context: {
+        Args: {
+          p_organization_id: string;
+          p_hospitalization_id: string;
+          p_purpose?: string;
+        };
+        Returns: {
+          source_id: string;
+          patient_fhir_id: string;
+          encounter_fhir_id: string;
+          organization_id: string;
+          hospitalization_id: string;
+          patient_id: string;
+        }[];
+      };
       bootstrap_legacy_practitioner_iam: { Args: never; Returns: undefined };
       bootstrap_synthetic_hospitalization_fixtures: {
         Args: never;

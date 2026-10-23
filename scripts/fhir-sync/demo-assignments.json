@@ -1,0 +1,28 @@
+{
+  "encounters": [
+    {
+      "fhirId": "enc-med-ana",
+      "authUserId": "11111111-1111-1111-1111-111111111111"
+    },
+    {
+      "fhirId": "enc-surg-matias",
+      "authUserId": "22222222-2222-2222-2222-222222222222"
+    },
+    {
+      "fhirId": "enc-shared",
+      "authUserId": "11111111-1111-1111-1111-111111111111"
+    },
+    {
+      "fhirId": "enc-shared",
+      "authUserId": "22222222-2222-2222-2222-222222222222"
+    },
+    {
+      "fhirId": "enc-closed-ana",
+      "authUserId": "11111111-1111-1111-1111-111111111111"
+    },
+    {
+      "fhirId": "enc-closed-matias",
+      "authUserId": "22222222-2222-2222-2222-222222222222"
+    }
+  ]
+}

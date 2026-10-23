@@ -27,7 +27,7 @@ La suite y los registros de ejecución del baseline son evidencia histórica, no
 | Flutter dominio        | reglas de privacidad, estados y transformaciones puras      | `flutter_test`                                         | Parcial: vault, controllers, leases y casos de uso tienen pruebas dirigidas                         |
 | Flutter integración/UI | captura, errores, navegación crítica y borrado              | fakes deterministas, widget/integration test selectivo | Parcial: hay pruebas widget/controlador; no equivalen a ejecución nativa real                       |
 | Edge Functions         | authn/authz, esquema, idempotencia, sanitización y fallos   | tests Deno/HTTP contra local                           | `create-practitioner` tiene tests; las demás capacidades citadas como objetivo no se implementan    |
-| Frontera FHIR          | perfiles, mappings, referencias y rechazo                   | fixtures y contract tests                              | Scaffold sin ingesta                                                                                |
+| Frontera FHIR          | perfiles, mappings, referencias y rechazo                   | fixtures y contract tests                              | Sin ingesta clínica completa; corte mínimo ADR-020 probado en EV-INT-005                            |
 | ASR/NER                | decodificación real, exactitud, latencia y falsos negativos | test nativo env-gated y corpus sintético               | ASR: carga/fallo cerrado probados; decodificación real y SP-01 pendientes. UI NER pendiente         |
 | Síntesis local         | contrato del caso de uso, manejo de fallo y rendimiento     | `flutter_test`, runtime nativo y benchmark sintético   | Casos de uso/fakes probados; adaptador real y benchmark aún sin evidencia de equivalencia/resultado |
 | E2E                    | cortes verticales y aislamiento entre actores               | Supabase local + app/emulador                          | Manual y parcial                                                                                    |
@@ -126,7 +126,7 @@ El pipeline del baseline era solo un scaffold que informaba que la ingesta estab
 9. Cuarentena con razón estable; nunca ingesta parcial silenciosa.
 10. Compatibilidad explícita por versión; no prometer soporte FHIR general.
 
-### Lectura directa de FHIR y sincronización (ADR-019)
+### Lectura directa histórica y corte autorizado/sync (ADR-019 sustituida por ADR-020)
 
 La lectura directa de la demo no sustituye estas pruebas de ingesta. Para el módulo `fhir_record` y el script `scripts/fhir-sync` se exigen, con fixtures sintéticos:
 
@@ -261,3 +261,13 @@ Windows 11, Flutter 3.47.7 con FVM, Android 14 en un dispositivo físico, Supaba
 Manualmente se comprobó la lista paginada de pacientes del servidor FHIR, la búsqueda por nombre completo y parcial, la ficha completa (un paciente de 646 recursos tardó cerca de 90 s con `$everything`) y la apertura de la bitácora tras sincronizar 633 pacientes con `scripts/fhir-sync`. El SQL del script se ejecutó además dos veces sobre un esquema de prueba sin errores ni duplicados, y la lógica de carga del compose se probó contra un servidor simulado.
 
 No se ejecutaron `pnpm db:*`, pgTAP, `integration:local`, `pnpm fhir:up` con Docker real ni pruebas en iOS. No existen pruebas automatizadas del módulo. La evidencia es local y acotada: no acredita producción, rendimiento general ni seguridad de la lectura directa.
+
+### Gate FHIR autorizado (2026-10-23)
+
+Gate final de implementación ejecutado por la sesión principal sobre HAPI 8.12 / FHIR R4 4.0.1. El fixture contiene 140 recursos: cinco pacientes, tres episodios abiertos y dos cerrados; los diez pacientes legacy de HAPI se conservaron. Sync produce 15 episodios locales y cada una de las cuentas clínicas probadas ve exactamente tres.
+
+`pnpm app:test`: 357 aprobadas, 1 omitida (ASR env-gated); `pnpm db:test`: 477/477 en 13 archivos; `pnpm functions:check`: formato, lint, typecheck y 30 pruebas aprobados; `FHIR_SYNC_PG_INTEGRATION=1 pnpm fhir:sync:test`: 10 aprobadas, incluida la regresión del delimitador SQL generado; `pnpm db:lint`: sin errores de esquema. `pnpm app:analyze` limpio; `pnpm integration:fhir` pasó con Ana y Matías (tres episodios cada una), foreign 404, anónimo/service-role rechazados, inserción de nota en episodio cerrado rechazada, propósito `record` con timeline vacío y propósito `timeline` con eventos.
+
+La migración de autorización previa al lock verifica permiso antes de revelar existencia. Repositorio DTO FHIR: 16 pruebas; widgets FHIR: 5 pruebas; suites Flutter afectadas: 48 pruebas. Hubo fallos iniciales por aislamiento de tests y expectativa de vista legacy; corregidos y las ejecuciones enfocadas y gates finales pasaron. No se ejecutó `db:reset` después de la integración para preservar los datos locales actuales; el reset se había ejecutado antes del contrato y las cuatro migraciones aditivas se aplicaron por upgrade.
+
+`pnpm app:format:check` pasó con 143 archivos y 0 cambios; `pnpm docs:format:check`, `pnpm docs:lint` (63 archivos, 0 issues) y `git diff --check` pasaron. No se ejecutaron pruebas manuales GUI/dispositivo ni evaluación ASR/calidad. La configuración compose de HAPI está fijada a loopback, pero el runtime legado aún escucha en `0.0.0.0`; RK-031 sigue abierto. Esta evidencia local/sintética no declara producción ni ingesta clínica completa. Ver [EV-INT-005](appendices/evidence-index.md#integración-fhir-autorizada-2026-10-23).

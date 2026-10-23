@@ -39,5 +39,8 @@ policy = "per_worker"
 [functions.create-practitioner]
 verify_jwt = true
 
+[functions.clinical-record]
+verify_jwt = false
+
 [analytics]
 enabled = false

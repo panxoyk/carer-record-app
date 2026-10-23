@@ -1,5 +1,11 @@
 # Flujo de consulta clínica
 
+## Estado vigente (2026-10-23)
+
+El censo filtrado se consulta desde Supabase; la ficha FHIR y la bitácora se solicitan a `clinical-record` con JWT y propósito autorizado (`record` por defecto o `timeline`).
+`record` exige `clinical.census.read` y `clinical.patient.read`, más autorización exacta por `clinical.assigned.read`/membresía/helper; `timeline` añade `clinical.timeline.read`. No hay lectura móvil directa a HAPI.
+Las secciones de transición/historia debajo que indiquen lista directa desde HAPI están obsoletas; ADR-020 define el contrato vigente.
+
 ## Estado y objetivo
 
 Subtarea 4.4 migra Flutter a contratos de lectura por hospitalización. La revisión integrada 4.5 y el gate final 5.2 se completaron para la demo sintética/local; el corte 3+4 se declara integrado solo dentro de ese alcance.
@@ -47,7 +53,7 @@ La ruta `/patients` presenta la lista de pacientes de un servidor FHIR R4 (`Fhir
 
 - `/patients` y `/fhir/` exigen `clinical.census.read` y `clinical.patient.read` en el router. Son guardas de interfaz.
 - `clinical.timeline.read` decide si el toque abre la bitácora o la pantalla de información del paciente.
-- El servidor FHIR no autentica ni aplica RLS: la lista y la ficha no están protegidas por asignación asistencial. Se acepta solo con datos sintéticos y red local (RK-031, Q-AUTH-03). La bitácora sí conserva RLS y asignación vigente.
+- Nota histórica ADR-019: la lectura directa a HAPI carecía de autorización de servidor. El flujo vigente usa `clinical-record` con JWT y autorización por episodio (ADR-020); HAPI sigue sin autenticar, por lo que RK-031 permanece abierto para exposición del runtime.
 
 ### Ubicacion contratos de lectura
 

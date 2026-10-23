@@ -14,6 +14,7 @@
     "db:test": "pnpm exec supabase test db",
     "db:upgrade:test": "python3 scripts/test_iam_upgrade.py",
     "integration:local": "python3 scripts/test_phase34_local_integration.py",
+    "integration:fhir": "python3 scripts/test_fhir_gateway_local.py",
     "security:evidence:phase51": "python3 scripts/check_phase51_security.py",
     "app:run": "./scripts/run-app.sh",
     "app:format": "cd app && fvm dart format lib test",
@@ -24,9 +25,9 @@
     "functions:format": "deno fmt --config supabase/functions/deno.json supabase/functions",
     "functions:format:check": "deno fmt --check --config supabase/functions/deno.json supabase/functions",
     "functions:lint": "deno lint --config supabase/functions/deno.json supabase/functions",
-    "functions:test": "deno test --config supabase/functions/deno.json --lock=supabase/functions/deno.lock --frozen supabase/functions/create-practitioner/handler_test.ts",
+    "functions:test": "deno test --config supabase/functions/deno.json --lock=supabase/functions/deno.lock --frozen supabase/functions/create-practitioner/handler_test.ts supabase/functions/clinical-record/handler_test.ts supabase/functions/clinical-record/fhir_test.ts",
     "functions:types:generate": "pnpm exec supabase gen types typescript --local --schema public > supabase/functions/database.types.ts",
-    "functions:typecheck": "deno check --config supabase/functions/deno.json --lock=supabase/functions/deno.lock --frozen supabase/functions/create-practitioner/index.ts supabase/functions/create-practitioner/handler_test.ts",
+    "functions:typecheck": "deno check --config supabase/functions/deno.json --lock=supabase/functions/deno.lock --frozen supabase/functions/create-practitioner/index.ts supabase/functions/create-practitioner/handler_test.ts supabase/functions/clinical-record/index.ts supabase/functions/clinical-record/handler_test.ts supabase/functions/clinical-record/fhir.ts supabase/functions/clinical-record/fhir_test.ts",
     "functions:check": "pnpm functions:format:check && pnpm functions:lint && pnpm functions:typecheck && pnpm functions:test",
     "docs:format": "prettier --write \"**/*.{md,json,jsonc}\"",
     "docs:format:check": "prettier --check \"**/*.{md,json,jsonc}\"",
@@ -38,7 +39,10 @@
     "fhir:up": "docker compose -f docker/hapi-fhir/docker-compose.yml up -d",
     "fhir:down": "docker compose -f docker/hapi-fhir/docker-compose.yml down",
     "fhir:logs": "docker compose -f docker/hapi-fhir/docker-compose.yml logs -f",
-    "fhir:sync": "node scripts/fhir-sync/generate-sync.mjs --apply"
+    "fhir:gateway:serve": "./scripts/serve-fhir-gateway.sh",
+    "fhir:sync": "node scripts/fhir-sync/generate-sync.mjs --apply",
+    "fhir:demo:assignments": "node scripts/fhir-sync/generate-sync.mjs --demo-assignments",
+    "fhir:sync:test": "node --test scripts/fhir-sync/*.test.mjs"
   },
   "devDependencies": {
     "concurrently": "^10.0.5",

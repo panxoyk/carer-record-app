@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-enum ClinicalReadView { census, demographics, timeline }
+enum ClinicalReadView { census, fhirCensus, demographics, timeline }
 
 enum ClinicalReadOrder { familyName, givenName, occurredAtDescending }
 
@@ -26,12 +26,14 @@ class ClinicalReadQuery {
 
   String get viewName => switch (view) {
     ClinicalReadView.census => 'clinical_census_by_hospitalization',
+    ClinicalReadView.fhirCensus => 'fhir_clinical_census_by_hospitalization',
     ClinicalReadView.demographics =>
       'clinical_patient_demographics_by_hospitalization',
     ClinicalReadView.timeline => 'clinical_timeline_by_hospitalization',
   };
   String get columns => switch (view) {
     ClinicalReadView.census => 'organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date',
+    ClinicalReadView.fhirCensus => 'organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date',
     ClinicalReadView.demographics => 'organization_id,hospitalization_id,patient_id,given_name,family_name,birth_date',
     // ADR-016 withdrew the audio columns: a milestone is the text its author
     // confirmed, and its provenance stays in `context_notes`.
@@ -43,7 +45,7 @@ class ClinicalReadQuery {
   ];
 
   static ClinicalReadQuery census(String organizationId) => ClinicalReadQuery._(
-    view: ClinicalReadView.census,
+    view: ClinicalReadView.fhirCensus,
     organizationId: organizationId,
     order: const [ClinicalReadOrder.familyName, ClinicalReadOrder.givenName],
   );

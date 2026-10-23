@@ -61,6 +61,7 @@ String? permissionRedirectForLocation(IamContext context, String location) {
   }
   if (location.startsWith('/hospitalizations/') &&
       !location.endsWith('/details') &&
+      !location.endsWith('/record') &&
       !context.allows('clinical.timeline.read')) {
     return '/settings';
   }

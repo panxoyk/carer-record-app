@@ -42,12 +42,18 @@ void main() {
         ClinicalReadQuery.demographics(organizationId, episodeId),
         ClinicalReadQuery.timeline(organizationId, episodeId),
       ];
+      expect(queries.first.viewName, 'fhir_clinical_census_by_hospitalization');
+      expect(
+        ClinicalReadQuery.censusEpisode(organizationId, episodeId).viewName,
+        'clinical_census_by_hospitalization',
+      );
       for (final query in queries) {
         expect(query.filterColumns.first, 'organization_id');
         expect(
           query.viewName,
           anyOf(
             'clinical_census_by_hospitalization',
+            'fhir_clinical_census_by_hospitalization',
             'clinical_patient_demographics_by_hospitalization',
             'clinical_timeline_by_hospitalization',
           ),

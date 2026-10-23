@@ -1,5 +1,11 @@
 # Integración FHIR R4
 
+## Estado vigente (2026-10-23)
+
+ADR-020 sustituye la dirección de ADR-019: hay sincronización estructural mínima y lectura en vivo autorizada por pasarela, no lectura directa Flutter→HAPI.
+La sincronización vincula Patient/Encounter/Location y periodos de ubicación; la ficha/timeline se entrega por propósito autorizado, sin exponer JSON FHIR crudo al cliente.
+El diseño amplio descrito abajo sigue siendo objetivo, no entrega completa. Contrato, tablas y límites vigentes: [ADR-020](decisions/adr-020-fhir-server-structural-sync.md).
+
 ## 1. Propósito y estado
 
 Este documento fija la base arquitectónica para ingerir información desde una ficha clínica electrónica (FCE) hacia Carer Record. Es una decisión de diseño, no una declaración de funcionalidad ya implementada. El repositorio solo contiene un punto de entrada reservado para el pipeline, cuya ejecución informa que la ingesta FHIR fue diferida (`scripts/data_pipeline/main.py:1-15`).
@@ -16,6 +22,8 @@ Las decisiones vinculantes son:
 6. `DiagnosticReport`, `DocumentReference` y los restantes recursos no se implementan en el MVP. Su evaluación completa y su justificación se documentan en [Selección de recursos FHIR](appendices/fhir-resource-selection.md).
 
 Actualización 2026-10-21: [ADR-019](decisions/adr-019-lectura-fhir-directa-desde-la-app.md) sustituye en parte esta arquitectura **solo para la demo sintética/local**: la app puede leer un servidor FHIR directamente para listar pacientes y mostrar su ficha (sección 15). El pipeline de ingesta, la identidad compuesta, el raw privado y la idempotencia de las secciones 4 a 10 siguen siendo la arquitectura objetivo para cualquier dato real.
+
+Actualización 2026-10-23: [ADR-020](decisions/adr-020-fhir-server-structural-sync.md) sustituye la dirección de consulta de ADR-019: hay sincronización estructural y pasarela autorizada `clinical-record`; ninguna app móvil accede directamente a HAPI. El corte implementado es mínimo y no equivale a ingesta clínica completa.
 
 ## 2. Marco normativo
 

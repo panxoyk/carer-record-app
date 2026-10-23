@@ -1,5 +1,11 @@
 # Alcance
 
+## Estado vigente (2026-10-23)
+
+ADR-020 entrega el corte mínimo FHIR estructural y de lectura autorizada: sync de vínculos y ficha/timeline en vivo por pasarela; no es ingesta clínica completa.
+Las afirmaciones históricas posteriores sobre lectura directa desde Flutter no describen el estado vigente; ver ADR-019 sustituida y ADR-020.
+El detalle contractual y la evidencia se mantienen en ADR-020 y el índice de evidencia, no se duplican aquí.
+
 ## Regla de interpretación
 
 Este documento distingue la fotografía del baseline, el alcance decidido para el prototipo y la visión de largo plazo. Una capacidad mencionada como futura no se presume implementada; el código y las pruebas deben verificarse directamente.

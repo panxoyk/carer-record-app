@@ -1,5 +1,11 @@
 # Roadmap de entrega vertical
 
+## Estado vigente del corte FHIR (2026-10-23)
+
+Implementado: sync estructural mínimo, censo RLS filtrado, pasarela de ficha/timeline y DTOs Flutter tipados según ADR-020; no representa ingesta completa.
+Pendiente: validación manual de interfaz/recorrido en dispositivo real; el gate final permanece pendiente de la sesión principal.
+Las fases y criterios detallados siguientes describen roadmap, no evidencia de entrega; ver ADR-020 y testing/validación.
+
 ## Enfoque
 
 El roadmap organiza trabajo en cortes verticales demostrables, no en capas técnicas aisladas. Cada corte incorpora autorización, datos, procesamiento, interfaz mínima, observabilidad, pruebas y documentación necesarias para un flujo extremo a extremo. No asigna fechas ni promete despliegue productivo.

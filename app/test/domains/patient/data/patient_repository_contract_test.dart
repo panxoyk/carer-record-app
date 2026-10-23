@@ -36,7 +36,7 @@ void main() {
       final fake = CapturingClinicalReadClient([census]);
       await PatientRepository(fake).list(org);
       final query = fake.queries.single;
-      expect(query.viewName, 'clinical_census_by_hospitalization');
+      expect(query.viewName, 'fhir_clinical_census_by_hospitalization');
       expect(
         query.columns,
         'organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date',

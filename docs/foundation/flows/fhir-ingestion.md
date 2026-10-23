@@ -1,5 +1,11 @@
 # Flujo de ingesta FHIR R4
 
+## Estado vigente (2026-10-23)
+
+El corte entregado no es el pipeline de ingesta clínica completa descrito en este flujo: sincroniza vínculos estructurales mínimos y habilita lectura en vivo autorizada por `clinical-record`.
+La ficha y timeline llegan por pasarela con JWT; el cliente no consulta HAPI directamente. No se escribe de vuelta a FCE.
+Las etapas objetivo siguientes siguen siendo diseño futuro; para el corte actual prevalece [ADR-020](../decisions/adr-020-fhir-server-structural-sync.md).
+
 ## 1. Objetivo
 
 Este flujo operacionaliza la decisión de [Integración FHIR R4](../06-fhir-integration.md). Describe una importación de solo lectura desde una FCE simulada con datos sintéticos hacia el modelo interno. No describe funcionalidad ya presente: `scripts/data_pipeline/main.py:1-15` es todavía un scaffold y no contiene cliente, parser ni persistencia FHIR.
