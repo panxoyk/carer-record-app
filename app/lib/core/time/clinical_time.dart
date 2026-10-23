@@ -24,6 +24,24 @@ String formatClinicalDateTime(DateTime value) {
   return '${_formatDate(localValue)} · ${_twoDigits(localValue.hour)}:${_twoDigits(localValue.minute)}';
 }
 
+String formatClinicalTime(DateTime value) {
+  initializeClinicalTimeZones();
+  final localValue = timezone.TZDateTime.from(
+    value.toUtc(),
+    timezone.getLocation(demoInstitutionTimeZone),
+  );
+  return '${_twoDigits(localValue.hour)}:${_twoDigits(localValue.minute)}';
+}
+
+String formatClinicalDay(DateTime value) {
+  initializeClinicalTimeZones();
+  final localValue = timezone.TZDateTime.from(
+    value.toUtc(),
+    timezone.getLocation(demoInstitutionTimeZone),
+  );
+  return _formatDate(localValue);
+}
+
 /// Formats the lifecycle of an IAM assignment without exposing raw timestamps.
 String formatAssignmentTimeRange({
   required DateTime? validFrom,

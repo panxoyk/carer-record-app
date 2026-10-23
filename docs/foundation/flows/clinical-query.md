@@ -25,9 +25,9 @@ Desde 2026-10-21, en la demo sintética/local, la lista de pacientes de `/patien
 
 - `clinical_census_by_hospitalization`: columnas explícitas `organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date`.
 - `clinical_patient_demographics_by_hospitalization`: columnas explícitas `organization_id,hospitalization_id,patient_id,given_name,family_name,birth_date`.
-- `clinical_timeline_by_hospitalization`: columnas explícitas `organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at`; filtra organización y hospitalización y ordena `occurred_at` descendente.
+- `clinical_timeline_by_hospitalization`: columnas explícitas `organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,author_display_name`; filtra organización y hospitalización y ordena `occurred_at` descendente. `author_display_name` es nullable: las notas confirmadas resuelven el nombre solo si el lector está autorizado para esa nota/episodio; eventos clínicos o perfiles sin nombre resoluble devuelven null.
 
-`patient_id` y `created_at` existen en el contrato de timeline vigente, pero el cliente no los usa para autorizar, correlacionar episodios ni presentar detalles. Ninguna vista expone `payload`, `recorded_by`, RUT, referencia externa o enum de practitioner.
+`patient_id` y `created_at` existen en el contrato de timeline vigente, pero el cliente no los usa para autorizar, correlacionar episodios ni presentar detalles. `author_display_name` se deriva de `context_notes.author_id` → `profiles.auth_user_id` y no almacena nombre duplicado ni expone UUID/correo. Ninguna vista expone `payload`, `recorded_by`, RUT, referencia externa o enum de practitioner.
 
 ## Presentación y autorización
 

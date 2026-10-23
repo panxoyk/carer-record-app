@@ -15,6 +15,7 @@ import '../../fhir_record/domain/authorized_clinical_record.dart';
 import '../../../core/session/authorization_refresh.dart';
 import '../domain/entities/patient.dart';
 import 'patient_providers.dart';
+import 'widgets/timeline_entry_card.dart';
 
 class PatientsScreen extends ConsumerStatefulWidget {
   const PatientsScreen({super.key});
@@ -103,14 +104,18 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
                     children: [
                       for (final item in visible)
                         ListTile(
-                          title: Text(item.fullName),
-                          subtitle: Text(
-                            '${item.hospitalizationStatus == 'discharged'
-                                ? 'Cerrada'
-                                : item.hospitalizationStatus == 'temporarily_absent'
-                                ? 'Ausente temporalmente'
-                                : 'Abierta'} · ${item.locationLabel}',
+                          title: Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: ClinicalSpacing.compact,
+                            runSpacing: ClinicalSpacing.compact,
+                            children: [
+                              Text(item.fullName),
+                              _hospitalizationStatusBadge(
+                                item.hospitalizationStatus,
+                              ),
+                            ],
                           ),
+                          subtitle: Text(_patientLocationLabel(item)),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
                             final canReadTimeline =
@@ -137,6 +142,57 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
   }
 
   void _retry() => ref.invalidate(patientsProvider);
+}
+
+Widget _hospitalizationStatusBadge(String status) => switch (status) {
+  'admitted' => Semantics(
+    label: 'Hospitalización activa',
+    child: ExcludeSemantics(
+      child: SizedBox.square(
+        dimension: 10,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: ClinicalColors.mintDark,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    ),
+  ),
+  'discharged' => const ClinicalBadge(
+    label: 'Solo lectura',
+    color: ClinicalColors.canvas,
+    textColor: ClinicalColors.secondary,
+    icon: Icons.lock_outline,
+  ),
+  'temporarily_absent' => const ClinicalBadge(
+    label: 'Ausencia temporal',
+    color: ClinicalColors.softObservation,
+    textColor: ClinicalColors.observationText,
+  ),
+  'planned' => const ClinicalBadge(
+    label: 'Planificada',
+    color: ClinicalColors.softObservation,
+    textColor: ClinicalColors.observationText,
+  ),
+  'cancelled' => const ClinicalBadge(
+    label: 'Cancelada',
+    color: ClinicalColors.softObservation,
+    textColor: ClinicalColors.observationText,
+  ),
+  _ => const ClinicalBadge(
+    label: 'Estado no confirmado',
+    color: ClinicalColors.softObservation,
+    textColor: ClinicalColors.observationText,
+  ),
+};
+
+String _patientLocationLabel(Patient patient) {
+  final bed = patient.bedLabel?.trim();
+  if (bed == null || bed.isEmpty) return patient.locationLabel;
+  return RegExp(r'^Cama\s+', caseSensitive: false).hasMatch(bed)
+      ? bed
+      : 'Cama $bed';
 }
 
 class _RetryPatients extends StatelessWidget {
@@ -174,6 +230,7 @@ class PatientDetailScreen extends ConsumerWidget {
         !iamState.isLoading &&
         !iamState.hasError &&
         fhir.valueOrNull?.hospitalization.status != 'discharged' &&
+        patient.valueOrNull?.hospitalizationStatus != 'discharged' &&
         (patient.valueOrNull?.hospitalizationStatus == 'admitted' ||
             patient.valueOrNull?.hospitalizationStatus ==
                 'temporarily_absent') &&
@@ -215,9 +272,14 @@ class PatientDetailScreen extends ConsumerWidget {
                   icon: const Icon(Icons.summarize_outlined),
                   onPressed: () {
                     final events = ref
-                        .read(hospitalizationClinicalEventsProvider(hospitalizationId))
+                        .read(
+                          hospitalizationClinicalEventsProvider(
+                            hospitalizationId,
+                          ),
+                        )
                         .valueOrNull;
-                    final notes = events
+                    final notes =
+                        events
                             ?.where((e) => e.isMilestone)
                             .map((e) => e.summary)
                             .where((s) => s.trim().isNotEmpty)
@@ -306,14 +368,14 @@ class _HospitalizationTimeline extends ConsumerWidget {
         children: [
           if (fhir.hasError)
             _IncompleteWarning(
-              'FHIR no disponible. Se muestran solo las notas autorizadas.',
+              'No fue posible cargar la ficha clínica. Se muestran solo las notas disponibles.',
               onRetry: () => ref.invalidate(
                 authorizedClinicalTimelineProvider(patient.hospitalizationId),
               ),
             ),
           if (events.hasError)
             const _IncompleteWarning(
-              'No fue posible cargar las notas de contexto.',
+              'No fue posible cargar la bitácora. Vuelve a intentarlo.',
             ),
           if (!fhir.hasError && !fhir.isLoading && fhir.valueOrNull != null)
             _TimelineHeader(patient: patient, record: fhir.value!),
@@ -347,6 +409,13 @@ class _TimelineHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final fhirPatient = record?.patient;
     final birth = fhirPatient?.birthDate;
+    final closed =
+        patient.hospitalizationStatus == 'discharged' ||
+        record?.hospitalization.status == 'discharged';
+    final active =
+        patient.hospitalizationStatus == 'admitted' &&
+        record?.hospitalization.status == 'admitted';
+    final absent = patient.hospitalizationStatus == 'temporarily_absent';
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         ClinicalSpacing.page,
@@ -355,58 +424,116 @@ class _TimelineHeader extends StatelessWidget {
         ClinicalSpacing.item,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ClinicalCard(
-            padding: const EdgeInsets.all(ClinicalSpacing.card),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  patient.fullName,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                if (fhirPatient?.identifier != null)
-                  Text('Identificador: ${fhirPatient!.identifier}'),
-                if (birth != null)
+          SizedBox(
+            width: double.infinity,
+            child: ClinicalCard(
+              padding: const EdgeInsets.all(ClinicalSpacing.card),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    'Nacimiento: ${_dateOnly(birth)}${_ageAt(birth) == null ? '' : ' · ${_ageAt(birth)} años'}',
+                    patient.fullName,
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-                if (birth == null && patient.birthDate != null)
-                  Text('Nacimiento: ${formatClinicalDate(patient.birthDate)}'),
-                const Divider(),
-                Text(
-                  '${patient.hospitalizationStatus == 'discharged'
-                      ? 'Cerrada'
-                      : patient.hospitalizationStatus == 'temporarily_absent'
-                      ? 'Ausente temporalmente'
-                      : patient.hospitalizationStatus == 'planned'
-                      ? 'Planificada'
-                      : 'Abierta'} · ${patient.locationLabel}',
-                ),
-                if (patient.hospitalizationStatus == 'discharged')
+                  const SizedBox(height: ClinicalSpacing.compact),
+                  if (birth != null)
+                    Text(
+                      '${_ageAt(birth) == null ? '' : 'Edad: ${_ageAt(birth)} años · '}Nacimiento: ${_dateOnly(birth)}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  if (birth == null && patient.birthDate != null)
+                    Text(
+                      'Nacimiento: ${formatClinicalDate(patient.birthDate)}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  const SizedBox(height: ClinicalSpacing.compact),
                   Text(
-                    'Egreso: ${patient.dischargedAt == null ? 'sin fecha registrada' : formatClinicalDate(patient.dischargedAt)}',
+                    'Ingreso: ${formatClinicalDay(patient.admittedAt)}',
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                if (patient.hospitalizationStatus == 'discharged')
-                  const Text('Solo lectura'),
-              ],
-            ),
-          ),
-          const SizedBox(height: ClinicalSpacing.compact),
-          ClinicalCard(
-            child: ListTile(
-              leading: const Icon(Icons.medical_information_outlined),
-              title: const Text('Ver ficha clínica electrónica'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push(
-                '/hospitalizations/${patient.hospitalizationId}/record',
+                  const SizedBox(height: ClinicalSpacing.compact),
+                  Text(
+                    'Ubicación: ${patient.locationLabel.replaceFirst(RegExp(r'^Cama\s+Cama\s+', caseSensitive: false), 'Cama ')}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: ClinicalSpacing.item),
+                  ClinicalBadge(
+                    label: closed
+                        ? 'Cerrada · Solo lectura'
+                        : active
+                        ? 'Hospitalización activa'
+                        : patient.hospitalizationStatus == 'planned'
+                        ? 'Planificada'
+                        : absent
+                        ? 'Ausencia temporal'
+                        : 'Estado no confirmado',
+                    color: active
+                        ? ClinicalColors.softMint
+                        : absent
+                        ? ClinicalColors.softAttention
+                        : ClinicalColors.canvas,
+                    textColor: active
+                        ? ClinicalColors.mintText
+                        : absent
+                        ? ClinicalColors.attention
+                        : ClinicalColors.secondary,
+                    icon: closed
+                        ? Icons.lock_outline_rounded
+                        : active
+                        ? Icons.check_circle_outline_rounded
+                        : absent
+                        ? Icons.schedule_rounded
+                        : null,
+                  ),
+                  if (patient.hospitalizationStatus == 'discharged' ||
+                      record?.hospitalization.status == 'discharged')
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        top: ClinicalSpacing.compact,
+                      ),
+                      child: Text(
+                        'Egreso: ${patient.dischargedAt == null ? 'sin fecha registrada' : formatClinicalDate(patient.dischargedAt)}',
+                      ),
+                    ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: ClinicalSpacing.item,
+                    ),
+                    child: Divider(height: 1),
+                  ),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(ClinicalRadii.control),
+                    onTap: () => context.push(
+                      '/hospitalizations/${patient.hospitalizationId}/record',
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: ClinicalSpacing.compact,
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.medical_information_outlined),
+                          const SizedBox(width: ClinicalSpacing.compact),
+                          Expanded(
+                            child: Text(
+                              'Ver ficha clínica',
+                              style: Theme.of(context).textTheme.bodyLarge,
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
           if (record?.truncated == true || record?.status == 'partial')
             const _IncompleteWarning(
-              'Bitácora incompleta: la fuente FHIR devolvió información parcial.',
+              'La ficha clínica está incompleta: la fuente entregó información parcial.',
             ),
           const Padding(
             padding: EdgeInsets.only(top: ClinicalSpacing.section),
@@ -433,9 +560,9 @@ class _TimelineGroups extends StatelessWidget {
       final key = 'FHIR:${item.id}';
       if (!seen.add(key)) continue;
       final hasDateOnlyPrecision = item.precision == 'date';
-      final widget = _TimelineCard(
+      final widget = TimelineEntryCard(
         title: item.title,
-        source: 'FHIR',
+        category: _resourceLabel(item.resourceType),
         date: item.occurredAt,
         detail: item.detail,
         dateOnly: hasDateOnlyPrecision,
@@ -455,12 +582,15 @@ class _TimelineGroups extends StatelessWidget {
       dated.add((
         time: event.occurredAt,
         id: key,
-        child: _TimelineCard(
+        child: TimelineEntryCard(
           title: event.summary,
-          source: event.isMilestone ? 'Nota de contexto' : 'Evento clínico',
+          category: event.isMilestone
+              ? 'Nota de contexto'
+              : _eventLabel(event.kind),
           date: event.occurredAt.toIso8601String(),
           dateOnly: false,
-          detail: event.isDictatedMilestone ? 'Dictado local' : null,
+          author: event.isMilestone ? event.authorDisplayName : null,
+          isNote: event.isMilestone,
         ),
       ));
     }
@@ -483,7 +613,24 @@ class _TimelineGroups extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (dated.isNotEmpty)
-          for (final row in dated) row.child,
+          for (var index = 0; index < dated.length; index++) ...[
+            if (index == 0 ||
+                formatClinicalDay(dated[index].time) !=
+                    formatClinicalDay(dated[index - 1].time))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  ClinicalSpacing.page,
+                  ClinicalSpacing.section,
+                  ClinicalSpacing.page,
+                  ClinicalSpacing.compact,
+                ),
+                child: Text(
+                  formatClinicalDay(dated[index].time),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            dated[index].child,
+          ],
         if (dateOnlyRows.isNotEmpty) ...[
           const Padding(
             padding: EdgeInsets.fromLTRB(
@@ -513,45 +660,22 @@ class _TimelineGroups extends StatelessWidget {
   }
 }
 
-class _TimelineCard extends StatelessWidget {
-  const _TimelineCard({
-    required this.title,
-    required this.source,
-    required this.date,
-    required this.dateOnly,
-    this.detail,
-  });
-  final String title, source;
-  final String? date, detail;
-  final bool dateOnly;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(
-      ClinicalSpacing.page,
-      0,
-      ClinicalSpacing.page,
-      ClinicalSpacing.compact,
-    ),
-    child: ClinicalCard(
-      padding: const EdgeInsets.all(ClinicalSpacing.card),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.bodyLarge),
-          const SizedBox(height: 4),
-          Text(
-            [
-              source,
-              if (detail?.isNotEmpty == true) detail!,
-              if (date != null)
-                '${dateOnly ? 'Solo fecha · ' : ''}${dateOnly ? _dateOnly(date!) : formatClinicalDateTime(DateTime.parse(date!))}',
-            ].join(' · '),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+String _resourceLabel(String type) => switch (type) {
+  'Observation' => 'Observación',
+  'DiagnosticReport' => 'Informe',
+  'MedicationRequest' || 'MedicationStatement' => 'Medicación',
+  'Condition' => 'Condición',
+  'Procedure' => 'Procedimiento',
+  'AllergyIntolerance' => 'Alergia',
+  _ => 'Registro clínico',
+};
+
+String _eventLabel(String kind) => switch (kind) {
+  'observation' => 'Observación',
+  'condition' => 'Condición',
+  'medication' => 'Medicación',
+  _ => 'Registro clínico',
+};
 
 class _IncompleteWarning extends StatelessWidget {
   const _IncompleteWarning(this.message, {this.onRetry});
@@ -568,7 +692,7 @@ class _IncompleteWarning extends StatelessWidget {
       children: [
         Text(message, style: const TextStyle(color: ClinicalColors.attention)),
         if (onRetry != null)
-          TextButton(onPressed: onRetry, child: const Text('Reintentar FHIR')),
+          TextButton(onPressed: onRetry, child: const Text('Reintentar')),
       ],
     ),
   );

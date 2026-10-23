@@ -69,32 +69,67 @@ class _RecordBody extends StatelessWidget {
                 record.patient.name,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
-              if (record.patient.identifier != null)
-                Text('Identificador: ${record.patient.identifier}'),
-              if (record.patient.birthDate != null)
-                Text(
-                  'Nacimiento: ${_displayDate(record.patient.birthDate!, true)}${_age(record.patient.birthDate!) == null ? '' : ' · ${_age(record.patient.birthDate!)} años'}',
-                ),
-              if (record.patient.gender != null)
-                Text('Sexo: ${record.patient.gender}'),
+              const SizedBox(height: ClinicalSpacing.item),
+              Wrap(
+                spacing: ClinicalSpacing.compact,
+                runSpacing: ClinicalSpacing.compact,
+                children: [
+                  if (record.patient.identifier != null)
+                    _RecordMeta('Identificador', record.patient.identifier!),
+                  if (record.patient.birthDate != null)
+                    _RecordMeta(
+                      'Nacimiento',
+                      '${_displayDate(record.patient.birthDate!, true)}${_age(record.patient.birthDate!) == null ? '' : ' · ${_age(record.patient.birthDate!)} años'}',
+                    ),
+                  if (record.patient.gender != null)
+                    _RecordMeta('Sexo', _genderLabel(record.patient.gender!)),
+                ],
+              ),
               const Divider(),
-              Text(
-                'Hospitalización: ${discharged
-                    ? 'Cerrada'
-                    : episode.status == 'temporarily_absent'
-                    ? 'Ausente temporalmente'
-                    : episode.status == 'planned'
-                    ? 'Planificada'
-                    : 'Abierta'}',
+              Wrap(
+                spacing: ClinicalSpacing.compact,
+                runSpacing: ClinicalSpacing.compact,
+                children: [
+                  ClinicalBadge(
+                    label: discharged
+                        ? 'Cerrada'
+                        : episode.status == 'temporarily_absent'
+                        ? 'Ausente temporalmente'
+                        : episode.status == 'planned'
+                        ? 'Planificada'
+                        : 'Abierta',
+                    color: ClinicalColors.softMint,
+                    textColor: ClinicalColors.mintBadgeText,
+                    icon: Icons.local_hospital_outlined,
+                  ),
+                  _RecordMeta(
+                    'Ubicación',
+                    [episode.unit, episode.bed]
+                            .whereType<String>()
+                            .where((v) => v.isNotEmpty)
+                            .join(' · ')
+                            .isEmpty
+                        ? 'Ubicación no registrada'
+                        : [episode.unit, episode.bed]
+                              .whereType<String>()
+                              .where((v) => v.isNotEmpty)
+                              .join(' · '),
+                  ),
+                  if (episode.dischargedAt != null)
+                    _RecordMeta(
+                      'Egreso',
+                      formatClinicalDateTime(
+                        DateTime.parse(episode.dischargedAt!),
+                      ),
+                    ),
+                  if (discharged)
+                    const ClinicalBadge(
+                      label: 'Solo lectura',
+                      color: ClinicalColors.softObservation,
+                      textColor: ClinicalColors.observationText,
+                    ),
+                ],
               ),
-              Text(
-                'Ubicación: ${[episode.unit, episode.bed].whereType<String>().where((v) => v.isNotEmpty).join(' · ').isEmpty ? 'Ubicación no registrada' : [episode.unit, episode.bed].whereType<String>().where((v) => v.isNotEmpty).join(' · ')}',
-              ),
-              if (episode.dischargedAt != null)
-                Text(
-                  'Egreso: ${formatClinicalDateTime(DateTime.parse(episode.dischargedAt!))}',
-                ),
-              if (discharged) const Text('Solo lectura'),
             ],
           ),
         ),
@@ -108,21 +143,31 @@ class _RecordBody extends StatelessWidget {
             padding: const EdgeInsets.only(top: ClinicalSpacing.item),
             child: ClinicalCard(
               child: ExpansionTile(
-                title: Text(
-                  '${labels[section.type] ?? section.type} (${section.entries.length})',
-                ),
-                children: [
-                  for (final entry in section.entries)
-                    ListTile(
-                      title: Text(entry.title),
-                      subtitle: Text(
-                        [
-                          if (entry.detail?.isNotEmpty == true) entry.detail!,
-                          if (entry.date != null)
-                            '${entry.isDateOnly ? 'Solo fecha' : ''}${entry.isDateOnly ? ' · ' : ''}${_displayDate(entry.date!, entry.isDateOnly)}',
-                        ].join(' · '),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        labels[section.type] ?? section.type,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
                     ),
+                    ClinicalBadge(
+                      label: '${section.entries.length}',
+                      color: _sectionColor(section.type).$1,
+                      textColor: _sectionColor(section.type).$2,
+                    ),
+                  ],
+                ),
+                children: [
+                  for (var i = 0; i < section.entries.length; i++) ...[
+                    if (i > 0)
+                      const Divider(
+                        indent: ClinicalSpacing.card,
+                        endIndent: ClinicalSpacing.card,
+                      ),
+                    _RecordEntryTile(entry: section.entries[i]),
+                  ],
                 ],
               ),
             ),
@@ -136,6 +181,91 @@ class _RecordBody extends StatelessWidget {
     );
   }
 }
+
+class _RecordMeta extends StatelessWidget {
+  const _RecordMeta(this.label, this.value);
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: Theme.of(context).textTheme.labelMedium),
+      Text(value, style: Theme.of(context).textTheme.bodyMedium),
+    ],
+  );
+}
+
+class _RecordEntryTile extends StatelessWidget {
+  const _RecordEntryTile({required this.entry});
+  final ClinicalRecordEntry entry;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(
+      horizontal: ClinicalSpacing.card,
+      vertical: ClinicalSpacing.item,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          entry.title,
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        if (entry.detail?.isNotEmpty == true) ...[
+          const SizedBox(height: ClinicalSpacing.compact),
+          Text(entry.detail!, style: Theme.of(context).textTheme.bodyLarge),
+        ],
+        if (entry.date != null) ...[
+          const SizedBox(height: ClinicalSpacing.compact),
+          Row(
+            children: [
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: ClinicalSpacing.compact),
+              Expanded(
+                child: Text(
+                  '${entry.isDateOnly ? 'Solo fecha · ' : ''}${_displayDate(entry.date!, entry.isDateOnly)}',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+String _genderLabel(String gender) => switch (gender) {
+  'male' => 'Masculino',
+  'female' => 'Femenino',
+  'other' => 'Otro',
+  'unknown' => 'No informado',
+  _ => gender,
+};
+
+(Color, Color) _sectionColor(String type) => switch (type) {
+  'conditions' => (ClinicalColors.softCondition, ClinicalColors.conditionText),
+  'observations' => (
+    ClinicalColors.softObservation,
+    ClinicalColors.observationText,
+  ),
+  'medications' => (
+    ClinicalColors.softMedication,
+    ClinicalColors.medicationText,
+  ),
+  'procedures' => (ClinicalColors.softProcedure, ClinicalColors.procedureText),
+  'reports' => (ClinicalColors.softReport, ClinicalColors.reportText),
+  'allergies' => (ClinicalColors.softAttention, ClinicalColors.attention),
+  _ => (ClinicalColors.canvas, ClinicalColors.secondary),
+};
 
 int? _age(String raw) {
   final parts = raw.split('-').map(int.tryParse).toList();

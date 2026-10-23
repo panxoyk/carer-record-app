@@ -65,16 +65,17 @@ final allowedIam = IamContext(
 
 AuthorizedClinicalRecord fixture({
   String status = 'complete',
+  String? birthDate = '1985-04-02',
   List<ClinicalTimelineItem>? timeline,
 }) => AuthorizedClinicalRecord(
   status: status,
   truncated: false,
   freshness: const ClinicalRecordFreshness(retrievedAt: '2026-10-23T12:00:00Z'),
-  patient: const ClinicalRecordPatient(
+  patient: ClinicalRecordPatient(
     id: patientId,
     name: 'Ana FHIR Prueba',
     identifier: 'SYN-0001',
-    birthDate: '1985-04-02',
+    birthDate: birthDate,
   ),
   hospitalization: const ClinicalHospitalization(
     id: episodeId,
@@ -135,6 +136,7 @@ Widget testApp({
   Object? timelineError,
   bool timelineDenied = false,
   AuthorizedClinicalRecord? record,
+  bool recordDenied = false,
   List<ClinicalEvent> events = const [],
 }) {
   final router = GoRouter(
@@ -165,8 +167,9 @@ Widget testApp({
         if (timelineDenied) return null;
         return timeline ?? fixture();
       }),
-      authorizedClinicalRecordProvider(episodeId)
-          .overrideWith((ref) async => record ?? fixture()),
+      authorizedClinicalRecordProvider(
+        episodeId,
+      ).overrideWith((ref) async => recordDenied ? null : record ?? fixture()),
     ],
     child: MaterialApp.router(
       routerConfig: router,
@@ -182,20 +185,79 @@ void main() {
       await tester.pumpWidget(testApp());
       await tester.pumpAndSettle();
       expect(find.text('Ana Prueba'), findsOneWidget);
-      expect(find.text('Ver ficha clínica electrónica'), findsOneWidget);
-      await tester.tap(find.text('Ver ficha clínica electrónica'));
+      expect(find.text('Ver ficha clínica'), findsOneWidget);
+      expect(find.text('Ingreso: 19-10-2026'), findsOneWidget);
+      expect(find.text('Ubicación: Cama 12'), findsOneWidget);
+      expect(find.textContaining('Cama Cama'), findsNothing);
+      expect(find.textContaining('RUT'), findsNothing);
+      final headerCard = tester.getRect(find.byType(ClinicalCard).first);
+      expect(
+        headerCard.width,
+        closeTo(
+          tester.view.physicalSize.width / tester.view.devicePixelRatio -
+              2 * ClinicalSpacing.page,
+          1,
+        ),
+      );
+      await tester.tap(find.text('Ver ficha clínica'));
       await tester.pumpAndSettle();
       expect(find.text('Ana FHIR Prueba'), findsOneWidget);
-      expect(find.text('Identificador: SYN-0001'), findsOneWidget);
-      expect(find.textContaining('Nacimiento: 02-04-1985'), findsOneWidget);
-      expect(find.text('Condiciones (1)'), findsOneWidget);
-      expect(find.text('Observaciones (1)'), findsOneWidget);
-      await tester.ensureVisible(find.text('Observaciones (1)'));
-      await tester.tap(find.text('Observaciones (1)'));
+      expect(find.text('Identificador'), findsOneWidget);
+      expect(find.text('SYN-0001'), findsOneWidget);
+      expect(find.textContaining('02-04-1985'), findsOneWidget);
+      expect(find.text('Condiciones'), findsOneWidget);
+      expect(find.text('Observaciones'), findsOneWidget);
+      await tester.ensureVisible(find.text('Observaciones'));
+      await tester.tap(find.text('Observaciones'));
       await tester.pumpAndSettle();
       expect(find.textContaining('120 mmHg'), findsOneWidget);
     },
   );
+
+  testWidgets('birth fallback stays civil', (tester) async {
+    final patient = Patient(
+      organizationId: organizationId,
+      hospitalizationId: episodeId,
+      patientId: patientId,
+      hospitalizationStatus: 'admitted',
+      admittedAt: DateTime.utc(2026, 10, 20),
+      dischargedAt: null,
+      unitId: null,
+      bedLabel: '12',
+      givenName: 'Ana',
+      familyName: 'Prueba',
+      birthDate: DateTime(1978, 9, 15),
+    );
+    await tester.pumpWidget(
+      testApp(patient: patient, timeline: fixture(birthDate: null)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Nacimiento: 15-09-1978'), findsOneWidget);
+    expect(find.textContaining('00:00'), findsNothing);
+    expect(find.text('Ubicación: Cama 12'), findsOneWidget);
+  });
+
+  testWidgets('location retains one bed prefix when label already has one', (
+    tester,
+  ) async {
+    final prefixedPatient = Patient(
+      organizationId: organizationId,
+      hospitalizationId: episodeId,
+      patientId: patientId,
+      hospitalizationStatus: 'admitted',
+      admittedAt: DateTime.utc(2026, 10, 20),
+      dischargedAt: null,
+      unitId: null,
+      bedLabel: 'Cama sintética 08',
+      givenName: 'Ana',
+      familyName: 'Prueba',
+      birthDate: DateTime(1978, 9, 15),
+    );
+    await tester.pumpWidget(testApp(patient: prefixedPatient));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Cama sintética 08'), findsOneWidget);
+    expect(find.textContaining('Cama Cama'), findsNothing);
+  });
 
   testWidgets(
     'closed hospitalization is read only and has no add-note action',
@@ -220,7 +282,7 @@ void main() {
         testApp(patient: closedPatient, timeline: closedRecord),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Solo lectura'), findsOneWidget);
+      expect(find.text('Cerrada · Solo lectura'), findsOneWidget);
       expect(find.textContaining('Egreso:'), findsOneWidget);
       expect(find.byIcon(Icons.add_task_outlined), findsNothing);
     },
@@ -247,12 +309,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text(
-          'FHIR no disponible. Se muestran solo las notas autorizadas.',
+          'No fue posible cargar la ficha clínica. Se muestran solo las notas disponibles.',
         ),
         findsOneWidget,
       );
       expect(find.text('Nota confirmada'), findsOneWidget);
       expect(find.textContaining('Nota de contexto'), findsOneWidget);
+      expect(find.textContaining('FHIR'), findsNothing);
+      expect(find.textContaining('Dictado local'), findsNothing);
     },
   );
 
@@ -277,4 +341,255 @@ void main() {
       expect(find.textContaining('00:00'), findsNothing);
     },
   );
+
+  testWidgets(
+    'active badge is descriptive and note permission remains separate',
+    (tester) async {
+      await tester.pumpWidget(testApp());
+      await tester.pumpAndSettle();
+      expect(find.text('Hospitalización activa'), findsOneWidget);
+      expect(find.byIcon(Icons.add_task_outlined), findsOneWidget);
+    },
+  );
+
+  testWidgets('closed source wins a status discrepancy and hides note action', (
+    tester,
+  ) async {
+    final closed = fixture();
+    final discrepant = AuthorizedClinicalRecord(
+      status: closed.status,
+      truncated: false,
+      freshness: closed.freshness,
+      patient: closed.patient,
+      hospitalization: const ClinicalHospitalization(
+        id: episodeId,
+        status: 'discharged',
+        admittedAt: '2026-10-20T08:00:00Z',
+        dischargedAt: '2026-10-22T08:00:00Z',
+      ),
+      sections: const [],
+      timeline: const [],
+    );
+    await tester.pumpWidget(testApp(timeline: discrepant));
+    await tester.pumpAndSettle();
+    expect(find.text('Cerrada · Solo lectura'), findsOneWidget);
+    expect(find.text('Hospitalización activa'), findsNothing);
+    expect(find.byIcon(Icons.add_task_outlined), findsNothing);
+  });
+
+  testWidgets(
+    'timeline groups instants by institutional date and preserves date precision',
+    (tester) async {
+      const timeline = [
+        ClinicalTimelineItem(
+          id: 'late',
+          resourceType: 'Observation',
+          title: 'Cerca de medianoche',
+          occurredAt: '2026-10-23T02:30:00Z',
+        ),
+        ClinicalTimelineItem(
+          id: 'early',
+          resourceType: 'Observation',
+          title: 'Tras medianoche',
+          occurredAt: '2026-10-23T03:30:00Z',
+        ),
+        ClinicalTimelineItem(
+          id: 'day',
+          resourceType: 'Condition',
+          title: 'Solo día',
+          occurredAt: '2026-10-22',
+          precision: 'date',
+        ),
+        ClinicalTimelineItem(
+          id: 'none',
+          resourceType: 'DiagnosticReport',
+          title: 'Sin fecha',
+        ),
+      ];
+      await tester.pumpWidget(testApp(timeline: fixture(timeline: timeline)));
+      await tester.pumpAndSettle();
+      expect(find.text('22-10-2026'), findsOneWidget);
+      expect(find.text('23-10-2026'), findsOneWidget);
+      expect(find.text('EVENTOS CON FECHA SIN HORA'), findsOneWidget);
+      expect(find.text('SIN FECHA'), findsOneWidget);
+      expect(find.textContaining('Solo fecha · 22-10-2026'), findsOneWidget);
+      expect(find.textContaining('23:30'), findsOneWidget);
+      expect(find.textContaining('00:30'), findsOneWidget);
+    },
+  );
+
+  testWidgets('long clinical content and name fit 320px at 200 percent text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final longNamePatient = Patient(
+      organizationId: organizationId,
+      hospitalizationId: episodeId,
+      patientId: patientId,
+      hospitalizationStatus: 'admitted',
+      admittedAt: DateTime.utc(2026),
+      dischargedAt: null,
+      unitId: null,
+      bedLabel: null,
+      givenName: 'Nombre sintético extraordinariamente extenso',
+      familyName: 'Apellido compuesto de prueba prolongado',
+      birthDate: DateTime(1985),
+    );
+    final longNote = ClinicalEvent(
+      organizationId: organizationId,
+      hospitalizationId: episodeId,
+      id: 'long-note',
+      patientId: patientId,
+      kind: 'milestone_text',
+      occurredAt: DateTime.utc(2026, 10, 23),
+      createdAt: DateTime.utc(2026, 10, 23),
+      summary: 'Contenido sintético largo ' * 20,
+      sourceKind: 'context_note',
+    );
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+        child: testApp(patient: longNamePatient, events: [longNote]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -1500));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Contenido sintético largo'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('record entries preserve details, references, dates and expand', (
+    tester,
+  ) async {
+    final base = fixture();
+    final fullRecord = AuthorizedClinicalRecord(
+      status: 'partial',
+      truncated: true,
+      freshness: base.freshness,
+      patient: const ClinicalRecordPatient(
+        id: patientId,
+        name: 'Ana FHIR Prueba',
+        identifier: 'SYN-0001',
+        birthDate: '1985-04-02',
+        gender: 'female',
+      ),
+      hospitalization: base.hospitalization,
+      sections: const [
+        ClinicalRecordSection(
+          type: 'observations',
+          entries: [
+            ClinicalRecordEntry(
+              id: 'obs-1',
+              title: 'Resultado completo con referencia',
+              sourceKind: 'Observation',
+              isDateOnly: false,
+              detail: 'Valor íntegro · Referencia: 10–20\nSegunda línea',
+              date: '2026-10-23T10:30:00Z',
+            ),
+            ClinicalRecordEntry(
+              id: 'obs-2',
+              title: 'Registro de solo fecha',
+              sourceKind: 'Observation',
+              isDateOnly: true,
+              detail: 'Detalle íntegro',
+              date: '2025-04-03',
+            ),
+          ],
+        ),
+      ],
+      timeline: const [],
+    );
+    await tester.pumpWidget(testApp(record: fullRecord));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ver ficha clínica'));
+    await tester.pumpAndSettle();
+    expect(find.text('La ficha puede estar incompleta.'), findsOneWidget);
+    expect(find.text('Femenino'), findsOneWidget);
+    expect(find.text('Observaciones'), findsOneWidget);
+    await tester.tap(find.text('Observaciones'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Valor íntegro · Referencia: 10–20\nSegunda línea'),
+      findsOneWidget,
+    );
+    expect(find.text('23-10-2026 · 07:30'), findsOneWidget);
+    expect(find.text('Solo fecha · 03-04-2025'), findsOneWidget);
+    expect(find.byIcon(Icons.calendar_today_outlined), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('denied FCE shows neutral state without patient data', (
+    tester,
+  ) async {
+    await tester.pumpWidget(testApp(recordDenied: true));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ver ficha clínica'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('No se pudo verificar el acceso. Vuelve a cargar la pantalla.'),
+      findsOneWidget,
+    );
+    expect(find.text('Ana FHIR Prueba'), findsNothing);
+  });
+
+  testWidgets('record content fits 320px at 200 percent text scale', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final base = fixture();
+    final longRecord = AuthorizedClinicalRecord(
+      status: base.status,
+      truncated: base.truncated,
+      freshness: base.freshness,
+      patient: const ClinicalRecordPatient(
+        id: patientId,
+        name: 'Nombre de paciente sintético extenso',
+        identifier: 'IDENTIFICADOR-SINTETICO-LARGO-001',
+        gender: 'unknown',
+      ),
+      hospitalization: base.hospitalization,
+      sections: [
+        ClinicalRecordSection(
+          type: 'reports',
+          entries: [
+            ClinicalRecordEntry(
+              id: 'report-1',
+              title: 'Título sintético extenso ' * 4,
+              sourceKind: 'DiagnosticReport',
+              isDateOnly: false,
+              detail: 'Detalle clínico sintético extenso ' * 18,
+              date: '2026-10-23T10:30:00Z',
+            ),
+          ],
+        ),
+      ],
+      timeline: const [],
+    );
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+        child: testApp(record: longRecord),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ver ficha clínica'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -700));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Informes'));
+    await tester.pumpAndSettle();
+    expect(find.text('No informado'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

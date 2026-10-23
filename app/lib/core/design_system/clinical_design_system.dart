@@ -96,19 +96,63 @@ class ClinicalCard extends StatelessWidget {
     required this.child,
     this.padding,
     this.radius = 16,
+    this.backgroundColor = Colors.white,
     super.key,
   });
 
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final double radius;
+  final Color backgroundColor;
 
   @override
   Widget build(BuildContext context) => Material(
-    color: Colors.white,
+    color: backgroundColor,
     clipBehavior: Clip.antiAlias,
     borderRadius: BorderRadius.circular(radius),
     child: padding == null ? child : Padding(padding: padding!, child: child),
+  );
+}
+
+class ClinicalBadge extends StatelessWidget {
+  const ClinicalBadge({
+    required this.label,
+    required this.color,
+    required this.textColor,
+    this.icon,
+    super.key,
+  });
+  final String label;
+  final Color color;
+  final Color textColor;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: ClinicalSpacing.compact,
+      vertical: ClinicalSpacing.compact,
+    ),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(ClinicalRadii.pill),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 16, color: textColor),
+          const SizedBox(width: ClinicalSpacing.compact),
+        ],
+        Flexible(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium
+                ?.copyWith(color: textColor, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
+    ),
   );
 }
 

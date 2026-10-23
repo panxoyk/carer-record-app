@@ -883,6 +883,18 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Ana Prueba'), findsOneWidget);
+    expect(find.text('Activa'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == 'Hospitalización activa',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(DecoratedBox), findsOneWidget);
+    expect(find.text('Abierta'), findsNothing);
+    expect(find.text('Cerrada'), findsNothing);
     expect(find.textContaining('Cama 12'), findsOneWidget);
     expect(find.textContaining('secret-unit-uuid'), findsNothing);
     expect(find.textContaining(patientId), findsNothing);
@@ -892,6 +904,76 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Ana Prueba'), findsNothing);
   });
+
+  testWidgets(
+    'census shows discharged and unknown statuses without dimming rows',
+    (tester) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      final discharged = Patient(
+        organizationId: orgId,
+        hospitalizationId: 'discharged-episode',
+        patientId: patientId,
+        hospitalizationStatus: 'discharged',
+        admittedAt: DateTime.utc(2026),
+        dischargedAt: DateTime.utc(2026, 2),
+        unitId: null,
+        bedLabel: 'Cama 12',
+        givenName: 'Nombre muy largo para una fila estrecha',
+        familyName: 'Paciente egresado',
+        birthDate: null,
+      );
+      final unknown = Patient(
+        organizationId: orgId,
+        hospitalizationId: 'unknown-episode',
+        patientId: patientId,
+        hospitalizationStatus: 'future_status',
+        admittedAt: DateTime.utc(2026),
+        dischargedAt: null,
+        unitId: null,
+        bedLabel: null,
+        givenName: 'Paciente',
+        familyName: 'Estado desconocido',
+        birthDate: null,
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            patientsProvider.overrideWith((ref) async => [discharged, unknown]),
+            iamContextProvider.overrideWith((ref) async => _iam(const {})),
+          ],
+          child: MaterialApp(
+            theme: ClinicalTheme.build(),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
+            home: const PatientsScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Solo lectura'), findsOneWidget);
+      expect(find.byIcon(Icons.lock_outline), findsOneWidget);
+      expect(find.text('Cerrada'), findsNothing);
+      await tester.drag(find.byType(ListView).last, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(find.text('Estado no confirmado'), findsOneWidget);
+      expect(find.text('Cama Cama 12'), findsNothing);
+      expect(find.text('Cama 12'), findsOneWidget);
+      expect(find.byIcon(Icons.chevron_right), findsNWidgets(2));
+      final rowText = tester.widget<Text>(
+        find.text('Nombre muy largo para una fila estrecha Paciente egresado'),
+      );
+      expect(rowText.style?.color, isNot(ClinicalColors.secondary));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('census loading state is visible', (tester) async {
     final pending = Completer<List<Patient>>();
@@ -1121,7 +1203,7 @@ void main() {
     pending.completeError(StateError('synthetic'));
     await tester.pumpAndSettle();
     expect(
-      find.text('No fue posible cargar las notas de contexto.'),
+      find.text('No fue posible cargar la bitácora. Vuelve a intentarlo.'),
       findsOneWidget,
     );
     expect(find.text('summary-anterior'), findsNothing);
@@ -1277,6 +1359,7 @@ void main() {
       createdAt: DateTime.utc(2026),
       summary: 'Texto que la autora confirmó tras el dictado local.',
       sourceKind: 'context_note',
+      authorDisplayName: 'Profesional sintético',
     );
     await tester.pumpWidget(
       screen(const PatientDetailScreen(hospitalizationId: hospitalizationId), [
@@ -1291,7 +1374,8 @@ void main() {
       find.text('Texto que la autora confirmó tras el dictado local.'),
       findsOneWidget,
     );
-    expect(find.textContaining('Dictado local'), findsOneWidget);
+    expect(find.textContaining('Dictado local'), findsNothing);
+    expect(find.text('Registrada por Profesional sintético'), findsOneWidget);
     expect(find.byIcon(Icons.play_arrow), findsNothing);
     expect(find.textContaining('Nota de contexto'), findsOneWidget);
   });
