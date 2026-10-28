@@ -1945,6 +1945,19 @@ class _FakeIamRepository implements IamRepository {
     replayed: false,
   );
 
+  @override
+  Future<AdminOperationResult> createRole({
+    required String organizationId,
+    required String name,
+    required String description,
+    required AdminOperationAttempt attempt,
+  }) async => const AdminOperationResult(
+    success: true,
+    code: 'role_created',
+    targetId: null,
+    replayed: false,
+  );
+
   void _recordAttempt(String operation, AdminOperationAttempt attempt) {
     (attempts[operation] ??= []).add(attempt);
     if (failNextOperations.remove(operation)) {

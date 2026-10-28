@@ -183,6 +183,13 @@ class _Administration implements IamAdministration {
     required AdminOperationAttempt attempt,
   }) => _result(attempt);
   @override
+  Future<AdminOperationResult> createRole({
+    required String organizationId,
+    required String name,
+    required String description,
+    required AdminOperationAttempt attempt,
+  }) => _result(attempt);
+  @override
   Future<void> createMember({
     required String organizationId,
     required String email,
