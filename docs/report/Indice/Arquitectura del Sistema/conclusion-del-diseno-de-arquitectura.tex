@@ -1,0 +1,5 @@
+\subsection{Conclusión del diseño de arquitectura}
+
+La arquitectura implementada separa presentación, negocio, IA, interoperabilidad, identidad, persistencia y archivos. Flutter y FastAPI mantienen el flujo de interacción y negocio, Supabase centraliza autenticación, datos y almacenamiento privado, y los adaptadores FHIR/HL7v2 permiten simular la ingesta desde sistemas hospitalarios.
+
+El diseño establece barreras explícitas: M2 precede a cualquier LLM externo, M4 impide la publicación automática y M5 junto con M6 controlan acceso y trazabilidad. La simulación permite verificar la integración sin datos ni infraestructura hospitalaria real. Esta estructura permite concentrar el trabajo restante en completar y validar las funciones clínicas del prototipo, sin requerir un cambio de infraestructura.

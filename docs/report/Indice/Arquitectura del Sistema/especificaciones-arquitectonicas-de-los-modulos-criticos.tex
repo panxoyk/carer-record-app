@@ -1,0 +1,117 @@
+\subsection{Especificaciones de los módulos críticos}
+
+\subsubsection*{M1: Captura e ingesta}
+
+La Tabla~\ref{tab:modulo_m1} especifica el punto de entrada de eventos clínicos.
+
+\begin{table}[H]
+    \caption{Especificación arquitectónica de M1}
+    \label{tab:modulo_m1}
+    \begin{tabularx}{\textwidth}{|l|X|}
+        \hline
+        \textbf{Atributo} & \textbf{Descripción} \\
+        \hline
+        Propósito & Recibir texto o audio desde Flutter e importar recursos clínicos sintéticos desde un sistema hospitalario simulado. \\
+        \hline
+        Flujo objetivo & Validar sesión y caso para la captura asistencial; validar y normalizar recursos FHIR o mensajes HL7v2 para la ingesta simulada; y asignar metadatos antes de persistir cada resultado. \\
+        \hline
+        Dependencias & Flutter, FastAPI, servicio ASR, adaptadores FHIR/HL7v2, PostgreSQL y Storage. \\
+        \hline
+        Restricciones & Validar formato y tamaño del audio, rechazar recursos clínicos inválidos, utilizar solo datos sintéticos y no confiar en identificadores enviados sin validación. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+M1 admite transcripción local o remota sin alterar el contrato del evento. Los audios remotos se conservan en Storage y la identidad del autor se obtiene de la sesión validada por FastAPI. En el flujo de interoperabilidad, los adaptadores transforman datos sintéticos al modelo interno antes de dejarlos disponibles para consulta.
+
+\subsubsection*{M2: Privacidad y desidentificación}
+
+La Tabla~\ref{tab:modulo_m2} define la barrera previa al procesamiento generativo.
+
+\begin{table}[H]
+    \caption{Especificación arquitectónica de M2}
+    \label{tab:modulo_m2}
+    \begin{tabularx}{\textwidth}{|l|X|}
+        \hline
+        \textbf{Atributo} & \textbf{Descripción} \\
+        \hline
+        Propósito & Detectar y reemplazar IPS antes de enviar texto a un LLM externo. \\
+        \hline
+        Flujo objetivo & Aplicar reglas y NER, conservar la relación de sustitución en un entorno protegido y entregar solo texto sanitizado a M3. \\
+        \hline
+        Dependencias & M1, motor NER y políticas institucionales de tratamiento de datos. \\
+        \hline
+        Restricciones & Medir precisión y exhaustividad con datos sintéticos antes de procesar información real. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+La separación de M2 evita que el proveedor generativo reciba identificadores innecesarios. Su procesamiento combina reglas y NER antes de entregar texto sanitizado a M3~\cite{nlp_ner_privacy}.
+
+\subsubsection*{M3: Procesamiento cognitivo}
+
+La Tabla~\ref{tab:modulo_m3} resume las restricciones aplicables a la clasificación y síntesis.
+
+\begin{table}[H]
+    \caption{Especificación arquitectónica de M3}
+    \label{tab:modulo_m3}
+    \begin{tabularx}{\textwidth}{|l|X|}
+        \hline
+        \textbf{Atributo} & \textbf{Descripción} \\
+        \hline
+        Propósito & Sugerir categorías y producir borradores de evolución a partir de eventos del turno. \\
+        \hline
+        Flujo objetivo & Recibir texto sanitizado, aplicar instrucciones acotadas y devolver una propuesta identificada como contenido generado. \\
+        \hline
+        Dependencias & M2, servicio LLM y catálogo de categorías. \\
+        \hline
+        Restricciones & No diagnosticar, no completar antecedentes ausentes y no publicar resultados automáticamente. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+M3 opera como asistencia y no como fuente autónoma de verdad clínica. La literatura evidencia errores residuales en la generación de resúmenes, lo que obliga a mantener revisión experta~\cite{rust2025}.
+
+\subsubsection*{M4: Gobernanza y validación clínica}
+
+La Tabla~\ref{tab:modulo_m4} describe el control HITL del ciclo de vida de cada evento.
+
+\begin{table}[H]
+    \caption{Especificación arquitectónica de M4}
+    \label{tab:modulo_m4}
+    \begin{tabularx}{\textwidth}{|l|X|}
+        \hline
+        \textbf{Atributo} & \textbf{Descripción} \\
+        \hline
+        Propósito & Exigir revisión, corrección y confirmación antes de consolidar contenido generado por IA. \\
+        \hline
+        Flujo objetivo & Recibir borrador, presentarlo como editable, registrar la decisión del profesional y publicar solo tras aprobación. \\
+        \hline
+        Dependencias & M3, M5, M6 y aplicación Flutter. \\
+        \hline
+        Restricciones & Impedir autoaprobación y distinguir claramente contenido preliminar de contenido confirmado. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+El flujo HITL mantiene la responsabilidad en el profesional y permite corregir errores previsibles de la IA antes de integrar un evento a la bitácora~\cite{lazaros2026}.
+
+\subsubsection*{M5 y M6: Identidad y auditoría}
+
+La Tabla~\ref{tab:modulos_m5_m6} reúne las responsabilidades transversales de control de acceso y trazabilidad.
+
+\begin{table}[H]
+    \caption{Especificación arquitectónica de M5 y M6}
+    \label{tab:modulos_m5_m6}
+    \begin{tabularx}{\textwidth}{|l|X|X|}
+        \hline
+        \textbf{Módulo} & \textbf{Propósito} & \textbf{Condición objetivo} \\
+        \hline
+        M5: Identidad & Autenticar, validar sesiones y aplicar permisos por rol e institución. & Supabase Auth emite la sesión y FastAPI valida cada operación protegida. \\
+        \hline
+        M6: Auditoría & Registrar actor, acción, recurso, resultado y marca temporal. & Los registros se protegen frente a cambios y se someten a una política de retención. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+Supabase Auth administra las sesiones y FastAPI valida el usuario y sus permisos antes de procesar operaciones clínicas. La auditoría registra las acciones críticas junto con el actor, el recurso, el resultado y la marca temporal.

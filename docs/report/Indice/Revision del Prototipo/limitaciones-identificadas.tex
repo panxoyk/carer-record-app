@@ -1,0 +1,14 @@
+\subsection{Limitaciones identificadas}
+
+El análisis del prototipo revela limitaciones que condicionan cualquier evaluación de seguridad o uso clínico:
+
+\begin{itemize}
+    \item La integración completa de LLM, NER y generación del borrador de evolución con las interfaces del prototipo permanece pendiente de validación.
+    \item La bitácora muestra notas del paciente, pero aún no filtra de forma real por turno y no existe un flujo funcional de cierre de hospitalización.
+    \item No existe persistencia local de pacientes y notas, cola de sincronización ni resolución de conflictos. El ASR local es la única capacidad que puede operar sin conexión una vez descargado el modelo.
+    \item La cobertura de auditoría debe ampliarse y validarse para incluir accesos, descargas, cambios de rol e intentos fallidos.
+    \item La integración hospitalaria simulada dispone de adaptadores, pero aún requiere casos sintéticos versionados y pruebas reproducibles de validación, normalización, idempotencia y consulta.
+    \item No existen pruebas automatizadas reproducibles ni resultados de validación con personal clínico.
+\end{itemize}
+
+Estas brechas impiden considerar el prototipo apto para datos reales o uso asistencial. Su valor en Hito 3 es demostrar componentes de interacción e integración y, a partir de ellos, priorizar el trabajo necesario para Hito 4.

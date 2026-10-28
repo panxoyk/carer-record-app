@@ -1,0 +1,5 @@
+La arquitectura implementada de Carer-Record separa la captura móvil, la lógica de negocio, los servicios de IA y la persistencia. Esta distribución permite mantener responsabilidades independientes y evolucionar cada componente sin comprometer el flujo clínico completo~\cite{arch_patterns_health}.
+
+Flutter proporciona la aplicación móvil y FastAPI concentra la API, la autorización y las reglas de negocio. La infraestructura de Supabase incorpora Auth para identidad y sesiones, PostgreSQL para datos estructurados y Storage para archivos privados. Los servicios ASR y LLM se mantienen desacoplados de la API para permitir su ejecución y actualización independiente.
+
+La arquitectura también incorpora adaptadores para simular la integración con sistemas hospitalarios mediante FHIR y HL7v2. En Hito 3, estos adaptadores reciben datos sintéticos desde un simulador de SIH/FCE y los normalizan al modelo interno. La conexión con infraestructura institucional real permanece fuera del alcance porque el proyecto aún no cuenta con una contraparte hospitalaria.

@@ -1,0 +1,16 @@
+\subsection{Problema a resolver}
+
+\textbf{Motivación.} El problema central que aborda este proyecto es la pérdida y desestructuración del contexto clínico y comunicacional del paciente, una situación generada principalmente durante las transiciones y cambios de turno. Debido a la alta carga asistencial, el personal médico dispone de poco tiempo para revisar exhaustivamente la ficha clínica electrónica (FCE) oficial de cada paciente. Esto genera un ``vacío de contexto'': el equipo entrante desconoce detalles de los procesos diarios, acuerdos de cuidado e información comunicada previamente. Esta brecha operativa puede traducirse en una entrega de información tardía, repetitiva o fragmentada. Aunque el efecto sobre la comunicación con las familias forma parte de la motivación de largo plazo, el proyecto se acota en esta etapa al flujo interno entre profesionales.
+
+\textbf{¿Qué es Carer-Record?} Carer-Record se define como una aplicación móvil que actúa como una capa de metadatos y trazabilidad asistencial. Su propósito no es reemplazar la FCE ni constituir un repositorio clínico oficial. Por el contrario, se concibe como una solución complementaria que busca documentar el contexto cotidiano sin competir con la infraestructura crítica del hospital.
+
+\textbf{¿Qué debe hacer Carer-Record?} La solución se diseña para que el personal capture en segundos el contexto de sus interacciones con el paciente o su entorno, mediante una interfaz de baja fricción cognitiva. Para optimizar el traspaso de información, se consideran las siguientes capacidades:
+
+\begin{itemize}
+    \item \textbf{Captura y procesamiento asistido:} ingreso ágil de hitos mediante audio o texto, conversión de voz a texto y clasificación mediante un modelo de lenguaje de gran tamaño (LLM).
+    
+    \item \textbf{Validación humana en el circuito (Human-in-the-Loop, HITL):} revisión y corrección del contenido por el profesional antes de su publicación, manteniendo la responsabilidad clínica en una persona autorizada.
+    \item \textbf{Construcción de línea de tiempo:} organización de los registros confirmados en una bitácora cronológica por paciente.
+    
+    \item \textbf{Síntesis para cero doble trabajo:} consolidación de los eventos de la jornada en un borrador de evolución que pueda revisarse y copiarse en la FCE.
+\end{itemize}

@@ -1,0 +1,189 @@
+\documentclass[conference, onecolumn]{IEEEtran}
+
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage[spanish]{babel}
+\usepackage[hidelinks]{hyperref}
+\usepackage[table]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,fit,positioning}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+% --- INICIO DE LA PORTADA ---
+
+\begin{titlepage}
+
+% Logo Institucional centrado
+\begin{center}
+    \includegraphics[width=0.45\linewidth]{Imagenes/logo.png}
+\end{center}
+
+\vspace{0.2cm}
+\noindent\rule{\textwidth}{1pt}
+
+\vfill
+
+% Bloque del Título
+\begin{center}
+    {\huge \textbf{Carer-Record: Plataforma de trazabilidad asistencial basada en inteligencia artificial para la optimización del traspaso clínico}}
+\end{center}
+
+\vfill
+\vfill
+
+% Bloque de Integrantes y Profesores
+\hfill
+ \begin{minipage}[t]{0.48\textwidth}
+    {\large \textbf{Autores:}} \\[0.3cm]
+    {\normalsize Francisco Castillo Hernández} \\
+    {\footnotesize \textit{Ingeniería Civil Telemática}} \\[0.2cm]
+    {\normalsize Carlos López Silva} \\
+    {\footnotesize \textit{Ingeniería Civil Telemática}} \\[0.2cm]
+    {\normalsize Ignacio Muñoz Martínez} \\
+    {\footnotesize \textit{Ingeniería Civil Telemática}} \\[0.2cm]
+    {\normalsize Sebastián Saavedra Erazo} \\
+    {\footnotesize \textit{Ingeniería en Diseño de Productos}}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+    {\large \textbf{Profesores Guía:}} \\[0.3cm]
+    {\normalsize Nicolás Torres} \\
+    {\normalsize Mauricio Araya} \\
+    {\normalsize Astrid Lozada} \\
+    {\normalsize Juan Carlos Briede}
+\end{minipage}
+\hfill
+
+\vfill
+\vfill
+
+% Pie de página
+\begin{center}
+    \noindent\rule{0.3\textwidth}{0.4pt} \\[0.4cm]
+    {\large \textbf{Hito 4:} Prototipo funcional} \\[0.2cm]
+    {\large \today} \\[0.2cm]
+    {\large Versión 4.0}
+\end{center}
+
+\end{titlepage}
+% --- FIN DE LA PORTADA ---
+
+\newpage
+
+% --- INICIO DEL ÍNDICE ---
+
+\tableofcontents
+
+% --- FIN DEL ÍNDICE ---
+
+\newpage
+
+% --- INICIO DEL CONTENIDO ---
+
+% \begin{abstract}
+% \end{abstract}
+
+\section{Introducción}
+
+\input{Indice/Introduccion/introduccion}
+\input{Indice/Introduccion/problema-a-resolver}
+\input{Indice/Introduccion/acercamiento-a-la-solucion}
+\input{Indice/Introduccion/estado-del-arte}
+
+\newpage
+
+\section{Perfil de Diseño}
+
+\input{Indice/Perfil de diseño/elementos-relevantes}
+\input{Indice/Perfil de diseño/Estado de conflicto y situación inicial}
+\input{Indice/Perfil de diseño/metodologia}
+\input{Indice/Perfil de diseño/etapas-sistematicas}
+\input{Indice/Perfil de diseño/Identificación de recursos}
+\input{Indice/Perfil de diseño/Conceptos preliminares}
+\input{Indice/Perfil de diseño/Requisitos específicos del contexto}
+\input{Indice/Perfil de diseño/Diseño de concepto solución}
+\input{Indice/Perfil de diseño/Fabricacion preliminar}
+\input{Indice/Perfil de diseño/Protocolo de testeo}
+\newpage
+
+\section{Requisitos del sistema}
+
+\input{Indice/Requisitos del Sistema/requisitos-funcionales}
+\input{Indice/Requisitos del Sistema/requisitos-no-funcionales}
+\input{Indice/Requisitos del Sistema/requisitos-de-interfaces}
+\input{Indice/Requisitos del Sistema/requisitos-de-ambiente}
+
+\newpage
+
+\section{Arquitectura del sistema}
+
+\input{Indice/Arquitectura del Sistema/introduccion}
+\input{Indice/Arquitectura del Sistema/diagrama-de-contexto-y-fronteras-del-ecosistema-clinico}
+\input{Indice/Arquitectura del Sistema/diagrama-de-arquitectura-y-patrones-de-diseno-estructural}
+\input{Indice/Arquitectura del Sistema/enumeracion-y-funcionalidad-logica-de-los-modulos}
+\input{Indice/Arquitectura del Sistema/matriz-de-requisitos-funcionales-y-resposabilidad-modular}
+\input{Indice/Arquitectura del Sistema/especificaciones-arquitectonicas-de-los-modulos-criticos}
+\input{Indice/Arquitectura del Sistema/conclusion-del-diseno-de-arquitectura}
+
+\newpage
+
+\section{Revisión del prototipo}
+
+\input{Indice/Revision del Prototipo/alcance-del-prototipo}
+\input{Indice/Revision del Prototipo/funcionalidades-demostradas}
+\input{Indice/Revision del Prototipo/limitaciones-identificadas}
+
+\newpage
+
+\section{Planificación del proyecto}
+
+\input{Indice/Planificacion del Proyecto/objetivo-general}
+\input{Indice/Planificacion del Proyecto/objetivos-especifivos}
+\input{Indice/Planificacion del Proyecto/actividades-y-milestones}
+\input{Indice/Planificacion del Proyecto/carta-gantt}
+
+\newpage
+
+\section{Gestión de riesgos}
+
+\input{Indice/Gestion de Riesgos/supuestos}
+\input{Indice/Gestion de Riesgos/dependencias}
+\input{Indice/Gestion de Riesgos/restricciones}
+\input{Indice/Gestion de Riesgos/riesgos}
+\input{Indice/Gestion de Riesgos/analisis_critico}
+
+\newpage
+
+\section{Verificación y validación}
+
+\input{Indice/Verificacion y Validacion/estrategia}
+\input{Indice/Verificacion y Validacion/matriz-de-verificacion}
+\input{Indice/Verificacion y Validacion/validacion-del-prototipo}
+
+\newpage
+
+\section{Conclusiones}
+
+\input{Indice/Conclusion/Conclusion}
+% --- FIN DE LAS SECCIONES ---
+
+\newpage
+
+% --- INICIO DE LAS REFERENCIAS ---
+
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+% --- FIN DE LAS REFERENCIAS ---
+
+\end{document}

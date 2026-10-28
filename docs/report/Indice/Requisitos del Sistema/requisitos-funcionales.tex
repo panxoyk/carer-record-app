@@ -1,0 +1,43 @@
+\subsection{Requisitos Funcionales}
+
+Los RF definen el comportamiento esperado del sistema y las capacidades que debe ofrecer al personal asistencial. Se expresan con independencia del avance del prototipo; su grado de cumplimiento se analiza posteriormente en la sección de verificación y validación.
+
+\subsubsection*{\textbf{RF1} - Identificación Mínima Segura}
+
+El sistema debe permitir la apertura y gestión de un caso clínico mediante un identificador único de hospitalización, junto con los datos mínimos de contexto, ubicación y alertas críticas. Para fines académicos, se utilizarán datos sintéticos o ficticios.
+
+\subsubsection*{\textbf{RF2} - Captura Multimodal de Eventos}
+
+El sistema debe proveer al personal asistencial la capacidad de ingresar hitos clínicos o comunicacionales de manera ágil, ya sea mediante la grabación nativa de audio desde el dispositivo móvil o a través de la digitación de texto libre.
+
+\subsubsection*{\textbf{RF3} - Procesamiento Asistido por Inteligencia Artificial}
+
+Al recibir un ingreso de audio, el sistema debe ejecutar ASR para generar una transcripción preliminar. Posteriormente, un LLM debe analizar el registro y sugerir una clasificación basada en categorías predefinidas.
+
+\subsubsection*{\textbf{RF4} - Filtrado dinámico de privacidad}
+
+Antes de enviar registros a un servicio externo de IA, el sistema debe ejecutar reconocimiento de entidades nombradas (NER) para detectar y reemplazar IPS por tokens genéricos, reduciendo el riesgo de identificación de personas.
+
+\subsubsection*{\textbf{RF5} - Validación clínica obligatoria}
+
+El sistema debe bloquear la publicación automática de cualquier contenido generado por la IA, requiriendo un estado de revisión intermedio. El profesional deberá verificar, editar si es necesario, y confirmar explícitamente el evento, asumiendo la autoría clínica del registro.
+
+\subsubsection*{\textbf{RF6} - Estructuración Inmutable de Metadatos}
+
+Tras la validación, el sistema debe asignar automáticamente a cada evento una marca temporal del servidor y el identificador del autor, garantizando la trazabilidad del dato.
+
+\subsubsection*{\textbf{RF7} - Construcción de Bitácora Cronológica}
+
+El sistema debe organizar los eventos confirmados en una línea de tiempo interactiva y centralizada por paciente, permitiendo que cualquier profesional autorizado del equipo entrante visualice el historial completo de los turnos previos.
+
+\subsubsection*{\textbf{RF8} - Síntesis Automatizada de Jornada (Cero Doble Trabajo)}
+
+A petición del usuario, el sistema debe compilar los eventos registrados durante un turno y generar un documento estructurado denominado "Borrador de Evolución". Este borrador debe estar diseñado para ser copiado y pegado manualmente por el médico en la Ficha Clínica Electrónica oficial de la institución.
+
+\subsubsection*{\textbf{RF9} - Cierre de ciclo hospitalario}
+
+El sistema debe permitir declarar el alta médica. Esta acción debe dejar la bitácora en modo de solo lectura y bloquear nuevos ingresos para resguardar la integridad del historial.
+
+\subsubsection*{\textbf{RF10} - Integración hospitalaria simulada}
+
+El sistema debe permitir simular la integración con sistemas hospitalarios mediante la importación de recursos FHIR o mensajes HL7v2 con datos sintéticos. Los recursos recibidos deben validarse, normalizarse al modelo interno y quedar disponibles para su consulta en Carer-Record, sin requerir acceso a infraestructura ni datos clínicos reales.

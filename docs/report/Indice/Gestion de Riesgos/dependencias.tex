@@ -1,0 +1,11 @@
+\subsection{Dependencias}
+
+\begin{itemize}
+    \item El desarrollo y las pruebas dependen exclusivamente de datos clínicos sintéticos, sin requerir registros reales.
+    \item La verificación de interoperabilidad depende de un simulador de SIH/FCE y de conjuntos sintéticos representativos en FHIR o HL7v2.
+    \item La disponibilidad del sistema depende de Supabase para identidad, datos y archivos, y del proveedor utilizado para desplegar FastAPI y los procesos de IA.
+    \item La transcripción local depende de la disponibilidad del modelo ASR en el dispositivo y de su capacidad de cómputo.
+    \item La ruta de transcripción remota depende de almacenamiento compartido y de un trabajador capaz de procesar cada audio una sola vez.
+    \item La operación depende de una configuración consistente entre Flutter, FastAPI y los servicios de Supabase.
+    \item La validación funcional depende de la participación de médicos y personal de enfermería representativos del contexto de uso.
+\end{itemize}

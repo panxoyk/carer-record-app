@@ -1,0 +1,33 @@
+\subsection{Riesgos}
+
+La Tabla~\ref{tab:gestion_riesgos} reúne los riesgos prioritarios observados en el prototipo y las medidas necesarias para reducirlos.
+
+\begin{table}[H]
+\caption{Riesgos prioritarios y medidas de mitigación}
+\label{tab:gestion_riesgos}
+\begin{tabularx}{\textwidth}{|X|X|}
+\hline
+\textbf{Riesgo} & \textbf{Medida de mitigación} \\
+\hline
+Transcripción incorrecta o ambigua. & Permitir revisión y corrección, medir el ASR con vocabulario clínico y conservar el audio durante el periodo definido. \\
+\hline
+Configuración incorrecta de autenticación en endpoints clínicos. & Verificar la sesión en todas las rutas, derivar la identidad en el servidor y probar respuestas denegadas. \\
+\hline
+Permisos inconsistentes entre Flutter y FastAPI. & Centralizar la autorización por rol e institución en FastAPI y verificarla mediante pruebas automatizadas. \\
+\hline
+Exposición de audio o texto sensible. & Usar datos sintéticos, almacenamiento privado, enlaces temporales, validación de archivos y una política de eliminación. \\
+\hline
+Pérdida o duplicación durante sincronización. & Incorporar cola persistente, operaciones idempotentes, resolución de conflictos y pruebas de reconexión. \\
+\hline
+Indisponibilidad de los servicios cloud. & Configurar monitoreo, respaldos, recuperación y manejo de errores para FastAPI y Supabase. \\
+\hline
+Generación de contenido clínico incorrecto. & Aplicar NER antes del LLM, restringir las instrucciones y exigir HITL antes de publicar. \\
+\hline
+Normalización incorrecta o duplicación durante la integración simulada. & Validar recursos FHIR y mensajes HL7v2, aplicar operaciones idempotentes y probar casos sintéticos válidos, inválidos y repetidos. \\
+\hline
+Baja adopción por usabilidad. & Ejecutar el protocolo de prueba con personal clínico y rediseñar las tareas que no cumplan sus umbrales. \\
+\hline
+\end{tabularx}
+\end{table}
+
+La tabla muestra que la infraestructura administrada no elimina por sí sola los riesgos del sistema. Autorización, privacidad, validación humana y evidencia de pruebas requieren medidas específicas en FastAPI, Flutter y la configuración de Supabase.

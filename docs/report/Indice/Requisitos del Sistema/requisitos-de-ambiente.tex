@@ -1,0 +1,19 @@
+\subsection{Requisitos de ambiente}
+
+El ambiente de Carer-Record debe permitir el desarrollo y la evaluación del sistema sin utilizar datos clínicos reales. Estos requisitos describen condiciones operativas y no una pila tecnológica obligatoria.
+
+\subsubsection{Dispositivo móvil}
+
+El dispositivo debe contar con micrófono, almacenamiento temporal suficiente para grabaciones y capacidad para ejecutar la interfaz de forma fluida. Cuando se utilice ASR local, el dispositivo deberá disponer de los recursos necesarios para almacenar y ejecutar el modelo seleccionado.
+
+\subsubsection{Servicios de aplicación}
+
+El servicio central debe operar en una infraestructura con conectividad cifrada, gestión de secretos, respaldo y recuperación. Su capacidad de procesamiento debe dimensionarse a partir de mediciones de concurrencia, tamaño de archivos y latencia, evitando fijar requisitos de hardware antes de contar con resultados experimentales.
+
+\subsubsection{Persistencia y archivos}
+
+Los datos estructurados y los archivos de audio deben almacenarse en repositorios separados, con control de acceso, cifrado, retención definida y respaldo verificable. Los ambientes de desarrollo, prueba y eventual producción deben permanecer aislados.
+
+\subsubsection{Datos de prueba e interoperabilidad}
+
+La evaluación académica utilizará datos sintéticos para simular el intercambio con un SIH o una FCE. Los recursos provenientes del simulador deberán ajustarse a contratos FHIR o HL7v2, validarse y normalizarse antes de incorporarse al modelo interno. La conexión con infraestructura hospitalaria real y su certificación institucional no forman parte de Hito 3~\cite{hl7chile_clips}.

@@ -1,0 +1,59 @@
+\subsection{Fabricación preliminar: vistas de interfaz de usuario}
+
+En el contexto de un proyecto de software, la fabricación preliminar corresponde al diseño de las interfaces de usuario que materializan las decisiones de diseño del sistema. En lugar de una maqueta física o modelo CAD, esta sección presenta cinco vistas de la aplicación móvil de Carer-Record, construidas como maquetas de baja fidelidad orientadas a comunicar la estructura y el contenido de cada pantalla, sin entrar todavía en definiciones de estilo visual.
+
+Este nivel de detalle responde a un requisito de diseño identificado durante el levantamiento de requisitos, siendo este que la interfaz debe transmitir calma y claridad para reducir la curva de aprendizaje del personal asistencia. 
+
+Las cinco vistas seleccionadas cubren los momentos más críticos del flujo del profesional asistencial dentro del sistema.\\
+
+\subsubsection*{Vista 1: Autenticación y acceso} ~
+
+Esta vista corresponde al punto de entrada al sistema. Presenta una pantalla de login con campo de identificación institucional, priorizando una autenticación de pocos segundos.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.2\textwidth]{Imagenes/vista1_autenticacion.png}
+    \caption{Vista 1: Autenticación y acceso}
+\end{figure}
+
+\subsubsection*{Vista 2: Perfil del paciente activo y línea de tiempo} ~
+
+Esta es la vista central del sistema y la más crítica para el cambio de turno. Muestra el identificador simbólico del paciente activo, la información mínima del caso y la bitácora cronológica de eventos validados. Cada evento se presenta con su timestamp, categoría y descripción, permitiendo al médico entrante leer el contexto completo del caso mediante scroll vertical.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.2\textwidth]{Imagenes/vista2_linea_de_tiempo.png}
+    \caption{Vista 2: Perfil del paciente activo y línea de tiempo}
+\end{figure}
+
+\subsubsection*{Vista 3: Captura de evento por audio o texto} ~
+
+Esta vista permite al profesional registrar un nuevo evento. Presenta dos opciones de entrada claramente diferenciadas: grabación de audio mediante un botón de gran área táctil y un campo de texto para digitación directa. El profesional necesita ver únicamente lo esencial para completar la acción
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.2\textwidth]{Imagenes/vista3_captura_evento.png}
+    \caption{Vista 3: Captura de evento por audio o texto}
+\end{figure}
+
+\subsubsection*{Vista 4: Validación Human-in-the-Loop} ~
+
+Esta vista presenta al profesional el borrador del evento generado por el sistema. Muestra la transcripción sugerida, la categoría detectada y los campos editables para corrección antes del commit. La acción de confirmar y publicar el evento se presenta como la acción principal de la pantalla, requiriendo confirmación explícita para evitar publicaciones accidentales.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.2\textwidth]{Imagenes/vista4_validacion.png}
+    \caption{Vista 4: Validación Human-in-the-Loop}
+\end{figure}
+
+\subsubsection*{Vista 5: Borrador de evolución y cierre de turno} ~
+
+Esta vista presenta el documento consolidado generado automáticamente al cierre del turno. El borrador muestra todos los eventos del turno integrados en texto continuo en formato clínico estándar. La acción de copiar al portapapeles se presenta como el elemento principal de la pantalla, correspondiendo a la acción final del flujo.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.2\textwidth]{Imagenes/vista5_borrador_evolucion.png}
+    \caption{Vista 5: Borrador de evolución y cierre de turno}
+\end{figure}
+
+Las maquetas descritas funcionarán como insumo directo para el test de usabilidad presentado en la sección siguiente, permitiendo validar la estructura y el flujo antes de avanzar hacia un prototipo de mayor fidelidad visual.

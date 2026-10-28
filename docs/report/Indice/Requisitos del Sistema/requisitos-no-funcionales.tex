@@ -1,0 +1,31 @@
+\subsection{Requisitos No Funcionales}
+
+Los requisitos no funcionales (RNF) definen atributos de calidad, rendimiento, usabilidad, seguridad y resiliencia. Se formulan sin imponer productos concretos, de modo que puedan verificarse aunque cambie la implementación.
+
+\subsubsection*{\textbf{RNF1} - Interoperabilidad clínica}
+
+La representación de los datos y los contratos de la integración simulada deben ser compatibles con FHIR y HL7v2 y permitir su alineación con los perfiles definidos por el MINSAL. Las pruebas deben ejecutarse con datos sintéticos y producir resultados reproducibles de validación, normalización y consulta~\cite{minsal_estandares_perfiles}.
+
+\subsubsection*{\textbf{RNF2} - Seguridad y Cifrado de Datos}
+
+La información clínica y los metadatos de autoría deben protegerse durante su transmisión y almacenamiento mediante mecanismos de cifrado vigentes, gestión segura de secretos y control de acceso acorde con la sensibilidad del dato~\cite{ley_19628_vida_privada}.
+
+\subsubsection*{\textbf{RNF3} - Cumplimiento Normativo y Privacidad de Datos}
+
+El sistema debe minimizar la exposición de IPS y controlar el propósito, ubicación, retención y acceso durante todo el ciclo de vida del dato, conforme con la normativa chilena aplicable~\cite{ley_19628_vida_privada,ley_21719_datos_personales}.
+
+\subsubsection*{\textbf{RNF4} - Latencia de Inferencia y Agilidad Asistencial}
+
+El tiempo entre el término de la captura y la presentación del borrador para revisión no debe superar 10 segundos bajo las condiciones de prueba definidas para el sistema.
+
+\subsubsection*{\textbf{RNF5} - Trazabilidad Médico-Legal (Logs Inmutables)}
+
+Toda operación crítica debe registrar, como mínimo, actor autenticado, acción, recurso afectado, resultado y marca temporal. Los registros de auditoría deben protegerse frente a alteraciones y contar con una política de retención verificable.
+
+\subsubsection*{\textbf{RNF6} - Usabilidad Operativa y Baja Carga Cognitiva}
+
+La interfaz móvil debe adaptarse a las condiciones físicas del personal de salud, permitir las acciones principales con una sola mano, reducir pasos innecesarios y mantener claridad visual para limitar la carga cognitiva~\cite{gobdigital_accesibilidad}.
+
+\subsubsection*{\textbf{RNF7} - Resiliencia y Funcionamiento con Conectividad Degradada}
+
+Considerando que la infraestructura de red wifi o celular en áreas clínicas (como urgencias, pabellones o subterráneos) suele ser intermitente, el sistema debe ser capaz de operar con conectividad degradada. Debe asegurar la persistencia temporal de los registros locales en el dispositivo para sincronizarlos automáticamente una vez que se recupere la conexión al servidor.

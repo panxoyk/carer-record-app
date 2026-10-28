@@ -1,0 +1,53 @@
+\subsection{Requisitos de Interfaces}
+
+Los requisitos de interfaces definen las interacciones entre Carer-Record, el personal asistencial y las fuentes de datos clínicos. La Tabla~\ref{tab:eventos_externos} resume los eventos que ingresan al sistema, mientras que la Tabla~\ref{tab:respuestas_sistema} describe las respuestas esperadas. Ambas tablas expresan contratos lógicos y no obligan a utilizar una tecnología específica.
+
+\begin{table}[H]
+    \caption{Eventos externos}
+    \label{tab:eventos_externos}
+    \begin{tabularx}{\textwidth}{|l|X|X|X|X|}
+        \hline
+        \textbf{Evento} & \textbf{Descripción} & \textbf{Iniciador} & \textbf{Parámetros} & \textbf{Respuesta} \\
+        \hline
+        Autenticación de personal clínico & Solicitud de acceso al sistema móvil para verificar la identidad y determinar los permisos del profesional. & Personal asistencial & Credenciales institucionales o una sesión previamente autorizada. & Validación de acceso clínico \\
+        \hline
+        Integración hospitalaria simulada & Recepción de un caso clínico y sus antecedentes desde un sistema hospitalario simulado. & Simulador de SIH/FCE & Recursos FHIR o mensajes HL7v2 con datos sintéticos. & Resultado de validación, normalización y carga \\
+        \hline
+        Consulta de bitácora del paciente & El profesional solicita el perfil clínico activo y la línea de tiempo de hitos. & Personal asistencial & Identificador de hospitalización y sesión válida. & Despliegue de bitácora cronológica \\
+        \hline
+        Envío de hito asistencial & Transmisión de una nota de texto o una grabación de voz desde el dispositivo móvil. & Personal asistencial & Identificador de hospitalización, audio o texto y sesión válida. & Presentación de borrador para revisión \\
+        \hline
+        Confirmación y registro de evento & Acción explícita mediante la cual el profesional revisa y aprueba el contenido. & Personal asistencial & Identificador del borrador, texto final y categoría confirmada. & Registro trazable y publicación \\
+        \hline
+        Solicitud de borrador de evolución & Petición para consolidar los hitos validados de un turno. & Personal asistencial & Identificador de hospitalización y rango del turno. & Entrega de síntesis de evolución \\
+        \hline
+        Cierre de caso por alta médica & Declaración del término de la hospitalización y bloqueo de nuevos registros. & Personal asistencial & Identificador de hospitalización, confirmación y sesión válida. & Cierre de bitácora \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+\begin{table}[H]
+    \caption{Respuestas del sistema}
+    \label{tab:respuestas_sistema}
+    \begin{tabularx}{\textwidth}{|l|X|X|}
+        \hline
+        \textbf{Respuesta} & \textbf{Descripción} & \textbf{Parámetros} \\
+        \hline
+        Validación de acceso clínico & El sistema verifica la identidad, determina permisos y establece una sesión. & Resultado de autenticación, sesión y permisos asignados. \\
+        \hline
+        Resultado de validación, normalización y carga & El sistema informa los recursos aceptados o rechazados, registra el caso normalizado y habilita su seguimiento. & Estado de la ingesta, identificador del caso y errores detectados. \\
+        \hline
+        Despliegue de bitácora cronológica & El sistema recupera y ordena los eventos disponibles del paciente. & Datos mínimos del paciente y lista cronológica de hitos. \\
+        \hline
+        Presentación de borrador para revisión & El sistema transcribe el audio cuando corresponda y presenta el texto para revisión humana. Las etapas de NER y clasificación se incorporarán antes de procesar IPS real. & Texto preliminar, categoría sugerida cuando esté disponible e identificador del borrador. \\
+        \hline
+        Registro trazable y publicación & El sistema almacena el evento validado, registra su autoría y actualiza la bitácora. & Confirmación de publicación y metadatos del evento. \\
+        \hline
+        Entrega de síntesis de evolución & El sistema consolida los hitos del turno en un texto revisable y copiable. & Borrador de evolución. \\
+        \hline
+        Cierre de bitácora & El sistema marca el término de la hospitalización e impide nuevos eventos. & Estado de cierre y confirmación de solo lectura. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+Los contratos muestran que toda acción clínica parte de una identidad válida y produce una respuesta observable. La integración hospitalaria se evalúa mediante un simulador y datos sintéticos, de modo que su comportamiento puede verificarse sin depender de un convenio ni de infraestructura clínica real. Las etapas de procesamiento inteligente aún deben completarse antes del prototipo final.

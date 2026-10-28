@@ -1,0 +1,27 @@
+\subsection{Enumeración y funcionalidad lógica de los módulos}
+
+La arquitectura se organiza en los seis módulos lógicos resumidos en la Tabla~\ref{tab:modulos_arquitectura}. Los módulos representan responsabilidades implementadas sobre los componentes descritos y no servicios necesariamente desplegados por separado.
+
+\begin{table}[H]
+    \caption{Módulos lógicos de la arquitectura implementada}
+    \label{tab:modulos_arquitectura}
+    \begin{tabularx}{\textwidth}{|l|X|X|}
+        \hline
+        \textbf{Módulo} & \textbf{Responsabilidad} & \textbf{Componentes principales} \\
+        \hline
+        M1: Captura e ingesta & Capturar texto o audio e importar recursos clínicos sintéticos desde sistemas hospitalarios simulados. & Flutter, FastAPI, servicio ASR y adaptadores FHIR/HL7v2. \\
+        \hline
+        M2: Privacidad & Detectar y enmascarar IPS antes de invocar servicios externos de IA. & FastAPI y motor NER. \\
+        \hline
+        M3: Procesamiento & Clasificar eventos y generar borradores a partir de información validada y acotada. & Servicio LLM y reglas de generación. \\
+        \hline
+        M4: Gobernanza & Gestionar revisión, corrección, aprobación, rechazo y cierre de eventos. & FastAPI y aplicación Flutter. \\
+        \hline
+        M5: Identidad & Autenticar usuarios, validar sesiones y aplicar permisos por rol e institución. & Supabase Auth y FastAPI. \\
+        \hline
+        M6: Auditoría & Registrar acciones críticas y conservar metadatos suficientes para su auditoría. & FastAPI y PostgreSQL. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+M1 inicia tanto el flujo asistencial como el de interoperabilidad simulada y M4 controla su consolidación. M2 y M3 aíslan el tratamiento de privacidad del procesamiento generativo, mientras M5 y M6 operan transversalmente sobre el flujo completo.

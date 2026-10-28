@@ -1,0 +1,23 @@
+\subsection{Acercamiento a la solución}
+
+\textbf{Contexto del desarrollo y justificación.} Carer-Record no busca reemplazar la FCE. Mientras la ficha oficial almacena antecedentes clínicos y administrativos formales, Carer-Record se enfoca en capturar el contexto cotidiano que apoya el traspaso de turno. El sistema aplica el principio de ``cero doble trabajo'' al sustituir métodos informales y no estandarizados, como libretas de papel o grupos de mensajería, por un flujo estructurado y trazable.
+
+\textbf{Tecnologías y arquitectura implementada.} La solución se sustenta en las siguientes decisiones:
+
+\begin{itemize}
+    \item \textbf{Aplicación móvil:} Flutter permite construir una interfaz orientada a teléfonos del personal asistencial, con acceso rápido y baja fricción cognitiva.
+    
+    \item \textbf{Servicios de aplicación:} FastAPI mantiene la lógica de negocio y expone una interfaz de programación de aplicaciones (API) para la aplicación móvil.
+    
+    \item \textbf{Servicios administrados:} Supabase provee autenticación, persistencia en PostgreSQL y almacenamiento privado de archivos.
+
+    \item \textbf{IA integrada:} la captura de audio utilizará reconocimiento de voz para obtener una transcripción preliminar. En una fase posterior, el LLM clasificará y estructurará el texto antes de su validación clínica.
+\end{itemize}
+
+\textbf{Delimitación del prototipo parcial.} Para aislar el valor central del proyecto de las complejidades de infraestructura hospitalaria, se establecen los siguientes límites:
+
+\begin{itemize}
+    \item \textbf{Interoperabilidad simulada:} el prototipo simula la integración con sistemas hospitalarios mediante Fast Healthcare Interoperability Resources (FHIR), estándar de Health Level Seven (HL7), mensajes HL7v2 y datos sintéticos. Esta capacidad permite verificar la recepción y normalización de información sin depender de acceso a un SIH o una FCE institucional real.
+    \item \textbf{Privacidad y datos:} durante la fase académica se emplean datos ficticios o sintéticos y no información personal de salud (IPS) real.
+    \item \textbf{Alcance de usuarios:} el sistema se orienta exclusivamente al personal asistencial; la comunicación directa con familiares queda fuera del prototipo.
+\end{itemize}

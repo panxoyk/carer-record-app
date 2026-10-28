@@ -1,0 +1,109 @@
+
+\subsection{Elementos relevantes}
+
+Para abordar la problemática, resulta necesario identificar los elementos relevantes que configuran el sistema en estudio. Esta etapa permite reconocer a los actores involucrados, comprender sus relaciones, distinguir necesidades y tensiones, y delimitar el contexto en que se produce el problema. Su importancia radica en comprender cómo la descoordinación del flujo de información clínica interna afecta la operación del equipo asistencial y condiciona el diseño de una solución pertinente.\\
+
+\subsubsection*{Actores relevantes del sistema} ~
+
+El sistema Carer-Record se inserta en un contexto hospitalario donde la información clínica del paciente circula entre múltiples actores con distintos niveles de responsabilidad, acceso y urgencia. El actor central del problema es el profesional asistencial, quien registra, valida, consulta y traspasa el contexto clínico del paciente a lo largo de la hospitalización. Desde una perspectiva sistémica, el problema se ubica en el espacio entre lo que existe registrado y lo que efectivamente se comunica y comprende dentro del equipo clínico durante los cambios de turno, un vacío de contexto que ningún sistema actual resuelve de forma estructurada.
+
+Los actores relevantes del sistema son el personal médico y clínico como usuarios principales, el paciente como sujeto del registro, los sistemas de información hospitalaria como repositorios oficiales y la institución hospitalaria como entidad que regula el acceso y la responsabilidad sobre el dato. Todos participan directa o indirectamente en la generación, validación, circulación o restricción de la información clínica.\\
+
+\subsubsection*{Perfil de usuario} ~
+
+El proyecto considera diversos perfiles de usuario, ya que la problemática abordada involucra a un conjunto de actores del equipo asistencial que interactúan con la información clínica del paciente en distintos momentos y con distintos roles dentro del flujo hospitalario interno. Esta diversidad de perfiles permite comprender el problema de manera más amplia y orientar el diseño de una solución que responda a necesidades de registro ágil, consulta rápida y continuidad asistencial, bajo criterios de trazabilidad, no interferencia con la labor clínica y resguardo del dato.
+
+\begin{table}[H]
+    \caption{Perfiles de Usuario}
+    \begin{tabularx}{\textwidth}{|l|X|X|c|X|X|}
+    \hline
+    \textbf{Perfil} & \textbf{Socioeconómico y cultural} & \textbf{Ocupacional} & \textbf{Etario} & \textbf{Caract. físicas y psicológicas} & \textbf{Otros} \\
+    \hline
+
+    Médico tratante
+    & Profesional de alta formación, inserto en una cultura institucional de exigencia y responsabilidad clínica.
+    & Médico a cargo del caso clínico. Registra, revisa y consolida la evolución del paciente.
+    & 28--60
+    & Alta carga cognitiva y operativa. Foco en eficiencia, precisión y resguardo de responsabilidad clínica.
+    & Necesita registrar y consultar contexto sin duplicar trabajo ni interrumpir la atención. \\
+    \hline
+
+    Médico de turno
+    & Profesional con formación equivalente al médico tratante, opera en rotación de turnos.
+    & Médico que recibe el caso en el cambio de turno. Consulta historial y asume continuidad del tratamiento.
+    & 26--55
+    & Alta presión de tiempo al inicio del turno. Necesita contextualizar rápidamente casos que no conoce.
+    & El cambio de turno es el momento más crítico. Necesita acceder al contexto del caso en menos de dos minutos. \\
+    \hline
+
+    Personal de enfermería
+    & Profesional clínico con alta presencia en el ciclo asistencial diario del paciente.
+    & Enfermero/a o técnico paramédico. Registra eventos de seguimiento, administra medicamentos y coordina acciones.
+    & 22--55
+    & Alta carga operativa y presencia continua junto al paciente. Necesita registrar eventos de forma rápida y sin fricción.
+    & Usuario frecuente del sistema. El registro ágil es condición necesaria para su adopción. \\
+    \hline
+
+    Equipo médico asistencial ampliado
+    & Profesionales de distintas especialidades que intervienen puntualmente en el caso.
+    & Kinesiólogo, nutricionista, trabajadora social u otro profesional que participa en la atención.
+    & 24--60
+    & Intervención acotada y especializada. Necesita dejar registro trazable de su actuación.
+    & Usuario ocasional. Requiere una interfaz comprensible sin capacitación extensa previa. \\
+    \hline
+
+    \end{tabularx}
+\end{table}
+
+\subsubsection*{Buyer persona inicial} ~
+
+La construcción de un buyer persona preliminar se incorpora con el propósito de representar de manera concreta al usuario principal del sistema, sintetizando características, motivaciones, frustraciones y necesidades que orientan la toma de decisiones de diseño. Esta herramienta permite aterrizar el problema en una persona plausible, facilitando la comprensión de su experiencia real en el flujo de traspaso clínico.\\
+
+\begin{itemize}
+    \item \textbf{Nombre:} Dr. Rodrigo Fernández
+    \item \textbf{Edad:} 38 años
+    \item \textbf{Ocupación:} Médico internista en hospital de mediana complejidad
+    \item \textbf{Contexto:} Trabaja en turnos de 12 horas en el servicio de medicina interna. Al inicio de cada turno debe tomar conocimiento de entre 10 y 20 pacientes, apoyándose en el traspaso verbal del médico saliente y en lo que logra extraer de la ficha clínica oficial, que no siempre refleja el contexto cotidiano del caso.
+    \item \textbf{Nivel digital:} Alto en el uso de dispositivos móviles. Utiliza canales informales para coordinar con el equipo, reconociendo que no son el medio adecuado para el registro clínico.
+
+    \item \textbf{Necesidades principales:}
+    \begin{itemize}
+        \item Acceder rápidamente al contexto actualizado de un paciente al inicio del turno.
+        \item Contar con trazabilidad de qué eventos ocurrieron y qué acciones tomó cada profesional durante la hospitalización.
+        \item Registrar el contexto del turno sin invertir más tiempo del disponible.
+        \item Disponer de un borrador de evolución listo para traspasar o copiar en la ficha oficial.
+    \end{itemize}
+
+    \item \textbf{Frustraciones:}
+    \begin{itemize}
+        \item Recibir traspasos verbales incompletos o contradictorios.
+        \item No encontrar en la ficha clínica el contexto cotidiano del caso, solo datos transaccionales.
+        \item Depender de canales informales para coordinar información que debería estar registrada.
+        \item Invertir tiempo al inicio del turno en reconstruir el contexto de casos que ya están documentados en algún lugar del sistema.
+    \end{itemize}
+
+    \item \textbf{Motivaciones:}
+    \begin{itemize}
+        \item Reducir el tiempo de contextualización al inicio del turno.
+        \item Tener respaldo trazable de las decisiones clínicas tomadas durante su jornada.
+        \item Mejorar la coordinación con el equipo sin agregar carga administrativa.\\
+    \end{itemize}
+\end{itemize}
+
+\subsubsection*{Mapa de empatía preliminar del usuario principal} ~
+
+El mapa de empatía se utiliza para profundizar en la dimensión humana del problema, explorando no solo lo que el usuario necesita hacer, sino también lo que piensa, siente, escucha, dice y percibe dentro de la situación estudiada. Su incorporación permite ampliar la comprensión funcional del usuario hacia una comprensión emocional y contextual, especialmente relevante en un entorno de alta presión como el hospitalario.
+
+\begin{itemize}
+    \item \textbf{Qué piensa y siente:} Siente presión constante al inicio de cada turno. Sabe que la información necesaria para tomar buenas decisiones existe en algún lugar del sistema, pero acceder a ella de forma estructurada dentro del tiempo disponible es prácticamente imposible. Carga con la responsabilidad de actuar sobre casos que no conoce completamente.
+
+    \item \textbf{Qué ve:} Ve una institución donde el traspaso verbal es la norma y donde la ficha clínica no logra reflejar el contexto diario del paciente. Ve a su equipo resolviendo con herramientas informales lo que el sistema debería resolver de forma estructurada.
+
+    \item \textbf{Qué dice y hace:} Al inicio del turno busca al médico saliente para recibir el traspaso verbal. Revisa la ficha clínica buscando los últimos registros disponibles. Pregunta a enfermería por el estado actualizado del paciente. Anota en papel o en su teléfono recordatorios sobre los casos más complejos.
+
+    \item \textbf{Qué oye:} Escucha traspasos apresurados, incompletos y a veces contradictorios. Escucha a sus colegas señalar que la ficha clínica no sirve para entender el contexto real del caso. Escucha a la institución demandar más registro sin entregar las herramientas que lo faciliten.
+
+    \item \textbf{Dolores:} Vacíos de contexto en el cambio de turno, riesgo de error clínico por información incompleta, doble documentación, dependencia de canales informales no trazables y pérdida de tiempo al inicio de cada jornada.
+
+    \item \textbf{Ganancias esperadas:} Contextualización rápida y confiable al inicio del turno, trazabilidad de eventos por hospitalización, reducción de canales informales para coordinación clínica y mayor seguridad en la toma de decisiones.
+\end{itemize}

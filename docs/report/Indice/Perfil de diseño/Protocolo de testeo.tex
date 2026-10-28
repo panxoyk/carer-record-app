@@ -1,0 +1,62 @@
+\subsection{Protocolo de test de usabilidad}
+
+El protocolo de test de usabilidad de Carer-Record está diseñado para evaluar si las vistas de interfaz descritas en la sección anterior permiten al personal asistencial completar las tareas críticas del sistema de forma eficiente, comprensible y sin fricción. El test se centra en el flujo completo de un profesional durante un turno simulado, desde la autenticación hasta el cierre y generación del borrador de evolución.\\
+
+\subsubsection*{Objetivos del test} ~
+
+El test tiene tres objetivos principales. El primero es verificar que el personal asistencial puede completar cada tarea del flujo sin instrucción previa y dentro de los tiempos definidos como aceptables en los requisitos de usuario. El segundo es identificar los puntos del flujo donde aparece mayor confusión, error o abandono. El tercero es validar que el contenido y la estructura de cada vista son comprensibles en el contexto clínico real.\\
+
+\subsubsection*{Perfil de participantes} ~
+
+Se propone realizar el test con un mínimo de cinco participantes que cumplan el siguiente perfil: profesional asistencial con rol de médico tratante, médico de turno o enfermero universitario, con experiencia de al menos un año en contexto hospitalario y uso habitual de smartphone en su vida cotidiana. No es requisito que hayan usado Carer-Record previamente, ya que es preferible que no lo hayan hecho para evaluar la curva de aprendizaje inicial.\\
+
+\subsubsection*{Tareas a evaluar} ~
+
+El test estructura el flujo en cinco tareas que corresponden directamente a las cinco vistas de interfaz definidas en la sección anterior.
+
+\begin{table}[H]
+\caption{Tareas del Test de Usabilidad}
+\begin{tabularx}{\textwidth}{|l|X|X|c|}
+\hline
+\textbf{N} & \textbf{Tarea} & \textbf{Criterio de éxito} & \textbf{Tiempo máximo} \\
+\hline
+T-01 & Autenticarse en el sistema e identificar un caso activo mediante ID simbólico. & El participante accede al perfil del paciente sin error ni ayuda externa. & 30 s \\
+\hline
+T-02 & Revisar el historial del paciente y describir oralmente el estado del caso. & El participante puede resumir el contexto del caso con la información de la línea de tiempo. & 2 min \\
+\hline
+T-03 & Registrar un evento clínico mediante grabación de audio. & El evento queda capturado correctamente y avanza al flujo de validación. & 60 s \\
+\hline
+T-04 & Revisar el borrador generado por el sistema y confirmar o editar el evento. & El evento queda publicado en el historial con categoría correcta y autoría registrada. & 90 s \\
+\hline
+T-05 & Solicitar el borrador de evolución y copiarlo al portapapeles. & El borrador queda copiado sin error y el participante confirma que lo pegaría en la ficha oficial. & 45 s \\
+\hline
+\end{tabularx}
+\end{table}
+
+\subsubsection*{Métricas de evaluación} ~
+
+Para cada tarea se registrarán las siguientes métricas.\\
+
+
+\begin{itemize}
+    \item \textit{Tasa de completitud:} porcentaje de participantes que completan la tarea sin asistencia externa. Un resultado inferior al 80\% indica un problema de diseño que requiere iteración.
+    \item \textit{Tiempo de ejecución:} tiempo real registrado para cada tarea, comparado con el tiempo máximo aceptable definido. Si más de dos participantes superan el límite, la tarea requiere rediseño.
+    \item \textit{Errores por tarea:} número y tipo de errores cometidos durante la ejecución, distinguiendo entre errores recuperables, donde el participante se corrige solo, y errores bloqueantes, donde necesita ayuda o abandona.
+\end{itemize}
+
+
+Escala de usabilidad percibida: al finalizar el test completo, se aplica el System Usability Scale (SUS) de diez ítems \cite{ref_brooke_sus}, que entrega un puntaje entre 0 y 100. Se considera aceptable un resultado igual o superior a 70 puntos.\\\\
+
+\subsubsection*{Protocolo de aplicación} ~
+
+El test se realiza en formato presencial con moderador. El moderador presenta la aplicación al participante sin explicar su funcionamiento, entrega el escenario simulado y observa sin intervenir salvo en caso de bloqueo completo. Se registra en video la pantalla del dispositivo y la reacción verbal del participante durante cada tarea.
+
+El escenario simulado que se entrega al participante es el siguiente: se le indica que acaba de comenzar su turno y que tiene asignado el caso del paciente identificado con el ID de hospitalización que aparece en pantalla. Se le pide que revise el estado del caso, registre una nota clínica con los datos que se le indican en voz alta y genere el borrador de evolución para el cierre de turno.
+
+Al finalizar las tareas, el moderador aplica el cuestionario SUS y realiza una entrevista breve de cierre con tres preguntas abiertas: qué fue lo más confuso del flujo, qué cambiarían de la interfaz y si usarían el sistema en su trabajo real.\\
+
+\subsubsection*{Criterios de iteración} ~
+
+A partir de los resultados del test se definen tres niveles de acción. Si la tasa de completitud de alguna tarea es inferior al 80\% o el tiempo promedio supera el límite definido en más de un 50\%, la vista correspondiente se rediseña antes de continuar con el desarrollo. Si el puntaje SUS es inferior a 70 puntos, se realiza una segunda ronda de test con las modificaciones aplicadas. Si el puntaje SUS es igual o superior a 70 puntos y no hay errores bloqueantes en más de una tarea, el flujo se considera aprobado para avanzar a la siguiente etapa de desarrollo.
+
+El protocolo descrito no depende de la versión final del prototipo. Puede aplicarse sobre las maquetas de baja fidelidad presentadas en la sección anterior con interacciones simuladas, lo que permite validar las decisiones de diseño antes de invertir tiempo en desarrollo técnico.

@@ -1,0 +1,86 @@
+\subsection{Requisitos específicos del contexto}
+
+El levantamiento de requisitos de Carer-Record no parte de una abstracción genérica sobre sistemas digitales en salud, sino de un contexto hospitalario concreto con características propias. Durante la hospitalización, la información clínica del paciente se registra de forma fragmentada, depende de momentos puntuales de comunicación y pierde continuidad especialmente en los cambios de turno. El problema identificado no es la ausencia de información, sino la falta de un canal estructurado que permita organizarla, trazarla y trasladarla de manera confiable entre los distintos actores del proceso asistencial.
+
+Los requisitos que se presentan a continuación fueron construidos a partir de tres fuentes: la observación del problema en terreno mediante entrevista con un médico del área, el análisis del flujo de información clínica interna y las restricciones propias del contexto hospitalario en Chile. Se organizan en tres grupos: requisitos funcionales, requisitos de usuario y requisitos de contexto clínico con sus restricciones.
+
+\subsection*{Requisitos funcionales del sistema}~
+
+Los requisitos funcionales describen lo que el sistema debe ser capaz de hacer. En el caso de Carer-Record, estas capacidades se derivan directamente de las fallas de continuidad informativa identificadas en el flujo asistencial interno.
+
+\begin{table}[H]
+\caption{Requisitos Funcionales}
+\begin{tabularx}{\textwidth}{|l|X|X|}
+\hline
+\textbf{ID} & \textbf{Requisito} & \textbf{Justificación} \\
+\hline
+RF-01 & Permitir la apertura de un caso clínico vinculado a un ID simbólico de hospitalización. & El flujo comienza con la identificación del paciente sin exponer datos sensibles reales durante la fase de prototipado. \\
+\hline
+RF-02 & Permitir el registro de eventos clínicos mediante captura de audio o texto desde dispositivo móvil. & Reduce la fricción de registro y permite documentar sin interrumpir el flujo de atención. \\
+\hline
+RF-03 & Transcribir el audio mediante Speech-to-Text y categorizar el evento con un modelo de lenguaje. & Transforma el input oral en texto estructurado, reduciendo el tiempo de digitación y estandarizando el formato del evento. \\
+\hline
+RF-04 & Requerir validación humana obligatoria antes de publicar cualquier evento al historial. & Garantiza que la IA no publica información sin revisión médica, resguardando la precisión clínica del registro. \\
+\hline
+RF-05 & Integrar los eventos validados a una bitácora cronológica vinculada al ID de hospitalización activo. & Construye la línea de tiempo del paciente, soporte principal para los cambios de turno. \\
+\hline
+RF-06 & Permitir la consulta del historial por parte de cualquier profesional autorizado. & El médico entrante puede revisar el contexto completo sin depender de la presencia del médico saliente. \\
+\hline
+RF-07 & Generar automáticamente un borrador de evolución con los eventos del turno, disponible para copiar en la ficha oficial. & Elimina la doble documentación y reduce el tiempo invertido en el traspaso de turno. \\
+\hline
+RF-08 & Permitir el cierre formal del ciclo de hospitalización con declaración de alta médica. & Cierra el caso de manera trazable y consolida el historial completo de la hospitalización. \\
+\hline
+\end{tabularx}
+\end{table}
+
+\subsection*{Requisitos de usuario}~
+
+Los requisitos de usuario describen lo que el personal asistencial necesita del sistema para adoptarlo dentro de su flujo de trabajo real. A diferencia de los funcionales, estos se centran en la experiencia de uso y en las condiciones que determinan si el sistema es viable en el contexto clínico.
+
+\begin{table}[H]
+\caption{Requisitos de Usuario}
+\begin{tabularx}{\textwidth}{|l|X|X|}
+\hline
+\textbf{ID} & \textbf{Requisito} & \textbf{Justificación} \\
+\hline
+RU-01 & Operable con una sola mano desde móvil sin adaptación técnica previa. & El personal trabaja con guantes, con un paciente al frente o en movimiento. La interfaz debe adaptarse a esa realidad. \\
+\hline
+RU-02 & El registro de un evento no debe tomar más de 60 segundos desde que se abre la aplicación. & Si el proceso es más largo, el sistema compite con el tiempo de atención y no será adoptado. \\
+\hline
+RU-03 & La interfaz no debe requerir memorización de categorías clínicas por parte del usuario. & La categorización es sugerida por el sistema y validada por el profesional, no construida desde cero por él. \\
+\hline
+RU-04 & El contexto del paciente debe ser comprensible para un médico que nunca ha visto el caso. & La línea de tiempo debe permitir tomar contexto completo en menos de dos minutos. \\
+\hline
+RU-05 & El borrador de evolución debe poder copiarse directamente en la ficha oficial sin edición mayor. & Si requiere reescritura extensa, el sistema genera doble trabajo en lugar de reducirlo. \\
+\hline
+RU-06 & El sistema debe funcionar con conectividad degradada o intermitente. & La conectividad en recintos hospitalarios no siempre es estable, especialmente en zonas de hospitalización antiguas. \\
+\hline
+\end{tabularx}
+\end{table}
+
+\subsection*{Requisitos de contexto clínico y restricciones}~
+
+El contexto hospitalario impone restricciones que no dependen de decisiones de diseño, sino de la naturaleza del entorno regulado, de la responsabilidad clínica del personal y de las particularidades del sistema de salud en Chile. Ignorarlas haría el sistema inviable o directamente inaplicable en un entorno real.
+
+\begin{table}[H]
+\caption{Requisitos de Contexto y Restricciones}
+\begin{tabularx}{\textwidth}{|l|X|X|}
+\hline
+\textbf{ID} & \textbf{Restricción} & \textbf{Implicancia para el diseño} \\
+\hline
+RC-01 & El sistema no reemplaza ni se integra automáticamente a la Ficha Clínica Electrónica oficial. & Carer-Record opera como capa complementaria. El traspaso a la ficha oficial es manual mediante el borrador de evolución. \\
+\hline
+RC-02 & Durante la fase académica no se utilizarán datos clínicos reales ni información protegida bajo PHI. & El sistema opera con identificadores simbólicos y datos simulados, lo que delimita el prototipado sin comprometer privacidad. \\
+\hline
+RC-03 & Ningún evento puede integrarse al historial sin validación explícita de un profesional autorizado. & El principio Human-in-the-Loop es no negociable. La IA procesa y sugiere, el médico decide y publica. \\
+\hline
+RC-04 & No se contempla interoperabilidad automática con estándares HL7 o FHIR en esta etapa. & La integración con sistemas externos requiere certificaciones y acuerdos institucionales fuera del alcance académico actual. \\
+\hline
+RC-05 & El acceso debe estar autenticado y cada registro asociado a un usuario identificado. & La trazabilidad de autoría de cada evento es un requisito de responsabilidad clínica y no puede obviarse. \\
+\hline
+RC-06 & El sistema no debe generar ni inferir información que no haya sido registrada por un profesional. & La IA solo transcribe, categoriza y consolida. No interpreta, no diagnostica ni completa información faltante. \\
+\hline
+\end{tabularx}
+\end{table}
+
+La combinación de estos tres grupos define el espacio de diseño real de Carer-Record: un sistema que interviene en un punto específico y acotado del flujo asistencial, sin sustituir los sistemas oficiales ni asumir responsabilidades clínicas que corresponden al personal médico.

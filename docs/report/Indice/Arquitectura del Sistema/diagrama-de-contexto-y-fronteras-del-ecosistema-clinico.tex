@@ -1,0 +1,26 @@
+\subsection{Contexto del sistema y actores externos}
+
+La Figura~\ref{fig:diagrama_de_contexto} delimita Carer-Record como una única unidad y muestra solo entidades externas. Flutter, FastAPI y Supabase no aparecen como actores porque forman parte de la solución interna.
+
+\begin{figure}[H]
+    \centering
+    \resizebox{0.95\textwidth}{!}{%
+    \begin{tikzpicture}[
+        actor/.style={draw, rounded corners, align=center, minimum width=3.8cm, minimum height=1.4cm, fill=gray!12},
+        system/.style={draw=blue!60!black, very thick, rounded corners, align=center, minimum width=4.2cm, minimum height=2cm, fill=blue!8},
+        flow/.style={-{Latex[length=3mm]}, thick}
+    ]
+        \node[actor] (clinical) {Personal asistencial\\Médicos y enfermería};
+        \node[system, right=4.2cm of clinical] (carer) {Carer-Record\\Sistema de trazabilidad asistencial};
+        \node[actor, right=4.2cm of carer] (simulator) {Simulador de SIH/FCE\\Datos sintéticos};
+
+        \draw[flow] ([yshift=4mm]clinical.east) -- node[above, align=center]{Consulta y registra\\eventos} ([yshift=4mm]carer.west);
+        \draw[flow] ([yshift=-4mm]carer.west) -- node[below, align=center]{Bitácora y borradores\\para revisión} ([yshift=-4mm]clinical.east);
+        \draw[flow] (simulator.west) -- node[above, align=center]{Recursos FHIR o HL7v2\\sintéticos} (carer.east);
+    \end{tikzpicture}%
+    }
+    \caption{Contexto y fronteras externas de Carer-Record}
+    \label{fig:diagrama_de_contexto}
+\end{figure}
+
+El personal asistencial es el usuario principal: consulta pacientes, registra eventos y revisa los resultados del procesamiento. El simulador representa un SIH o una FCE externa y permite ejercitar la integración mediante recursos sintéticos, sin utilizar IPS real ni depender de acceso institucional. Esta simulación forma parte del alcance funcional de Hito 3; la conexión y validación con infraestructura hospitalaria real requieren una contraparte institucional y no se afirman como implementadas.

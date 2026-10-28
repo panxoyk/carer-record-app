@@ -1,0 +1,80 @@
+
+\subsection{Diseño de conceptos de solución}
+
+El diseño de conceptos de solución en Carer-Record se aborda desde tres niveles complementarios. El primero corresponde al diagrama de funciones, que describe qué hace el sistema y cómo se relacionan sus capacidades principales. El segundo es el diagrama de proceso, que representa el flujo del profesional asistencial dentro de la aplicación desde que abre un caso hasta que cierra el turno. El tercero es el diagrama de conceptos, que articula los pilares conceptuales del sistema y sus relaciones.
+
+Estos tres niveles permiten pasar de una descripción abstracta del sistema a una representación estructurada que puede ser evaluada, iterada y comunicada tanto al equipo técnico como a los actores institucionales involucrados.\\
+
+\subsubsection*{Diagrama de funciones} ~
+
+El diagrama de funciones de Carer-Record organiza las capacidades del sistema en torno a cuatro bloques funcionales principales: identificación, captura, procesamiento y consulta. Cada bloque agrupa un conjunto de funciones específicas y se relaciona con los demás a través de flujos de información o de control.\\
+
+\subsubsection*{Bloque 1: Identificación y autenticación} ~
+
+Este bloque es la puerta de entrada al sistema. Cumple dos funciones: verificar la identidad del profesional asistencial que accede y vincular la sesión al caso clínico correspondiente mediante el ID simbólico de hospitalización. Sin este bloque, el sistema no puede garantizar trazabilidad de autoría ni control de acceso. Las funciones que contiene son la autenticación de usuario, la apertura de caso por ID simbólico y la verificación de ID de hospitalización activo.\\
+
+\subsubsection*{Bloque 2: Captura multimodal de eventos} ~
+
+Este bloque permite al profesional registrar un evento clínico de la forma menos disruptiva posible. El input puede ser audio grabado desde el micrófono del dispositivo o texto digitado directamente. El sistema acepta ambos formatos y los canaliza hacia el mismo flujo de procesamiento. Las funciones que contiene son la grabación de audio desde dispositivo móvil, la digitación de texto libre y el envío del input al motor de procesamiento.\\
+
+\subsubsection*{Bloque 3: Procesamiento y validación} ~
+
+Este bloque es el núcleo inteligente del sistema. Recibe el input del bloque anterior, lo transcribe si es audio, lo categoriza mediante un modelo de lenguaje bajo etiquetas predefinidas y presenta un borrador estructurado al profesional para su revisión. Solo después de la validación humana explícita el evento queda disponible para integrarse al historial. Las funciones que contiene son la transcripción Speech-to-Text, la categorización por modelo de lenguaje, la presentación del borrador al usuario y la validación Human-in-the-Loop con commit o rechazo del evento.\\
+
+\subsubsection*{Bloque 4: Historial, síntesis y cierre} ~
+
+Este bloque gestiona la información ya validada. Integra los eventos confirmados a la línea de tiempo del paciente, permite la consulta transversal del contexto por cualquier profesional autorizado, genera el borrador de evolución al cierre del turno y registra el alta médica cuando corresponde. Las funciones que contiene son la integración a bitácora cronológica, la consulta del historial por ID de hospitalización, la generación automática del borrador de evolución y el cierre del ciclo de hospitalización.
+
+La relación entre bloques sigue una secuencia lineal con posibilidad de iteración: el profesional se autentica, captura un evento, lo valida y lo integra al historial. El proceso puede repetirse múltiples veces en un mismo turno. Al cierre, el sistema consolida automáticamente todos los eventos del turno en el borrador de evolución.\\
+
+\subsubsection*{Diagrama de proceso} ~
+
+El diagrama de proceso representa el flujo completo del profesional asistencial dentro de Carer-Record, desde el inicio de sesión hasta el cierre del turno. Se organiza en cinco etapas secuenciales que reflejan la lógica operativa del sistema en condiciones reales de uso.\\
+
+\subsubsection*{Etapa 1: Acceso e identificación del caso} ~
+
+El profesional ingresa al sistema con sus credenciales institucionales. Una vez autenticado, accede al módulo de identificación mínima segura del paciente, donde ingresa el ID simbólico de hospitalización. El sistema verifica que el ID corresponde a un caso activo y habilita las funciones de registro y consulta asociadas.\\
+
+\subsubsection*{Etapa 2: Consulta del contexto previo} ~
+
+Antes de registrar un nuevo evento, el profesional puede consultar la bitácora cronológica del paciente. Esta vista muestra todos los eventos validados del caso en orden cronológico, con timestamp, autoría y categoría. Esta etapa es especialmente relevante en los cambios de turno, donde el médico entrante necesita entender el estado del caso sin depender del médico saliente.\\
+
+\subsubsection*{Etapa 3: Captura y procesamiento del evento} ~
+
+El profesional registra el evento mediante audio o texto. Si elige audio, el sistema graba desde el micrófono del dispositivo y envía la grabación al motor de Speech-to-Text, que produce una transcripción inicial. El modelo de lenguaje categoriza el evento bajo etiquetas predefinidas y presenta al profesional un borrador estructurado con la transcripción sugerida y la categoría detectada.\\
+
+\subsubsection*{Etapa 4: Validación y commit del evento} ~
+
+El profesional revisa el borrador presentado por el sistema. Puede aceptarlo tal como está, editarlo antes de confirmar o rechazarlo. Solo cuando el profesional confirma explícitamente el evento mediante la acción de commit, este queda registrado en el historial con timestamp, autoría y categoría definitiva. Este paso es obligatorio y no puede omitirse.\\
+
+\subsubsection*{Etapa 5: Cierre de turno y generación del borrador de evolución} ~
+
+Al finalizar el turno, el profesional solicita el borrador de evolución. El sistema consolida automáticamente todos los eventos validados del turno en un documento estructurado, ordenado cronológicamente y redactado en formato clínico estándar. El profesional puede copiar este borrador directamente al portapapeles para pegarlo en la ficha clínica oficial. Una vez confirmado el cierre del turno, el sistema registra la síntesis y la asocia al historial del caso.\\
+
+El flujo descrito puede repetirse múltiples veces dentro de un mismo turno, ya que el profesional puede registrar tantos eventos como sean necesarios antes de solicitar el borrador de cierre.
+
+\subsubsection*{Diagrama de conceptos} ~
+
+El diagrama de conceptos articula los pilares conceptuales sobre los que se construye Carer-Record y las relaciones entre ellos. No describe funciones ni pasos, sino la estructura de ideas que da coherencia al sistema como propuesta de diseño.\\
+
+\subsubsection*{Concepto central: Continuidad informativa asistencial} ~
+
+El concepto central del sistema es la continuidad informativa asistencial, entendida como la capacidad de mantener el contexto clínico del paciente disponible, comprensible y trazable a lo largo de toda la hospitalización, independientemente de los cambios de turno o de los distintos profesionales que intervengan en el caso.\\
+
+\subsubsection*{Pilar 1: Trazabilidad} ~
+
+La trazabilidad es la capacidad del sistema de registrar quién hizo qué y cuándo. Cada evento en Carer-Record lleva asociado un timestamp, la identidad del profesional que lo registró y la categoría del evento. Sin trazabilidad no hay responsabilidad clínica posible, y el sistema se convierte en un repositorio sin autoría.\\
+
+\subsubsection*{Pilar 2: Validación humana} ~
+
+La validación humana es el mecanismo que garantiza que ningún evento generado o procesado por la IA llega al historial del paciente sin revisión explícita de un profesional. Este pilar responde directamente a una de las restricciones más importantes del contexto clínico: la IA no tiene criterio clínico y no puede asumir responsabilidad médica. Su rol es asistir, no decidir.\\
+
+\subsubsection*{Pilar 3: Reducción de fricción} ~
+
+La reducción de fricción es el principio de diseño que orienta las decisiones de interfaz y de flujo. Cada paso del proceso debe ser tan corto y natural como sea posible para el personal asistencial. Si el sistema genera más trabajo del que ahorra, no será adoptado. Este pilar se concreta en la captura multimodal, en la categorización automática y en el borrador de evolución listo para copiar.\\
+
+\subsubsection*{Pilar 4: Complementariedad con sistemas existentes} ~
+
+Carer-Record no compite con la ficha clínica oficial ni pretende reemplazarla. Opera como una capa de contexto que se construye en paralelo al registro oficial y que facilita el traspaso de información entre turnos. La relación con el EHR es de complemento, no de sustitución, y el punto de conexión es siempre manual y controlado por el profesional.\\
+
+Estos cuatro pilares se sostienen sobre un supuesto de fondo: el problema de la información clínica hospitalaria no es de cantidad sino de organización y continuidad. Carer-Record interviene en ese problema sin pretender resolver todo el ecosistema informativo hospitalario, sino un nodo específico y crítico de él.\\

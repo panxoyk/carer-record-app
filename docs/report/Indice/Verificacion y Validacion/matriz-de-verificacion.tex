@@ -1,0 +1,63 @@
+\subsection{Matriz de verificación}
+
+La Tabla~\ref{tab:verificacion_rf} presenta la evidencia disponible para los RF. El resultado se refiere exclusivamente al prototipo parcial de Hito 3.
+
+\begin{table}[H]
+    \caption{Verificación preliminar de requisitos funcionales}
+    \label{tab:verificacion_rf}
+    \begin{tabularx}{\textwidth}{|l|X|l|}
+        \hline
+        \textbf{RF} & \textbf{Evidencia observada} & \textbf{Resultado} \\
+        \hline
+        RF1 & Consulta de pacientes activos y detalle clínico; no existe apertura o cierre completo del caso. & Parcial \\
+        \hline
+        RF2 & Registro de texto y grabación de audio desde Flutter. & Cumplido \\
+        \hline
+        RF3 & ASR local y remoto disponibles; la clasificación mediante LLM aún no se demuestra de extremo a extremo. & Parcial \\
+        \hline
+        RF4 & El flujo NER forma parte de la arquitectura, pero falta evidencia reproducible de su integración. & Pendiente \\
+        \hline
+        RF5 & La ruta local permite editar y la remota confirmar; falta un flujo uniforme para todo contenido generado. & Parcial \\
+        \hline
+        RF6 & Se almacenan autor y fecha, pero el autor es confiado al cliente y no existe auditoría inmutable. & Parcial \\
+        \hline
+        RF7 & Las notas se ordenan cronológicamente por paciente; no se filtran realmente por turno. & Parcial \\
+        \hline
+        RF8 & La interfaz muestra la capacidad como futura y no existe servicio de síntesis. & Pendiente \\
+        \hline
+        RF9 & Existe representación de datos, pero no endpoint ni interfaz de alta médica. & Pendiente \\
+        \hline
+        RF10 & Existen adaptadores FHIR y un listener HL7v2 experimental para datos sintéticos; falta una prueba reproducible de extremo a extremo. & Parcial \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+La matriz muestra que RF2 es la única capacidad demostrada de extremo a extremo dentro del alcance actual. RF3, RF5, RF6, RF7 y RF10 requieren completar controles, comportamiento o evidencia reproducible, mientras que RF4, RF8 y RF9 deben implementarse.
+
+La Tabla~\ref{tab:verificacion_rnf} resume la verificación de los RNF. En estos requisitos se exige evidencia medible; la sola presencia de una decisión de diseño no se considera cumplimiento.
+
+\begin{table}[H]
+    \caption{Verificación preliminar de requisitos no funcionales}
+    \label{tab:verificacion_rnf}
+    \begin{tabularx}{\textwidth}{|l|X|l|}
+        \hline
+        \textbf{RNF} & \textbf{Evidencia observada} & \textbf{Resultado} \\
+        \hline
+        RNF1 & Existen adaptadores FHIR y HL7v2 para la simulación, pero falta evidencia reproducible de conformidad, normalización y manejo de errores. & Parcial \\
+        \hline
+        RNF2 & Supabase Auth gestiona sesiones, FastAPI aplica autorización y Storage mantiene archivos privados; faltan pruebas de seguridad reproducibles. & Parcial \\
+        \hline
+        RNF3 & El prototipo utiliza datos sintéticos; los controles del ciclo de vida de datos reales no están implementados. & Parcial \\
+        \hline
+        RNF4 & No existen mediciones reproducibles de latencia. & Pendiente \\
+        \hline
+        RNF5 & No existe una pista integral y protegida de auditoría. & Pendiente \\
+        \hline
+        RNF6 & La interfaz móvil está implementada, pero no ha sido evaluada mediante el protocolo de usabilidad. & Parcial \\
+        \hline
+        RNF7 & No existe persistencia clínica local ni sincronización diferida. & Pendiente \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+Los resultados no funcionales concentran los principales riesgos del siguiente hito. Seguridad, trazabilidad, rendimiento y operación con conectividad degradada requieren pruebas específicas antes de ampliar el alcance del sistema.

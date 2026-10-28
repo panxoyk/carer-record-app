@@ -1,0 +1,29 @@
+\subsection{Alcance del prototipo parcial}
+
+Hito 3 presenta un prototipo parcial orientado a comprobar la captura, procesamiento y consulta de eventos asistenciales desde una aplicación móvil, además de la integración simulada con sistemas hospitalarios mediante datos sintéticos. La arquitectura e infraestructura se encuentran implementadas sobre Flutter, FastAPI cloud y Supabase; el carácter parcial corresponde a las funcionalidades clínicas y actividades de validación que se completarán en Hito 4.
+
+La Tabla~\ref{tab:infraestructura_implementada} resume los componentes que sostienen el prototipo.
+
+\begin{table}[H]
+    \caption{Infraestructura implementada para Carer-Record}
+    \label{tab:infraestructura_implementada}
+    \begin{tabularx}{\textwidth}{|l|X|X|}
+        \hline
+        \textbf{Área} & \textbf{Componente} & \textbf{Responsabilidad} \\
+        \hline
+        Aplicación móvil & Flutter & Interacción, captura de texto y audio y presentación de la bitácora. \\
+        \hline
+        Servicios & FastAPI cloud & API, reglas de negocio, autorización y coordinación de procesos de IA. \\
+        \hline
+        Identidad & Supabase Auth & Autenticación, sesión y emisión de credenciales de acceso. \\
+        \hline
+        Persistencia & PostgreSQL de Supabase & Datos clínicos sintéticos, usuarios, eventos y metadatos. \\
+        \hline
+        Archivos & Supabase Storage & Almacenamiento privado de audio y archivos asociados. \\
+        \hline
+        Interoperabilidad & Adaptadores FHIR/HL7v2 & Recepción y normalización de datos sintéticos desde un SIH/FCE simulado. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+La distribución concentra en FastAPI la lógica clínica y evita el acceso directo de Flutter a los datos sensibles. Supabase provee los servicios administrados de identidad, persistencia y archivos, reduciendo tareas operativas y manteniendo una frontera uniforme de seguridad.

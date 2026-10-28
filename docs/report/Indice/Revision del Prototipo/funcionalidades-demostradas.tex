@@ -1,0 +1,16 @@
+\subsection{Funcionalidades demostradas}
+
+La revisión del código y de las interfaces disponibles permite identificar las siguientes capacidades implementadas en distinto grado:
+
+\begin{itemize}
+    \item \textbf{Acceso móvil:} la aplicación Flutter permite iniciar sesión y presenta navegación diferenciada para perfiles de usuario. La autenticación biométrica funciona como mecanismo local de reingreso a una sesión almacenada.
+    \item \textbf{Consulta clínica:} se dispone de listado de pacientes activos, búsqueda, filtros por ubicación y una vista con antecedentes clínicos importados.
+    \item \textbf{Bitácora:} los eventos se recuperan por paciente y se muestran cronológicamente con autor, rol, fecha, contenido y tipo de entrada.
+    \item \textbf{Captura de texto:} el personal puede redactar y enviar una nota asociada al paciente seleccionado.
+    \item \textbf{Captura de audio:} la aplicación puede grabar audio y seguir una ruta de transcripción local o una ruta de procesamiento en el servidor.
+    \item \textbf{ASR local:} el texto obtenido en el dispositivo se presenta en un campo editable antes de enviarse. La implementación existe, pero su rendimiento aún debe validarse en el dispositivo objetivo.
+    \item \textbf{ASR remoto:} el audio puede almacenarse y ser procesado por un trabajador de transcripción. La aplicación consulta el resultado y permite confirmarlo después de reproducir el audio.
+    \item \textbf{Integración hospitalaria simulada:} existen adaptadores para importar recursos FHIR con datos sintéticos y un listener HL7v2 experimental. Estos componentes permiten representar el intercambio con un SIH/FCE simulado, aunque todavía requieren verificación reproducible de extremo a extremo.
+\end{itemize}
+
+Estas capacidades demuestran la factibilidad del recorrido básico desde la selección de un paciente hasta el registro y consulta de una nota. Sin embargo, no demuestran aún el flujo completo de cambio de turno ni el borrador de evolución.
