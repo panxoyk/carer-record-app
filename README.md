@@ -168,6 +168,7 @@ flutter run -d <device> --dart-define=SUPABASE_URL=http://10.0.2.2:54321 --dart-
 ```
 
 Notas:
+
 - `10.0.2.2` es el alias del host desde el emulador Android; en iOS Simulator usa `127.0.0.1`.
 - Si el puerto 8080 está ocupado, usa `HAPI_FHIR_PORT=8081` y ajusta `FHIR_BASE_URL`.
 - El teclado del emulador se habilita en `E:\.android\avd\<avd>\config.ini` con `hw.keyboard = yes`.
