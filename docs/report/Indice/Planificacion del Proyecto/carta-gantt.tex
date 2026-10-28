@@ -1,37 +1,37 @@
 \subsection{Carta Gantt}
 
-La Tabla~\ref{tab:gantt_carer_record} detalla la planificación temporal de los objetivos específicos (OE), actividades, resultados de producción e hitos a lo largo de 2026. Se recupera la vista anual utilizada en la planificación original.
+El Cuadro~\ref{tab:gantt_carer_record} resume por mes el mismo catálogo de actividades y hitos del Cuadro~\ref{tab:actividades_milestones}; los límites exactos de cada intervalo se encuentran allí. Las barras representan planificación temporal, no avance ni cumplimiento.
 
 \begin{table}[H]
-\caption{Carta Gantt - Planificación de Desarrollo del Proyecto Carer-Record (2026)}
+\caption{Carta Gantt de actividades y hitos aplicables (2026)}
 \label{tab:gantt_carer_record}
 \centering
+\small
+\setlength{\tabcolsep}{3pt}
 {\renewcommand{\arraystretch}{1.2}
 \resizebox{\textwidth}{!}{
-\begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|c|c|}
+\begin{tabular}{|l|c|c|c|c|c|c|c|}
 \hline
-\textbf{Estructura de Trabajo} & \textbf{Ene} & \textbf{Feb} & \textbf{Mar} & \textbf{Abr} & \textbf{May} & \textbf{Jun} & \textbf{Jul} & \textbf{Ago} & \textbf{Sep} & \textbf{Oct} & \textbf{Nov} & \textbf{Dic} \\ \hline
-\rowcolor{gray!20} \textbf{OE1: Pipeline Ingesta} & & & & & \cellcolor{blue!50} & \cellcolor{blue!50} & \cellcolor{blue!50} & & & & & \\ \hline
-A1.1: Análisis clínico & & & & & \cellcolor{blue!30} & \cellcolor{blue!30} & & & & & & \\ \hline
-A1.2: Diseño pipeline & & & & & \cellcolor{blue!30} & \cellcolor{blue!30} & \cellcolor{blue!30} & & & & & \\ \hline
-RP1: Plataforma base & & & & & & & \cellcolor{green!50} & & & & & \\ \hline
-H1.1 y H1.2 & & & & & & & \cellcolor{orange!50} & & & & & \\ \hline
-
-\rowcolor{gray!20} \textbf{OE2: Motor Privacidad/IA} & & & & & & & \cellcolor{blue!50} & \cellcolor{blue!50} & \cellcolor{blue!50} & \cellcolor{blue!50} & \cellcolor{blue!50} & \\ \hline
-A2.1: Diseño motor IA & & & & & & & \cellcolor{blue!30} & \cellcolor{blue!30} & \cellcolor{blue!30} & \cellcolor{blue!30} & \cellcolor{blue!30} & \\ \hline
-RP2: Sistema de acceso & & & & & & & & & & & \cellcolor{green!50} & \\ \hline
-H2.1 y H2.2 & & & & & & & & & & \cellcolor{orange!50} & \cellcolor{orange!50} & \\ \hline
-
-\rowcolor{gray!20} \textbf{OE3: Interfaces y Acceso} & & & & & & & & & \cellcolor{blue!50} & \cellcolor{blue!50} & \cellcolor{blue!50} & \\ \hline
-A3.1: Diseño UI & & & & & & & & & \cellcolor{blue!30} & \cellcolor{blue!30} & & \\ \hline
-A3.2: Implementación Auth & & & & & & & & & & \cellcolor{blue!30} & \cellcolor{blue!30} & \\ \hline
-A3.3: Validación clínica & & & & & & & & & & \cellcolor{blue!30} & \cellcolor{blue!30} & \\ \hline
-RP3: Interfaces UI & & & & & & & & & & & \cellcolor{green!50} & \\ \hline
-H3.1 y H3.2 & & & & & & & & & & \cellcolor{orange!50} & \cellcolor{orange!50} & \\ \hline
-\textbf{Hito 3: Prototipo parcial} & & & & & & & & & & & \cellcolor{orange!50} & \\ \hline
-\textbf{Hito 4: Prototipo final} & & & & & & & & & & & \cellcolor{orange!50} & \\ \hline
+\textbf{Elemento} & \textbf{May} & \textbf{Jun} & \textbf{Jul} & \textbf{Ago} & \textbf{Sep} & \textbf{Oct} & \textbf{Nov} \\ \hline
+\textbf{OE1: Integración autorizada} & \cellcolor{blue!20} & \cellcolor{blue!20} & \cellcolor{blue!20} & & & & \\ \hline
+A1.1 Análisis de sistemas y fuentes clínicas (OE1) & \cellcolor{blue!30} & \cellcolor{blue!30} & & & & & \\ \hline
+A1.2 Diseño de integración hospitalaria mediante pasarela autorizada (OE1) & \cellcolor{blue!30} & \cellcolor{blue!30} & \cellcolor{blue!30} & & & & \\ \hline
+RP1 Plataforma base e interoperabilidad & \cellcolor{green!30} & \cellcolor{green!30} & \cellcolor{green!30} & & & & \\ \hline
+H1.1 Definición del flujo y criterios de interoperabilidad & & \cellcolor{orange!30} & \cellcolor{orange!30} & & & & \\ \hline
+H1.2 Verificación inicial de integración & & & \cellcolor{orange!30} & & & & \\ \hline
+\textbf{OE2: Procesamiento local y asistencia revisable} & & & \cellcolor{blue!20} & \cellcolor{blue!20} & \cellcolor{blue!20} & \cellcolor{blue!20} & \cellcolor{blue!20} \\ \hline
+A2.1 Diseño de procesamiento local y asistencia revisable (OE2) & & & \cellcolor{blue!30} & \cellcolor{blue!30} & \cellcolor{blue!30} & \cellcolor{blue!30} & \\ \hline
+RP2 Sistema de acceso y procesamiento revisable & & & \cellcolor{green!30} & \cellcolor{green!30} & \cellcolor{green!30} & \cellcolor{green!30} & \cellcolor{green!30} \\ \hline
+H2.1 Autenticación y flujo de revisión humana & & & \cellcolor{orange!30} & \cellcolor{orange!30} & \cellcolor{orange!30} & \cellcolor{orange!30} & \cellcolor{orange!30} \\ \hline
+\textbf{OE3: Interfaces y acceso} & & & & & \cellcolor{blue!20} & \cellcolor{blue!20} & \cellcolor{blue!20} \\ \hline
+A3.1 Diseño de interfaces de usuario (OE3) & & & & & \cellcolor{blue!30} & \cellcolor{blue!30} & \\ \hline
+A3.2 Implementación de autenticación (OE3) & & & & & & \cellcolor{blue!30} & \cellcolor{blue!30} \\ \hline
+A3.3 Verificación de flujos de acceso y contexto (OE3) & & & & & & \cellcolor{blue!30} & \cellcolor{blue!30} \\ \hline
+RP3 Interfaces de usuario & & & & & \cellcolor{green!30} & \cellcolor{green!30} & \cellcolor{green!30} \\ \hline
+H3.1 Panel de revisión de notas & & & & & & \cellcolor{orange!30} & \\ \hline
+\textbf{Hito 4: Presentación del prototipo final funcional} & & & & & & & \cellcolor{red!35} \\ \hline
 \end{tabular}
 }}
 \end{table}
 
-Hito 4 se ubica el 6 de noviembre de 2026 y corresponde a la presentación del prototipo finalizado y funcional.
+\noindent\textbf{Leyenda:} azul: actividad; verde: resultado de producción; naranja: hito interno; rojo: entrega final. Las celdas mensuales indican meses tocados por el intervalo, incluidos sus meses inicial y final; no especifican días ni una fecha para Hito 3. Hito 4 es una entrega final separada de los hitos internos y tiene fecha exacta 13-11-2026.

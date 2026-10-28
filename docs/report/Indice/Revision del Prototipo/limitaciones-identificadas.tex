@@ -1,14 +1,7 @@
-\subsection{Limitaciones identificadas}
+\subsection{Límites de entrega y evidencia}
 
-El análisis del prototipo revela limitaciones que condicionan cualquier evaluación de seguridad o uso clínico:
+La entrega académica se delimita al alcance funcional descrito en los requisitos. La demostración utiliza datos sintéticos y no es apta para datos reales.
 
-\begin{itemize}
-    \item La integración completa de LLM, NER y generación del borrador de evolución con las interfaces del prototipo permanece pendiente de validación.
-    \item La bitácora muestra notas del paciente, pero aún no filtra de forma real por turno y no existe un flujo funcional de cierre de hospitalización.
-    \item No existe persistencia local de pacientes y notas, cola de sincronización ni resolución de conflictos. El ASR local es la única capacidad que puede operar sin conexión una vez descargado el modelo.
-    \item La cobertura de auditoría debe ampliarse y validarse para incluir accesos, descargas, cambios de rol e intentos fallidos.
-    \item La integración hospitalaria simulada dispone de adaptadores, pero aún requiere casos sintéticos versionados y pruebas reproducibles de validación, normalización, idempotencia y consulta.
-    \item No existen pruebas automatizadas reproducibles ni resultados de validación con personal clínico.
-\end{itemize}
+Quedan fuera del alcance la escritura en la FCE, la publicación de resúmenes, el alta o cierre de hospitalizaciones, la gestión de turnos y una operación offline completa. La consulta de la FCE se media mediante una pasarela autorizada; la FCE simulada FHIR R4 en Docker con datos sintéticos no representa un entorno hospitalario productivo.
 
-Estas brechas impiden considerar el prototipo apto para datos reales o uso asistencial. Su valor en Hito 3 es demostrar componentes de interacción e integración y, a partir de ellos, priorizar el trabajo necesario para Hito 4.
+La existencia de una maqueta o de un recorrido propuesto no constituye evidencia de implementación o validación. La matriz de verificación identifica evidencia que deberá registrarse; no se presuponen resultados, participantes, mediciones de rendimiento, evaluación clínica ni cumplimiento normativo garantizado.

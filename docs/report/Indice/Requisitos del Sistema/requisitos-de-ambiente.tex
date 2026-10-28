@@ -1,19 +1,19 @@
 \subsection{Requisitos de ambiente}
 
-El ambiente de Carer-Record debe permitir el desarrollo y la evaluación del sistema sin utilizar datos clínicos reales. Estos requisitos describen condiciones operativas y no una pila tecnológica obligatoria.
+El ambiente de evaluación de Carer-Record debe permitir demostrar las capacidades comprometidas para V4 sin utilizar datos clínicos reales. La solución combina una aplicación móvil, servicios de persistencia y control de acceso, una fuente hospitalaria simulada y procesamiento local para las capacidades asistidas.
 
 \subsubsection{Dispositivo móvil}
 
-El dispositivo debe contar con micrófono, almacenamiento temporal suficiente para grabaciones y capacidad para ejecutar la interfaz de forma fluida. Cuando se utilice ASR local, el dispositivo deberá disponer de los recursos necesarios para almacenar y ejecutar el modelo seleccionado.
+El dispositivo debe ejecutar la aplicación y, para las funciones de dictado y asistencia de redacción, disponer de los recursos necesarios para ejecutar localmente los modelos seleccionados. El audio de dictado permanece en el dispositivo; no se envía audio a servicios remotos.
 
 \subsubsection{Servicios de aplicación}
 
-El servicio central debe operar en una infraestructura con conectividad cifrada, gestión de secretos, respaldo y recuperación. Su capacidad de procesamiento debe dimensionarse a partir de mediciones de concurrencia, tamaño de archivos y latencia, evitando fijar requisitos de hardware antes de contar con resultados experimentales.
+La aplicación utiliza Flutter y servicios Supabase para identidad, persistencia y acceso a datos, con políticas RLS como autoridad de autorización. Las notas propias confirmadas pueden persistirse en el backend de Carer-Record; esto no constituye escritura en la FCE. El ambiente debe separar configuración y secretos de forma apropiada.
 
 \subsubsection{Persistencia y archivos}
 
-Los datos estructurados y los archivos de audio deben almacenarse en repositorios separados, con control de acceso, cifrado, retención definida y respaldo verificable. Los ambientes de desarrollo, prueba y eventual producción deben permanecer aislados.
+Los datos estructurados deben conservar sus controles de acceso y procedencia. Los artefactos temporales del procesamiento local deben eliminarse según la política de retención aplicable. La información importada de fuentes hospitalarias y las notas propias de Carer-Record deben poder distinguirse.
 
 \subsubsection{Datos de prueba e interoperabilidad}
 
-La evaluación académica utilizará datos sintéticos para simular el intercambio con un SIH o una FCE. Los recursos provenientes del simulador deberán ajustarse a contratos FHIR o HL7v2, validarse y normalizarse antes de incorporarse al modelo interno. La conexión con infraestructura hospitalaria real y su certificación institucional no forman parte de Hito 3~\cite{hl7chile_clips}.
+La demostración académica utiliza datos sintéticos y HAPI FHIR R4 ejecutado mediante Docker como fuente simulada para la integración hospitalaria. Se demuestra un subconjunto FHIR R4; la conexión con infraestructura hospitalaria real y su certificación institucional quedan fuera del alcance.

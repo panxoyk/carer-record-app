@@ -1,27 +1,27 @@
 \subsection{Enumeración y funcionalidad lógica de los módulos}
 
-La arquitectura se organiza en los seis módulos lógicos resumidos en la Tabla~\ref{tab:modulos_arquitectura}. Los módulos representan responsabilidades implementadas sobre los componentes descritos y no servicios necesariamente desplegados por separado.
+La arquitectura de solución se organiza en seis módulos lógicos, que representan responsabilidades y no servicios desplegados por separado. El Cuadro~\ref{tab:modulos_arquitectura} los relaciona con sus componentes principales.
 
 \begin{table}[H]
-    \caption{Módulos lógicos de la arquitectura implementada}
+    \caption{Módulos lógicos de la arquitectura de solución}
     \label{tab:modulos_arquitectura}
     \begin{tabularx}{\textwidth}{|l|X|X|}
         \hline
         \textbf{Módulo} & \textbf{Responsabilidad} & \textbf{Componentes principales} \\
         \hline
-        M1: Captura e ingesta & Capturar texto o audio e importar recursos clínicos sintéticos desde sistemas hospitalarios simulados. & Flutter, FastAPI, servicio ASR y adaptadores FHIR/HL7v2. \\
+        M1: Integración hospitalaria & Obtener información autorizada de fuentes hospitalarias y vincularla a la hospitalización correspondiente. & Pasarela autorizada; FCE simulada FHIR R4 en Docker para la demostración. \\
         \hline
-        M2: Privacidad & Detectar y enmascarar IPS antes de invocar servicios externos de IA. & FastAPI y motor NER. \\
+        M2: Consulta y bitácora & Consultar contexto clínico autorizado y presentar cronológicamente eventos externos y notas propias. & Flutter, repositorios, PostgREST/RPC y PostgreSQL con RLS. \\
         \hline
-        M3: Procesamiento & Clasificar eventos y generar borradores a partir de información validada y acotada. & Servicio LLM y reglas de generación. \\
+        M3: Captura y transcripción & Recibir texto o dictado, transcribir localmente y permitir revisión antes de registrar una nota. & Flutter y ASR en el dispositivo. \\
         \hline
-        M4: Gobernanza & Gestionar revisión, corrección, aprobación, rechazo y cierre de eventos. & FastAPI y aplicación Flutter. \\
+        M4: Asistencia y resúmenes & Mejorar localmente la redacción y resumir eventos y notas de un período seleccionado para revisión. & Flutter y modelos ejecutados en el dispositivo. \\
         \hline
-        M5: Identidad & Autenticar usuarios, validar sesiones y aplicar permisos por rol e institución. & Supabase Auth y FastAPI. \\
+        M5: Identidad y autorización & Autenticar y limitar operaciones según institución, permisos efectivos y asignación asistencial aplicable. & Supabase Auth, PostgreSQL y RLS. \\
         \hline
-        M6: Auditoría & Registrar acciones críticas y conservar metadatos suficientes para su auditoría. & FastAPI y PostgreSQL. \\
+        M6: Trazabilidad y ciclo de vida & Conservar procedencia, autoría y tiempos pertinentes, y eliminar artefactos temporales conforme a la política. & PostgreSQL, RLS, auditoría y ciclo local de temporales. \\
         \hline
     \end{tabularx}
 \end{table}
 
-M1 inicia tanto el flujo asistencial como el de interoperabilidad simulada y M4 controla su consolidación. M2 y M3 aíslan el tratamiento de privacidad del procesamiento generativo, mientras M5 y M6 operan transversalmente sobre el flujo completo.
+M1 integra la información de la fuente; M2 la presenta junto con notas propias. M3 y M4 realizan captura y asistencia en el dispositivo. M5 y M6 aplican transversalmente controles de acceso, procedencia y ciclo de vida. Carer-Record no escribe en la FCE ni convierte el resumen de período en un turno.

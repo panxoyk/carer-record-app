@@ -1,31 +1,43 @@
 \subsection{Requisitos No Funcionales}
 
-Los requisitos no funcionales (RNF) definen atributos de calidad, rendimiento, usabilidad, seguridad y resiliencia. Se formulan sin imponer productos concretos, de modo que puedan verificarse aunque cambie la implementación.
+Los requisitos no funcionales (RNF) establecen propiedades de calidad y restricciones transversales del producto, con independencia de la tecnología usada para implementarlas.
 
-\subsubsection*{\textbf{RNF1} - Interoperabilidad clínica}
+\subsubsection*{\textbf{RNF-01} - Acceso restringido y diferenciación de capacidades}
 
-La representación de los datos y los contratos de la integración simulada deben ser compatibles con FHIR y HL7v2 y permitir su alineación con los perfiles definidos por el MINSAL. Las pruebas deben ejecutarse con datos sintéticos y producir resultados reproducibles de validación, normalización y consulta~\cite{minsal_estandares_perfiles}.
+El acceso debe limitarse según las atribuciones vigentes, el ámbito institucional aplicable y, para la consulta clínica del personal asistencial, la relación asistencial con la hospitalización. Las capacidades disponibles deben diferenciarse según la autorización efectiva de cada persona.
 
-\subsubsection*{\textbf{RNF2} - Seguridad y Cifrado de Datos}
+\subsubsection*{\textbf{RNF-02} - Confidencialidad y privacidad}
 
-La información clínica y los metadatos de autoría deben protegerse durante su transmisión y almacenamiento mediante mecanismos de cifrado vigentes, gestión segura de secretos y control de acceso acorde con la sensibilidad del dato~\cite{ley_19628_vida_privada}.
+La información debe protegerse durante su transmisión, almacenamiento y procesamiento. El procesamiento de capacidades asistidas no debe enviar contenido clínico a proveedores externos de inteligencia artificial.
 
-\subsubsection*{\textbf{RNF3} - Cumplimiento Normativo y Privacidad de Datos}
+\subsubsection*{\textbf{RNF-03} - Integridad de la información}
 
-El sistema debe minimizar la exposición de IPS y controlar el propósito, ubicación, retención y acceso durante todo el ciclo de vida del dato, conforme con la normativa chilena aplicable~\cite{ley_19628_vida_privada,ley_21719_datos_personales}.
+El sistema debe preservar la procedencia de la información, distinguir el contenido proveniente de fuentes externas del contenido propio o generado y prevenir duplicados y modificaciones no autorizadas.
 
-\subsubsection*{\textbf{RNF4} - Latencia de Inferencia y Agilidad Asistencial}
+\subsubsection*{\textbf{RNF-04} - Trazabilidad}
 
-El tiempo entre el término de la captura y la presentación del borrador para revisión no debe superar 10 segundos bajo las condiciones de prueba definidas para el sistema.
+Las operaciones y el contenido registrado deben conservar metadatos suficientes para identificar procedencia, autoría, tiempos relevantes y operaciones realizadas, según corresponda.
 
-\subsubsection*{\textbf{RNF5} - Trazabilidad Médico-Legal (Logs Inmutables)}
+\subsubsection*{\textbf{RNF-05} - Seguridad del contenido asistido}
 
-Toda operación crítica debe registrar, como mínimo, actor autenticado, acción, recurso afectado, resultado y marca temporal. Los registros de auditoría deben protegerse frente a alteraciones y contar con una política de retención verificable.
+El contenido asistido no debe incorporar antecedentes no presentes en sus fuentes ni formular diagnósticos. No debe publicarse automáticamente y debe quedar sujeto a revisión humana antes de cualquier uso como nota.
 
-\subsubsection*{\textbf{RNF6} - Usabilidad Operativa y Baja Carga Cognitiva}
+\subsubsection*{\textbf{RNF-06} - Usabilidad y baja carga cognitiva}
 
-La interfaz móvil debe adaptarse a las condiciones físicas del personal de salud, permitir las acciones principales con una sola mano, reducir pasos innecesarios y mantener claridad visual para limitar la carga cognitiva~\cite{gobdigital_accesibilidad}.
+La interfaz móvil debe facilitar las tareas principales del personal asistencial con una presentación clara y una carga cognitiva reducida, sin imponer un modo de interacción no sustentado por el contexto de uso.
 
-\subsubsection*{\textbf{RNF7} - Resiliencia y Funcionamiento con Conectividad Degradada}
+\subsubsection*{\textbf{RNF-07} - Rendimiento operativo}
 
-Considerando que la infraestructura de red wifi o celular en áreas clínicas (como urgencias, pabellones o subterráneos) suele ser intermitente, el sistema debe ser capaz de operar con conectividad degradada. Debe asegurar la persistencia temporal de los registros locales en el dispositivo para sincronizarlos automáticamente una vez que se recupere la conexión al servidor.
+El rendimiento de las operaciones relevantes debe ser compatible con las tareas previstas y sus criterios de aceptación. Debe evaluarse mediante mediciones reproducibles en dispositivos representativos del entorno objetivo e informarse con sus condiciones de prueba, sin presuponer umbrales no medidos.
+
+\subsubsection*{\textbf{RNF-08} - Interoperabilidad}
+
+Las interfaces de intercambio deben definir contratos explícitos para las fuentes integradas y permitir mapear la información pertinente al modelo del sistema. La selección de estándares debe responder al contrato de cada integración y no presupone un estándar único obligatorio.
+
+\subsubsection*{\textbf{RNF-09} - Manejo de fallos}
+
+Los fallos de una operación deben preservar las fuentes de información y no impedir tareas independientes que puedan continuar de forma segura. La recuperación ante fallos nunca debe omitir controles de autorización ni revisión humana.
+
+\subsubsection*{\textbf{RNF-10} - Retención mínima}
+
+Los artefactos temporales deben conservarse solo durante el tiempo necesario para completar su propósito y eliminarse conforme a la política de retención aplicable. La política debe contemplar los residuos de operaciones interrumpidas.

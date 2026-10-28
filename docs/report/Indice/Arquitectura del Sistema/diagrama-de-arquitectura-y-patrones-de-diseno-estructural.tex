@@ -1,46 +1,36 @@
 \subsection{Arquitectura de componentes}
 
-La Figura~\ref{fig:diagrama_arquitectura} presenta la arquitectura implementada y diferencia los componentes propios de Carer-Record de los sistemas hospitalarios externos.
+La Figura~\ref{fig:diagrama_arquitectura} presenta los recorridos de sesión, consulta clínica y consulta a la fuente hospitalaria.
 
 \begin{figure}[H]
     \centering
-    \resizebox{\textwidth}{!}{%
+    \resizebox{0.95\textwidth}{!}{%
     \begin{tikzpicture}[
-        component/.style={draw, rounded corners, align=center, minimum width=3cm, minimum height=1.2cm, fill=blue!8},
-        service/.style={draw, rounded corners, align=center, minimum width=2.7cm, minimum height=1.1cm, fill=green!10},
-        data/.style={draw, rounded corners, align=center, minimum width=2.7cm, minimum height=1.1cm, fill=violet!10},
-        external/.style={draw, dashed, rounded corners, align=center, minimum width=3cm, minimum height=1.2cm, fill=gray!10},
-        boundary/.style={draw=blue!50!black, thick, rounded corners, inner sep=8mm},
-        flow/.style={-{Latex[length=2.5mm]}, thick}
+        component/.style={draw, rounded corners, align=center, text width=3.1cm, minimum height=1.15cm, fill=blue!8},
+        service/.style={draw, rounded corners, align=center, text width=3.2cm, minimum height=1.15cm, fill=green!10},
+        data/.style={draw, rounded corners, align=center, text width=3.2cm, minimum height=1.15cm, fill=violet!10},
+        external/.style={draw, dashed, rounded corners, align=center, text width=3.1cm, minimum height=1.15cm, fill=gray!10},
+        flow/.style={thick, arrows={Latex-Latex}}
     ]
-        \node[component] (flutter) {Aplicación móvil\\Flutter};
-        \node[component, right=2.2cm of flutter] (api) {API y lógica de negocio\\FastAPI cloud};
-        \node[service, above right=1.1cm and 2.1cm of api] (stt) {Servicio ASR\\Transcripción};
-        \node[service, below right=1.1cm and 2.1cm of api] (llm) {Servicio LLM\\Clasificación y síntesis};
-        \node[data, right=2.2cm of stt] (auth) {Supabase Auth\\Identidad y sesión};
-        \node[data, right=2.2cm of api] (db) {PostgreSQL\\Datos estructurados};
-        \node[data, right=2.2cm of llm] (storage) {Supabase Storage\\Archivos privados};
-        \node[service, right=2.2cm of db] (interop) {Adaptadores de interoperabilidad\\FHIR / HL7v2};
-        \node[external, right=2.4cm of interop] (simulator) {Simulador de SIH/FCE\\Datos sintéticos};
+        \node[component] (flutter) at (0,0) {Aplicación Flutter\\ASR y asistencia local};
+        \node[service] (auth) at (4.5,3) {Supabase Auth\\sesión};
+        \node[service] (api) at (4.5,0) {PostgREST / RPC\\consultas y notas};
+        \node[service] (edge) at (4.5,-3) {Edge Function\\pasarela clínica autorizada};
+        \node[data] (db) at (9,0) {PostgreSQL\\censo, notas, vínculos y RLS};
+        \node[external] (fce) at (9,-3) {FCE simulada\\FHIR R4 en Docker, datos sintéticos};
 
-        \node[boundary, fit=(flutter)(api)(stt)(llm)(auth)(db)(storage)(interop), label=above:{Frontera de Carer-Record}] (system) {};
-
-        \draw[flow] (flutter) -- node[above]{Operaciones clínicas} (api);
-        \draw[flow] ([yshift=3mm]flutter.east) to[bend left=25] node[above]{Credenciales} (auth.west);
-        \draw[flow] (auth.west) to[bend left=18] node[below]{Sesión} ([yshift=-3mm]flutter.east);
-        \draw[flow] (api) -- (stt);
-        \draw[flow] (api) -- (llm);
-        \draw[flow] (api) -- (auth);
-        \draw[flow] (api) -- (db);
-        \draw[flow] (api) -- (storage);
-        \draw[flow] (simulator.west) -- node[above]{Datos sintéticos} (interop.east);
-        \draw[flow] (interop.west) -- node[above]{Datos normalizados} (db.east);
+        \draw[flow] (flutter.north east) -- (auth.south west);
+        \draw[flow] (flutter.east) -- (api.west);
+        \draw[flow] (api.east) -- (db.west);
+        \draw[flow] (flutter.south east) -- (edge.north west);
+        \draw[flow] (edge.north east) -- (db.south west);
+        \draw[flow] (edge.east) -- (fce.west);
     \end{tikzpicture}%
     }
-    \caption{Arquitectura de componentes implementada en Carer-Record}
+    \caption{Arquitectura de solución de Carer-Record}
     \label{fig:diagrama_arquitectura}
 \end{figure}
 
-La aplicación Flutter concentra la interacción con el personal asistencial. FastAPI aplica autorización y reglas de negocio antes de acceder a los servicios administrados. Supabase Auth emite la sesión; PostgreSQL mantiene los datos estructurados; y Storage conserva archivos privados. Los servicios ASR y LLM se invocan desde la API para impedir que la aplicación móvil acceda directamente a credenciales de infraestructura. Los adaptadores de interoperabilidad reciben recursos FHIR o mensajes HL7v2 sintéticos, los normalizan y permiten comprobar el intercambio con un sistema hospitalario simulado dentro del alcance de Hito 3.
+Flutter intercambia credenciales y sesión con Supabase Auth; mediante un JSON Web Token (JWT) consulta PostgREST/RPC y persiste notas confirmadas en PostgreSQL, donde RLS es la autoridad de autorización. Una función Edge actúa como pasarela: comprueba autorización y vínculos con Supabase y media las consultas y respuestas de la FCE. La demostración utiliza una FCE simulada FHIR R4 en Docker con datos sintéticos.
 
-La separación por componentes favorece bajo acoplamiento, despliegue independiente de los procesos de IA y una frontera clara para aplicar seguridad. La implementación utiliza módulos lógicos coordinados por FastAPI, sin imponer un microservicio independiente para cada responsabilidad~\cite{arch_patterns_health}.
+El ASR y la asistencia de redacción y resumen se ejecutan en el dispositivo. Audio y transcripción sin confirmar permanecen allí; la nota confirmada sí se envía al backend. La FCE conserva el carácter de registro oficial y no recibe escrituras desde Carer-Record.

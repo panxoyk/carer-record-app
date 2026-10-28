@@ -2,83 +2,78 @@
 
 El levantamiento de requisitos de Carer-Record no parte de una abstracción genérica sobre sistemas digitales en salud, sino de un contexto hospitalario concreto con características propias. Durante la hospitalización, la información clínica del paciente se registra de forma fragmentada, depende de momentos puntuales de comunicación y pierde continuidad especialmente en los cambios de turno. El problema identificado no es la ausencia de información, sino la falta de un canal estructurado que permita organizarla, trazarla y trasladarla de manera confiable entre los distintos actores del proceso asistencial.
 
-Los requisitos que se presentan a continuación fueron construidos a partir de tres fuentes: la observación del problema en terreno mediante entrevista con un médico del área, el análisis del flujo de información clínica interna y las restricciones propias del contexto hospitalario en Chile. Se organizan en tres grupos: requisitos funcionales, requisitos de usuario y requisitos de contexto clínico con sus restricciones.
+Los requisitos que se presentan a continuación fueron construidos a partir de la observación del problema en terreno, el análisis del flujo de información clínica interna y las restricciones propias del contexto hospitalario en Chile. Se organizan en necesidades de contexto, requisitos de usuario y restricciones clínicas. El catálogo funcional comprometido para V4 se define en la sección de requisitos funcionales del sistema y no se duplica aquí.
 
-\subsection*{Requisitos funcionales del sistema}~
+\subsection*{Necesidades del contexto}~
 
-Los requisitos funcionales describen lo que el sistema debe ser capaz de hacer. En el caso de Carer-Record, estas capacidades se derivan directamente de las fallas de continuidad informativa identificadas en el flujo asistencial interno.
+Estas necesidades explican el problema de continuidad informativa que motiva Carer-Record; no son un catálogo paralelo de requisitos funcionales (RF). Las capacidades relacionadas se especifican como RF-01 a RF-07 en la sección de requisitos funcionales del sistema. El Cuadro~\ref{tab:requisitos_funcionales_contexto} resume las necesidades de contexto.
 
 \begin{table}[H]
-\caption{Requisitos Funcionales}
+\caption{Necesidades del contexto}
+\label{tab:requisitos_funcionales_contexto}
 \begin{tabularx}{\textwidth}{|l|X|X|}
 \hline
-\textbf{ID} & \textbf{Requisito} & \textbf{Justificación} \\
+\textbf{Necesidad} & \textbf{Descripción} & \textbf{Relación con el sistema} \\
 \hline
-RF-01 & Permitir la apertura de un caso clínico vinculado a un ID simbólico de hospitalización. & El flujo comienza con la identificación del paciente sin exponer datos sensibles reales durante la fase de prototipado. \\
+Continuidad del contexto & Reunir información pertinente del paciente y su hospitalización desde fuentes autorizadas. & Se aborda mediante integración y consulta del contexto clínico (RF-01 y RF-02). \\
 \hline
-RF-02 & Permitir el registro de eventos clínicos mediante captura de audio o texto desde dispositivo móvil. & Reduce la fricción de registro y permite documentar sin interrumpir el flujo de atención. \\
+Visibilidad temporal & Comprender los eventos relevantes y su secuencia durante la hospitalización, distinguiendo su procedencia. & Se aborda mediante la bitácora asistencial (RF-03). \\
 \hline
-RF-03 & Transcribir el audio mediante Speech-to-Text y categorizar el evento con un modelo de lenguaje. & Transforma el input oral en texto estructurado, reduciendo el tiempo de digitación y estandarizando el formato del evento. \\
+Registro de contexto propio & Incorporar notas contextuales mediante texto o dictado, conservando revisión y decisión de su autor. & Se aborda mediante registro, transcripción y asistencia de redacción (RF-04, RF-05 y RF-06). \\
 \hline
-RF-04 & Requerir validación humana obligatoria antes de publicar cualquier evento al historial. & Garantiza que la IA no publica información sin revisión médica, resguardando la precisión clínica del registro. \\
-\hline
-RF-05 & Integrar los eventos validados a una bitácora cronológica vinculada al ID de hospitalización activo. & Construye la línea de tiempo del paciente, soporte principal para los cambios de turno. \\
-\hline
-RF-06 & Permitir la consulta del historial por parte de cualquier profesional autorizado. & El médico entrante puede revisar el contexto completo sin depender de la presencia del médico saliente. \\
-\hline
-RF-07 & Generar automáticamente un borrador de evolución con los eventos del turno, disponible para copiar en la ficha oficial. & Elimina la doble documentación y reduce el tiempo invertido en el traspaso de turno. \\
-\hline
-RF-08 & Permitir el cierre formal del ciclo de hospitalización con declaración de alta médica. & Cierra el caso de manera trazable y consolida el historial completo de la hospitalización. \\
+Síntesis temporal & Facilitar la comprensión de información autorizada para un período seleccionado, sin convertirla en un registro oficial. & Se aborda mediante resúmenes asistidos sujetos a revisión (RF-07). \\
 \hline
 \end{tabularx}
 \end{table}
 
 \subsection*{Requisitos de usuario}~
 
-Los requisitos de usuario describen lo que el personal asistencial necesita del sistema para adoptarlo dentro de su flujo de trabajo real. A diferencia de los funcionales, estos se centran en la experiencia de uso y en las condiciones que determinan si el sistema es viable en el contexto clínico.
+Los requisitos de usuario (RU) describen lo que el personal asistencial necesita del sistema para adoptarlo dentro de su flujo de trabajo real. A diferencia de los funcionales, estos se centran en la experiencia de uso y en las condiciones que determinan si el sistema es viable en el contexto clínico. El Cuadro~\ref{tab:requisitos_usuario} resume estas necesidades y sus justificaciones.
 
 \begin{table}[H]
 \caption{Requisitos de Usuario}
+\label{tab:requisitos_usuario}
 \begin{tabularx}{\textwidth}{|l|X|X|}
 \hline
-\textbf{ID} & \textbf{Requisito} & \textbf{Justificación} \\
+Identificador & \textbf{Requisito} & \textbf{Justificación} \\
 \hline
-RU-01 & Operable con una sola mano desde móvil sin adaptación técnica previa. & El personal trabaja con guantes, con un paciente al frente o en movimiento. La interfaz debe adaptarse a esa realidad. \\
+RU-01 & Operable desde un dispositivo móvil con una interacción clara y adecuada a las tareas asistenciales. & La interfaz debe facilitar el uso en el contexto de trabajo sin asumir una modalidad física única. \\
 \hline
-RU-02 & El registro de un evento no debe tomar más de 60 segundos desde que se abre la aplicación. & Si el proceso es más largo, el sistema compite con el tiempo de atención y no será adoptado. \\
+RU-02 & El registro de una nota debe evitar pasos innecesarios y permitir completar revisión y confirmación de forma comprensible. & La interacción debe apoyar el flujo asistencial; los tiempos se evaluarán con mediciones y no se presuponen aquí. \\
 \hline
-RU-03 & La interfaz no debe requerir memorización de categorías clínicas por parte del usuario. & La categorización es sugerida por el sistema y validada por el profesional, no construida desde cero por él. \\
+RU-03 & La interfaz debe permitir redactar y revisar texto editable sin exigir memorización de estructuras rígidas ni clasificación obligatoria. & La persona puede expresar el contexto en sus propias palabras y revisar el texto transcrito o asistido. \\
 \hline
-RU-04 & El contexto del paciente debe ser comprensible para un médico que nunca ha visto el caso. & La línea de tiempo debe permitir tomar contexto completo en menos de dos minutos. \\
+RU-04 & El contexto de una hospitalización debe presentarse de forma comprensible para quien consulta el caso. & La organización cronológica y la procedencia ayudan a interpretar la información disponible. \\
 \hline
-RU-05 & El borrador de evolución debe poder copiarse directamente en la ficha oficial sin edición mayor. & Si requiere reescritura extensa, el sistema genera doble trabajo en lugar de reducirlo. \\
+RU-05 & El contenido asistido debe poder revisarse y editarse antes de cualquier uso posterior. & Carer-Record no escribe en la FCE; la decisión sobre el uso externo corresponde al profesional. \\
 \hline
-RU-06 & El sistema debe funcionar con conectividad degradada o intermitente. & La conectividad en recintos hospitalarios no siempre es estable, especialmente en zonas de hospitalización antiguas. \\
+RU-06 & Ante una interrupción de conectividad, el sistema debe comunicar el estado de las operaciones y evitar pérdida o duplicación silenciosa. & La continuidad de tareas depende de sus controles y no implica disponibilidad offline completa. \\
 \hline
 \end{tabularx}
 \end{table}
 
 \subsection*{Requisitos de contexto clínico y restricciones}~
 
-El contexto hospitalario impone restricciones que no dependen de decisiones de diseño, sino de la naturaleza del entorno regulado, de la responsabilidad clínica del personal y de las particularidades del sistema de salud en Chile. Ignorarlas haría el sistema inviable o directamente inaplicable en un entorno real.
+El contexto hospitalario impone restricciones que no dependen de decisiones de diseño, sino de la naturaleza del entorno regulado, de la responsabilidad clínica del personal y de las particularidades del sistema de salud en Chile. Ignorarlas haría el sistema inviable o directamente inaplicable en un entorno real. Las restricciones de contexto (RC) y sus implicancias de diseño se reúnen en el Cuadro~\ref{tab:restricciones_contexto}.
 
 \begin{table}[H]
 \caption{Requisitos de Contexto y Restricciones}
+\label{tab:restricciones_contexto}
 \begin{tabularx}{\textwidth}{|l|X|X|}
 \hline
-\textbf{ID} & \textbf{Restricción} & \textbf{Implicancia para el diseño} \\
+Identificador & \textbf{Restricción} & \textbf{Implicancia para el diseño} \\
 \hline
-RC-01 & El sistema no reemplaza ni se integra automáticamente a la Ficha Clínica Electrónica oficial. & Carer-Record opera como capa complementaria. El traspaso a la ficha oficial es manual mediante el borrador de evolución. \\
+RC-01 & El sistema no reemplaza ni escribe en la Ficha Clínica Electrónica oficial. & Carer-Record es una capa complementaria; las notas propias se registran en su backend y los resúmenes no se publican como notas ni se escriben en la FCE. \\
 \hline
-RC-02 & Durante la fase académica no se utilizarán datos clínicos reales ni información protegida bajo PHI. & El sistema opera con identificadores simbólicos y datos simulados, lo que delimita el prototipado sin comprometer privacidad. \\
+RC-02 & Durante la fase académica no se utilizarán datos clínicos reales ni información personal de salud (IPS). & El sistema opera con identificadores simbólicos y datos simulados, lo que delimita el prototipado sin comprometer privacidad. \\
 \hline
-RC-03 & Ningún evento puede integrarse al historial sin validación explícita de un profesional autorizado. & El principio Human-in-the-Loop es no negociable. La IA procesa y sugiere, el médico decide y publica. \\
+RC-03 & Las notas propias y el contenido asistido requieren revisión y confirmación explícitas antes de registrarse o publicarse como nota. & La persona autora decide el contenido confirmado; los eventos recibidos de fuentes oficiales conservan su procedencia y no requieren revalidación como notas propias. \\
 \hline
-RC-04 & No se contempla interoperabilidad automática con estándares HL7 o FHIR en esta etapa. & La integración con sistemas externos requiere certificaciones y acuerdos institucionales fuera del alcance académico actual. \\
+RC-04 & La interoperabilidad se limita a los contratos y fuentes comprometidos para la demostración académica. & La demostración utiliza una FCE simulada HAPI FHIR R4 en Docker con datos sintéticos; esto no implica conexión real ni certificación institucional. \\
 \hline
 RC-05 & El acceso debe estar autenticado y cada registro asociado a un usuario identificado. & La trazabilidad de autoría de cada evento es un requisito de responsabilidad clínica y no puede obviarse. \\
 \hline
-RC-06 & El sistema no debe generar ni inferir información que no haya sido registrada por un profesional. & La IA solo transcribe, categoriza y consolida. No interpreta, no diagnostica ni completa información faltante. \\
+RC-06 & El contenido asistido no debe añadir antecedentes ni formular diagnósticos. & Las propuestas y resúmenes se limitan a fuentes autorizadas y requieren revisión humana; no se publican automáticamente. \\
 \hline
 \end{tabularx}
 \end{table}

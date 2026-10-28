@@ -1,6 +1,6 @@
 \subsection{Matriz de requisitos funcionales y responsabilidad modular}
 
-La Tabla~\ref{tab:matriz_rf} relaciona los diez RF con los módulos responsables. Una marca indica responsabilidad directa y no grado de implementación.
+El Cuadro~\ref{tab:matriz_rf} relaciona los siete requisitos funcionales con los módulos responsables. Una marca indica responsabilidad de diseño, no grado de implementación ni resultado de verificación.
 
 \begin{table}[H]
 \caption{Trazabilidad entre requisitos funcionales y módulos}
@@ -10,27 +10,21 @@ La Tabla~\ref{tab:matriz_rf} relaciona los diez RF con los módulos responsables
 \hline
 \textbf{Requisito} & \textbf{M1} & \textbf{M2} & \textbf{M3} & \textbf{M4} & \textbf{M5} & \textbf{M6} \\
 \hline
-RF1: Identificación mínima segura & \checkmark & & & & \checkmark & \checkmark \\
+RF-01: Integración con fuentes de información hospitalaria & \checkmark & \checkmark & & & \checkmark & \checkmark \\
 \hline
-RF2: Captura multimodal & \checkmark & & & & \checkmark & \checkmark \\
+RF-02: Consulta del contexto clínico & & \checkmark & & & \checkmark & \checkmark \\
 \hline
-RF3: Procesamiento asistido por IA & \checkmark & \checkmark & \checkmark & \checkmark & & \checkmark \\
+RF-03: Visualización de la bitácora asistencial & & \checkmark & & & \checkmark & \checkmark \\
 \hline
-RF4: Filtrado de privacidad & & \checkmark & & & & \checkmark \\
+RF-04: Registro de notas de contexto & & \checkmark & \checkmark & & \checkmark & \checkmark \\
 \hline
-RF5: Validación clínica & & & & \checkmark & \checkmark & \checkmark \\
+RF-05: Transcripción de dictados & & & \checkmark & & & \checkmark \\
 \hline
-RF6: Metadatos trazables & \checkmark & & & \checkmark & \checkmark & \checkmark \\
+RF-06: Asistencia para la redacción & & & & \checkmark & & \checkmark \\
 \hline
-RF7: Bitácora cronológica & \checkmark & & & \checkmark & \checkmark & \checkmark \\
-\hline
-RF8: Síntesis de jornada & & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
-\hline
-RF9: Cierre de hospitalización & & & & \checkmark & \checkmark & \checkmark \\
-\hline
-RF10: Integración hospitalaria simulada & \checkmark & & & & & \checkmark \\
+RF-07: Resúmenes asistidos & & \checkmark & & \checkmark & \checkmark & \checkmark \\
 \hline
 \end{tabularx}
 \end{table}
 
-La matriz evidencia que M5 y M6 son responsabilidades transversales: la identidad determina quién puede ejecutar cada acción y la auditoría conserva evidencia sobre las operaciones críticas. RF10 depende de M1 para validar y normalizar la ingesta y de M6 para conservar evidencia del intercambio. También muestra que RF3 y RF8 dependen de una cadena completa de privacidad, generación y validación, por lo que no deben considerarse cumplidos mediante una demostración aislada del LLM.
+M5 y M6 son transversales a las operaciones protegidas y al registro de procedencia y autoría. La matriz expresa la distribución prevista de responsabilidades; la evidencia de implementación y verificación se informa por separado.

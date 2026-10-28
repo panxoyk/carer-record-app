@@ -1,13 +1,7 @@
 \subsection{Estrategia de verificación y validación}
 
-La verificación comprueba si el producto satisface los requisitos especificados; la validación determina si la solución responde a las necesidades del personal asistencial en su contexto de uso. En Hito 3 ambas actividades tienen un alcance preliminar: se realizó una inspección del código y de los flujos disponibles, pero no existe una suite automatizada ni una prueba formal con usuarios clínicos.
+La verificación comprueba si el producto satisface los requisitos especificados; la validación determina si la solución responde a las necesidades del personal asistencial en su contexto de uso. La estrategia define criterios y métodos para evaluar el producto final; no presupone que las pruebas se hayan ejecutado ni que haya resultados o participantes.
 
-Para evitar conclusiones no sustentadas, se utilizan tres resultados de verificación:
+La matriz asociada especifica los criterios y métodos para cada RF-01--RF-07 y RNF-01--RNF-10. A la fecha de este informe no se han realizado pruebas con participantes ni en producción. La existencia de vistas desarrolladas describe implementación, pero no demuestra facilidad de uso, eficacia, seguridad, calidad de transcripción, rendimiento ni aceptación.
 
-\begin{itemize}
-    \item \textbf{Cumplido:} existe evidencia funcional suficiente para el alcance definido.
-    \item \textbf{Parcial:} existe una implementación, pero faltan condiciones esenciales o pruebas.
-    \item \textbf{Pendiente:} no existe una implementación reproducible en el prototipo actual.
-\end{itemize}
-
-La evaluación se efectuó mediante trazabilidad entre requisitos, rutas de interfaz, endpoints, modelos de datos y servicios disponibles. Este método permite reconocer brechas, pero no sustituye pruebas unitarias, de integración, seguridad, rendimiento y usabilidad.
+Los métodos propuestos incluyen pruebas funcionales y de autorización con datos sintéticos, inspección de procedencia y ciclo de vida, pruebas de contrato e integración, mediciones reproducibles de rendimiento y evaluación con participantes. Estos métodos y sus matrices son criterios de evaluación, no resultados. El protocolo de usabilidad permanece propuesto y no ejecutado. Los tests automáticos existentes en el repositorio son evidencia técnica separada; no se incorporan aquí como resultados del informe ni se sustituyen por métodos o matrices pendientes. Una decisión de diseño o una maqueta no demuestra por sí misma el cumplimiento de un requisito.

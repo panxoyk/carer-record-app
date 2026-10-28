@@ -5,16 +5,17 @@ Para abordar la problemática, resulta necesario identificar los elementos relev
 
 \subsubsection*{Actores relevantes del sistema} ~
 
-El sistema Carer-Record se inserta en un contexto hospitalario donde la información clínica del paciente circula entre múltiples actores con distintos niveles de responsabilidad, acceso y urgencia. El actor central del problema es el profesional asistencial, quien registra, valida, consulta y traspasa el contexto clínico del paciente a lo largo de la hospitalización. Desde una perspectiva sistémica, el problema se ubica en el espacio entre lo que existe registrado y lo que efectivamente se comunica y comprende dentro del equipo clínico durante los cambios de turno, un vacío de contexto que ningún sistema actual resuelve de forma estructurada.
+El sistema Carer-Record se inserta en un contexto hospitalario donde la información clínica del paciente circula entre múltiples actores con distintos niveles de responsabilidad, acceso y urgencia. El actor central del problema es el profesional asistencial, quien registra, valida, consulta y traspasa el contexto clínico del paciente a lo largo de la hospitalización. Desde una perspectiva sistémica, el problema se ubica en el espacio entre lo que existe registrado y lo que efectivamente se comunica y comprende dentro del equipo clínico durante los cambios de turno, un vacío de contexto que los sistemas descritos en este análisis no resuelven de forma estructurada.
 
 Los actores relevantes del sistema son el personal médico y clínico como usuarios principales, el paciente como sujeto del registro, los sistemas de información hospitalaria como repositorios oficiales y la institución hospitalaria como entidad que regula el acceso y la responsabilidad sobre el dato. Todos participan directa o indirectamente en la generación, validación, circulación o restricción de la información clínica.\\
 
 \subsubsection*{Perfil de usuario} ~
 
-El proyecto considera diversos perfiles de usuario, ya que la problemática abordada involucra a un conjunto de actores del equipo asistencial que interactúan con la información clínica del paciente en distintos momentos y con distintos roles dentro del flujo hospitalario interno. Esta diversidad de perfiles permite comprender el problema de manera más amplia y orientar el diseño de una solución que responda a necesidades de registro ágil, consulta rápida y continuidad asistencial, bajo criterios de trazabilidad, no interferencia con la labor clínica y resguardo del dato.
+El proyecto considera diversos perfiles de usuario, ya que la problemática abordada involucra a un conjunto de actores del equipo asistencial que interactúan con la información clínica del paciente en distintos momentos y con distintos roles dentro del flujo hospitalario interno. Esta diversidad de perfiles permite comprender el problema de manera más amplia y orientar el diseño de una solución que responda a necesidades de registro ágil, consulta rápida y continuidad asistencial, bajo criterios de trazabilidad, no interferencia con la labor clínica y resguardo del dato. El Cuadro~\ref{tab:perfiles_usuario} resume los perfiles considerados y sus necesidades de uso.
 
 \begin{table}[H]
     \caption{Perfiles de Usuario}
+    \label{tab:perfiles_usuario}
     \begin{tabularx}{\textwidth}{|l|X|X|c|X|X|}
     \hline
     \textbf{Perfil} & \textbf{Socioeconómico y cultural} & \textbf{Ocupacional} & \textbf{Etario} & \textbf{Caract. físicas y psicológicas} & \textbf{Otros} \\
@@ -33,7 +34,7 @@ El proyecto considera diversos perfiles de usuario, ya que la problemática abor
     & Médico que recibe el caso en el cambio de turno. Consulta historial y asume continuidad del tratamiento.
     & 26--55
     & Alta presión de tiempo al inicio del turno. Necesita contextualizar rápidamente casos que no conoce.
-    & El cambio de turno es el momento más crítico. Necesita acceder al contexto del caso en menos de dos minutos. \\
+    & En los cambios de turno necesita consultar con claridad el contexto autorizado del caso. \\
     \hline
 
     Personal de enfermería
@@ -71,7 +72,7 @@ La construcción de un buyer persona preliminar se incorpora con el propósito d
         \item Acceder rápidamente al contexto actualizado de un paciente al inicio del turno.
         \item Contar con trazabilidad de qué eventos ocurrieron y qué acciones tomó cada profesional durante la hospitalización.
         \item Registrar el contexto del turno sin invertir más tiempo del disponible.
-        \item Disponer de un borrador de evolución listo para traspasar o copiar en la ficha oficial.
+        \item Resumir el contexto consultado de la FCE junto con las notas propias, manteniendo la ficha oficial como registro clínico.
     \end{itemize}
 
     \item \textbf{Frustraciones:}

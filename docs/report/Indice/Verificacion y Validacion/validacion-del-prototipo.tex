@@ -1,18 +1,18 @@
 \subsection{Validación del prototipo}
 
-La validación con personal médico y de enfermería permanece pendiente. Las maquetas y el protocolo de usabilidad definidos en el Perfil de Diseño constituyen el instrumento previsto, pero no se dispone de participantes, observaciones, tiempos de tarea ni puntajes SUS que permitan concluir aceptación o utilidad clínica~\cite{ref_brooke_sus}.
+La validación con personal médico y de enfermería no se ha realizado. El protocolo de usabilidad es una propuesta aún no ejecutada; no se dispone de participantes, observaciones, tiempos de tarea, errores observados ni puntajes SUS. Si se aplica, deberá distinguir la usabilidad percibida de la utilidad clínica~\cite{ref_brooke_sus}.
 
-Para Hito 4 se propone ejecutar, como mínimo, las siguientes actividades:
+Como métodos de evaluación pendientes se consideran las siguientes actividades; su inclusión no afirma que se hayan ejecutado:
 
 \begin{itemize}
-    \item pruebas unitarias y de integración para autenticación, pacientes, notas, audio y cierre de casos;
-    \item pruebas de integración hospitalaria simulada con recursos FHIR y mensajes HL7v2 sintéticos, incluyendo casos válidos, inválidos y repetidos;
-    \item pruebas de autorización que comprueben respuestas denegadas para sesiones ausentes, vencidas o sin permisos;
-    \item pruebas del ASR con vocabulario clínico, ruido ambiental y distintos dispositivos, midiendo errores y latencia;
-    \item pruebas de seguridad para carga y descarga de audio, gestión de secretos y aislamiento de datos;
-    \item pruebas de recuperación y sincronización frente a pérdida de conectividad;
-    \item ejecución del protocolo de usabilidad con personal asistencial y registro de completitud, tiempo, errores y SUS;
-    \item revisión clínica de transcripciones, categorías y borradores utilizando exclusivamente casos sintéticos durante el alcance académico.
+    \item pruebas de los recorridos de consulta autorizada, notas, dictado, revisión de redacción y resumen de período;
+    \item pruebas de integración con contratos de fuente comprometidos, usando datos sintéticos en la demostración;
+    \item pruebas de autorización por permisos, institución y asignación asistencial aplicable;
+    \item pruebas de ASR local en dispositivos representativos, registrando condiciones y mediciones;
+    \item verificación del tratamiento local de audio y transcripción, y de la persistencia de notas confirmadas;
+    \item pruebas de errores y recuperación que no impliquen operación offline completa;
+    \item evaluación de usabilidad con personal asistencial, registrando método, participantes y resultados;
+    \item revisión de resúmenes y propuestas con casos sintéticos, sin publicación ni escritura en la FCE.
 \end{itemize}
 
-La aceptación del prototipo final requerirá evidencia reproducible de estas pruebas. Hasta entonces, los resultados de Hito 3 deben interpretarse como validación técnica preliminar de componentes y no como validación clínica del sistema.
+Los resultados solo se informarán cuando exista evidencia reproducible de cada actividad. Las vistas desarrolladas pueden describirse como evidencia de implementación, pero no prueban usabilidad, eficacia, seguridad, calidad, latencia o aceptación del prototipo. Este apartado no afirma validación con participantes ni en producción, ni evaluación clínica.

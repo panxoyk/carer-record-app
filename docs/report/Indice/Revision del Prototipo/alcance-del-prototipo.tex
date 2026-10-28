@@ -1,29 +1,31 @@
-\subsection{Alcance del prototipo parcial}
+\subsection{Alcance del prototipo funcional}
 
-Hito 3 presenta un prototipo parcial orientado a comprobar la captura, procesamiento y consulta de eventos asistenciales desde una aplicación móvil, además de la integración simulada con sistemas hospitalarios mediante datos sintéticos. La arquitectura e infraestructura se encuentran implementadas sobre Flutter, FastAPI cloud y Supabase; el carácter parcial corresponde a las funcionalidades clínicas y actividades de validación que se completarán en Hito 4.
+El prototipo final comprende consulta autorizada de información hospitalaria, bitácora de notas propias, captura por texto o dictado, transcripción y asistencia local, y resumen revisable de eventos y notas de un período seleccionado. No reemplaza ni escribe en la FCE, no gestiona turnos o altas y no ofrece operación offline completa.
 
-La Tabla~\ref{tab:infraestructura_implementada} resume los componentes que sostienen el prototipo.
+La solución se diseña con Flutter y Supabase Auth, PostgreSQL con RLS, PostgREST, RPC y Edge Functions. Una pasarela autorizada media la consulta de fuentes hospitalarias. La demostración académica utiliza una FCE simulada con FHIR R4 en Docker y datos sintéticos; no representa una conexión hospitalaria productiva. El estándar de esta demostración no impone el contrato de otras fuentes integradas.
+
+El Cuadro~\ref{tab:infraestructura_implementada} resume los componentes principales de la solución.
 
 \begin{table}[H]
-    \caption{Infraestructura implementada para Carer-Record}
+    \caption{Componentes principales de la solución}
     \label{tab:infraestructura_implementada}
     \begin{tabularx}{\textwidth}{|l|X|X|}
         \hline
         \textbf{Área} & \textbf{Componente} & \textbf{Responsabilidad} \\
         \hline
-        Aplicación móvil & Flutter & Interacción, captura de texto y audio y presentación de la bitácora. \\
+        Aplicación & Flutter & Presentación, interacción y procesamiento local de audio y texto. \\
         \hline
-        Servicios & FastAPI cloud & API, reglas de negocio, autorización y coordinación de procesos de IA. \\
+        Identidad y autorización & Supabase Auth, PostgreSQL y RLS & Identidad de sesión y autorización efectiva por institución, permisos y asignación aplicable. \\
         \hline
-        Identidad & Supabase Auth & Autenticación, sesión y emisión de credenciales de acceso. \\
+        Consulta y persistencia & PostgREST, RPC, Edge Functions y PostgreSQL & Consultar información autorizada y persistir notas confirmadas con sus metadatos. \\
         \hline
-        Persistencia & PostgreSQL de Supabase & Datos clínicos sintéticos, usuarios, eventos y metadatos. \\
+        Integración & Pasarela autorizada & Mediar la consulta a fuentes hospitalarias; la demostración utiliza una FCE simulada FHIR R4 en Docker con datos sintéticos. \\
         \hline
-        Archivos & Supabase Storage & Almacenamiento privado de audio y archivos asociados. \\
-        \hline
-        Interoperabilidad & Adaptadores FHIR/HL7v2 & Recepción y normalización de datos sintéticos desde un SIH/FCE simulado. \\
+        Asistencia & ASR y modelos locales & Transcribir, apoyar redacción y generar resúmenes en el dispositivo, sujetos a revisión humana. \\
         \hline
     \end{tabularx}
 \end{table}
 
-La distribución concentra en FastAPI la lógica clínica y evita el acceso directo de Flutter a los datos sensibles. Supabase provee los servicios administrados de identidad, persistencia y archivos, reduciendo tareas operativas y manteniendo una frontera uniforme de seguridad.
+En el dictado, la grabación se crea como archivo temporal dentro del espacio privado de la aplicación. El reconocimiento se ejecuta localmente, sin alternativa de envío de audio a un servicio en la nube; la persona puede revisar y reproducir la grabación en el dispositivo antes de confirmar. La transcripción pendiente se conserva en almacenamiento seguro local, separada del backend, con un plazo técnico de expiración de 24 horas. La limpieza se solicita al confirmar o descartar el dictado, al cerrar sesión y al cerrar el editor. Al solicitar el componente de almacenamiento del flujo se inicia también el barrido de artefactos expirados; no es una tarea periódica ni garantiza el borrado al cumplirse exactamente las 24 horas. Si la limpieza falla, puede quedar pendiente y no deshace una nota ya confirmada. El ciclo de borrado está pendiente de verificación.
+
+Una vez confirmada la nota, el backend recibe únicamente el texto confirmado y metadatos de procedencia; no recibe el audio ni la transcripción cruda. Esta descripción refleja el diseño implementado y no constituye por sí sola evidencia de verificación integral del ciclo de borrado. Los resúmenes no se registran en Carer-Record ni se escriben en la FCE.

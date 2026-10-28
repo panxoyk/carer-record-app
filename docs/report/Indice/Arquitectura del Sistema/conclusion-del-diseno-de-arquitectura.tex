@@ -1,5 +1,5 @@
 \subsection{Conclusión del diseño de arquitectura}
 
-La arquitectura implementada separa presentación, negocio, IA, interoperabilidad, identidad, persistencia y archivos. Flutter y FastAPI mantienen el flujo de interacción y negocio, Supabase centraliza autenticación, datos y almacenamiento privado, y los adaptadores FHIR/HL7v2 permiten simular la ingesta desde sistemas hospitalarios.
+La arquitectura de solución separa consulta hospitalaria, bitácora, captura, asistencia local, identidad y trazabilidad. Flutter se integra con Supabase Auth, PostgreSQL con RLS, PostgREST, RPC y Edge Functions; una pasarela autorizada media la consulta a la FCE. El ASR y la asistencia se ejecutan en el dispositivo. El audio y la transcripción cruda permanecen allí, mientras que las notas confirmadas se persisten en el backend.
 
-El diseño establece barreras explícitas: M2 precede a cualquier LLM externo, M4 impide la publicación automática y M5 junto con M6 controlan acceso y trazabilidad. La simulación permite verificar la integración sin datos ni infraestructura hospitalaria real. Esta estructura permite concentrar el trabajo restante en completar y validar las funciones clínicas del prototipo, sin requerir un cambio de infraestructura.
+La separación modular conserva la revisión humana y la frontera de solo lectura respecto de la FCE. La demostración utiliza la FCE simulada FHIR R4 en Docker con datos sintéticos, sin conexión productiva. La escritura de resúmenes revisados en la FCE y el registro de entradas clínicas oficiales desde la aplicación son trabajo futuro.

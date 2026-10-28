@@ -1,62 +1,58 @@
 \subsection{Protocolo de test de usabilidad}
 
-El protocolo de test de usabilidad de Carer-Record está diseñado para evaluar si las vistas de interfaz descritas en la sección anterior permiten al personal asistencial completar las tareas críticas del sistema de forma eficiente, comprensible y sin fricción. El test se centra en el flujo completo de un profesional durante un turno simulado, desde la autenticación hasta el cierre y generación del borrador de evolución.\\
+El protocolo propone evaluar si los recorridos de Carer-Record permiten al personal asistencial consultar contexto autorizado, registrar notas propias y revisar la asistencia y los resúmenes de período. La evaluación emplea datos sintéticos y no se afirma como ejecutada.
 
 \subsubsection*{Objetivos del test} ~
 
-El test tiene tres objetivos principales. El primero es verificar que el personal asistencial puede completar cada tarea del flujo sin instrucción previa y dentro de los tiempos definidos como aceptables en los requisitos de usuario. El segundo es identificar los puntos del flujo donde aparece mayor confusión, error o abandono. El tercero es validar que el contenido y la estructura de cada vista son comprensibles en el contexto clínico real.\\
+El test busca observar la completitud de las tareas, el tiempo empleado, los errores y la comprensión de las vistas. También recoge la percepción general de usabilidad para orientar iteraciones de diseño. Los indicadores y umbrales descritos son criterios propuestos para esta evaluación, no resultados ni requisitos funcionales.
 
 \subsubsection*{Perfil de participantes} ~
 
-Se propone realizar el test con un mínimo de cinco participantes que cumplan el siguiente perfil: profesional asistencial con rol de médico tratante, médico de turno o enfermero universitario, con experiencia de al menos un año en contexto hospitalario y uso habitual de smartphone en su vida cotidiana. No es requisito que hayan usado Carer-Record previamente, ya que es preferible que no lo hayan hecho para evaluar la curva de aprendizaje inicial.\\
+Se propone invitar a un mínimo de cinco participantes que correspondan al perfil de personal asistencial: médico tratante, médico de turno o profesional de enfermería con al menos un año de experiencia hospitalaria y uso habitual de smartphone. La participación es voluntaria y requiere consentimiento informado antes de comenzar. Este perfil no implica que se hayan reclutado o evaluado participantes.
 
 \subsubsection*{Tareas a evaluar} ~
 
-El test estructura el flujo en cinco tareas que corresponden directamente a las cinco vistas de interfaz definidas en la sección anterior.
+El Cuadro~\ref{tab:tareas_test_usabilidad} define seis tareas para recorrer el acceso, la consulta, el registro y la revisión de asistencia. Los tiempos son objetivos orientativos para observar el recorrido; no son garantías de rendimiento ni condiciones de aceptación del producto.
 
 \begin{table}[H]
-\caption{Tareas del Test de Usabilidad}
+\caption{Tareas propuestas para el test de usabilidad}
+\label{tab:tareas_test_usabilidad}
 \begin{tabularx}{\textwidth}{|l|X|X|c|}
 \hline
-\textbf{N} & \textbf{Tarea} & \textbf{Criterio de éxito} & \textbf{Tiempo máximo} \\
+\textbf{N} & \textbf{Tarea} & \textbf{Criterio observable} & \textbf{Tiempo objetivo} \\
 \hline
-T-01 & Autenticarse en el sistema e identificar un caso activo mediante ID simbólico. & El participante accede al perfil del paciente sin error ni ayuda externa. & 30 s \\
+T-01 & Iniciar sesión y abrir una hospitalización sintética autorizada. & Se muestra el contexto permitido; un acceso sin autorización es denegado. & 30 s \\
 \hline
-T-02 & Revisar el historial del paciente y describir oralmente el estado del caso. & El participante puede resumir el contexto del caso con la información de la línea de tiempo. & 2 min \\
+T-02 & Consultar información de la FCE simulada y notas propias en la bitácora. & Se identifican las procedencias y el orden temporal de la información. & 2 min \\
 \hline
-T-03 & Registrar un evento clínico mediante grabación de audio. & El evento queda capturado correctamente y avanza al flujo de validación. & 60 s \\
+T-03 & Redactar y confirmar una nota mediante texto. & La nota revisada queda asociada a la persona autora y a la hospitalización. & 60 s \\
 \hline
-T-04 & Revisar el borrador generado por el sistema y confirmar o editar el evento. & El evento queda publicado en el historial con categoría correcta y autoría registrada. & 90 s \\
+T-04 & Dictar una nota, revisar la transcripción local y corregirla antes de confirmar. & Solo el texto revisado y confirmado queda registrado. & 60 s \\
 \hline
-T-05 & Solicitar el borrador de evolución y copiarlo al portapapeles. & El borrador queda copiado sin error y el participante confirma que lo pegaría en la ficha oficial. & 45 s \\
+T-05 & Solicitar asistencia de redacción y aceptar, editar o descartar la propuesta. & La decisión corresponde a la persona y el texto de origen no se sustituye automáticamente. & 90 s \\
+\hline
+T-06 & Seleccionar un período con varios eventos y notas y revisar su resumen. & El resumen identifica el período y sus fuentes, y no se publica como nota ni se escribe en la FCE. & 45 s \\
 \hline
 \end{tabularx}
 \end{table}
 
-\subsubsection*{Métricas de evaluación} ~
+\subsubsection*{Métricas y criterios de iteración} ~
 
-Para cada tarea se registrarán las siguientes métricas.\\
-
+Para cada tarea se propone registrar:
 
 \begin{itemize}
-    \item \textit{Tasa de completitud:} porcentaje de participantes que completan la tarea sin asistencia externa. Un resultado inferior al 80\% indica un problema de diseño que requiere iteración.
-    \item \textit{Tiempo de ejecución:} tiempo real registrado para cada tarea, comparado con el tiempo máximo aceptable definido. Si más de dos participantes superan el límite, la tarea requiere rediseño.
-    \item \textit{Errores por tarea:} número y tipo de errores cometidos durante la ejecución, distinguiendo entre errores recuperables, donde el participante se corrige solo, y errores bloqueantes, donde necesita ayuda o abandona.
+    \item \textit{Completitud:} proporción de participantes que completa la tarea sin ayuda. Una completitud inferior al 80\% se propone como señal para revisar el diseño de esa tarea.
+    \item \textit{Tiempo:} duración observada comparada con el objetivo orientativo del cuadro. Un promedio que supere el objetivo en más de 50\% se propone como señal para revisar el recorrido, no como incumplimiento del producto.
+    \item \textit{Errores:} tipo y cantidad, distinguiendo errores recuperables de errores bloqueantes que requieren ayuda o impiden terminar.
+    \item \textit{Usabilidad percibida:} aplicación del cuestionario System Usability Scale (SUS) de diez ítems al terminar; un resultado inferior a 70 puntos se propone como señal para iterar la interfaz~\cite{ref_brooke_sus}.
 \end{itemize}
 
-
-Escala de usabilidad percibida: al finalizar el test completo, se aplica el System Usability Scale (SUS) de diez ítems \cite{ref_brooke_sus}, que entrega un puntaje entre 0 y 100. Se considera aceptable un resultado igual o superior a 70 puntos.\\\\
+Los umbrales orientan decisiones de diseño y deben interpretarse junto con las observaciones y condiciones de aplicación; no acreditan por sí mismos la aceptación del producto. Una nueva ronda puede evaluar los cambios introducidos. Esta evaluación de usabilidad no sustituye la verificación técnica ni una revisión clínica diferenciada del contenido generado.
 
 \subsubsection*{Protocolo de aplicación} ~
 
-El test se realiza en formato presencial con moderador. El moderador presenta la aplicación al participante sin explicar su funcionamiento, entrega el escenario simulado y observa sin intervenir salvo en caso de bloqueo completo. Se registra en video la pantalla del dispositivo y la reacción verbal del participante durante cada tarea.
+La prueba se propone en formato presencial, con una persona moderadora. Tras obtener el consentimiento, se entrega un escenario sintético y se permite que cada participante complete las tareas sin instrucciones sobre cómo usar la interfaz. La persona moderadora observa y registra pasos, tiempos y errores, e interviene solo si existe bloqueo o si la persona solicita detener la prueba. No se requiere grabar audio o video; cualquier registro adicional exige consentimiento explícito.
 
-El escenario simulado que se entrega al participante es el siguiente: se le indica que acaba de comenzar su turno y que tiene asignado el caso del paciente identificado con el ID de hospitalización que aparece en pantalla. Se le pide que revise el estado del caso, registre una nota clínica con los datos que se le indican en voz alta y genere el borrador de evolución para el cierre de turno.
+El escenario presenta a una persona asistencial que necesita consultar una hospitalización autorizada, revisar la FCE simulada y las notas propias, registrar contexto mediante texto y dictado, revisar una propuesta de redacción y generar un resumen de un período seleccionado. El resumen se revisa en Carer-Record y no se copia ni se escribe en la ficha oficial. El intervalo seleccionado no representa un turno.
 
-Al finalizar las tareas, el moderador aplica el cuestionario SUS y realiza una entrevista breve de cierre con tres preguntas abiertas: qué fue lo más confuso del flujo, qué cambiarían de la interfaz y si usarían el sistema en su trabajo real.\\
-
-\subsubsection*{Criterios de iteración} ~
-
-A partir de los resultados del test se definen tres niveles de acción. Si la tasa de completitud de alguna tarea es inferior al 80\% o el tiempo promedio supera el límite definido en más de un 50\%, la vista correspondiente se rediseña antes de continuar con el desarrollo. Si el puntaje SUS es inferior a 70 puntos, se realiza una segunda ronda de test con las modificaciones aplicadas. Si el puntaje SUS es igual o superior a 70 puntos y no hay errores bloqueantes en más de una tarea, el flujo se considera aprobado para avanzar a la siguiente etapa de desarrollo.
-
-El protocolo descrito no depende de la versión final del prototipo. Puede aplicarse sobre las maquetas de baja fidelidad presentadas en la sección anterior con interacciones simuladas, lo que permite validar las decisiones de diseño antes de invertir tiempo en desarrollo técnico.
+Al terminar, se propone una entrevista breve sobre los pasos más confusos, los cambios sugeridos, la diferencia entre la FCE y las notas propias y si la persona usaría el sistema en su trabajo. La ejecución y sus resultados se documentarán si la evaluación se realiza; este protocolo no informa resultados.

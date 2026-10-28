@@ -1,63 +1,61 @@
 \subsection{Matriz de verificación}
 
-La Tabla~\ref{tab:verificacion_rf} presenta la evidencia disponible para los RF. El resultado se refiere exclusivamente al prototipo parcial de Hito 3.
+El Cuadro~\ref{tab:verificacion_rf} presenta los criterios y métodos de verificación de los siete requisitos funcionales.
 
 \begin{table}[H]
-    \caption{Verificación preliminar de requisitos funcionales}
+    \caption{Criterios y métodos de verificación de requisitos funcionales}
     \label{tab:verificacion_rf}
-    \begin{tabularx}{\textwidth}{|l|X|l|}
+    \begin{tabularx}{\textwidth}{|l|X|X|}
         \hline
-        \textbf{RF} & \textbf{Evidencia observada} & \textbf{Resultado} \\
+        \textbf{RF} & \textbf{Criterio de verificación} & \textbf{Método / evidencia a registrar} \\
         \hline
-        RF1 & Consulta de pacientes activos y detalle clínico; no existe apertura o cierre completo del caso. & Parcial \\
+        RF-01 & La información hospitalaria autorizada se vincula con la hospitalización correspondiente y conserva procedencia. & Prueba de integración con fuente sintética; registrar solicitud, respuesta y vínculo obtenido. \\
         \hline
-        RF2 & Registro de texto y grabación de audio desde Flutter. & Cumplido \\
+        RF-02 & La persona autorizada localiza y consulta solo el contexto permitido de una hospitalización. & Pruebas de consulta permitida y denegada; registrar datos y autorización efectiva. \\
         \hline
-        RF3 & ASR local y remoto disponibles; la clasificación mediante LLM aún no se demuestra de extremo a extremo. & Parcial \\
+        RF-03 & La vista ordena eventos y notas por tiempo y distingue su procedencia. & Inspección funcional con conjunto de datos sintéticos y registro de casos. \\
         \hline
-        RF4 & El flujo NER forma parte de la arquitectura, pero falta evidencia reproducible de su integración. & Pendiente \\
+        RF-04 & Una nota de texto o dictado puede revisarse y confirmarse asociada a autor y hospitalización autorizada. & Prueba de recorrido y persistencia; registrar contenido confirmado, autoría y resultado. \\
         \hline
-        RF5 & La ruta local permite editar y la remota confirmar; falta un flujo uniforme para todo contenido generado. & Parcial \\
+        RF-05 & El dictado produce texto editable que puede revisarse y corregirse antes de confirmar. & Prueba con dictados sintéticos; registrar condiciones del dispositivo y métricas y resultados de transcripción, sin conservar audio ni transcripciones temporales tras la prueba. \\
         \hline
-        RF6 & Se almacenan autor y fecha, pero el autor es confiado al cliente y no existe auditoría inmutable. & Parcial \\
+        RF-06 & La propuesta de redacción se puede aceptar, editar o descartar sin sustituir el sentido de origen. & Casos de prueba con textos sintéticos y revisión de diferencias entre origen y propuesta. \\
         \hline
-        RF7 & Las notas se ordenan cronológicamente por paciente; no se filtran realmente por turno. & Parcial \\
-        \hline
-        RF8 & La interfaz muestra la capacidad como futura y no existe servicio de síntesis. & Pendiente \\
-        \hline
-        RF9 & Existe representación de datos, pero no endpoint ni interfaz de alta médica. & Pendiente \\
-        \hline
-        RF10 & Existen adaptadores FHIR y un listener HL7v2 experimental para datos sintéticos; falta una prueba reproducible de extremo a extremo. & Parcial \\
+        RF-07 & El resumen considera fuentes autorizadas del período seleccionado, se presenta para revisión y no se publica ni escribe en la FCE. & Prueba con notas y eventos sintéticos de varios períodos; registrar fuentes, intervalo, resultado y estado de publicación. \\
         \hline
     \end{tabularx}
 \end{table}
 
-La matriz muestra que RF2 es la única capacidad demostrada de extremo a extremo dentro del alcance actual. RF3, RF5, RF6, RF7 y RF10 requieren completar controles, comportamiento o evidencia reproducible, mientras que RF4, RF8 y RF9 deben implementarse.
-
-La Tabla~\ref{tab:verificacion_rnf} resume la verificación de los RNF. En estos requisitos se exige evidencia medible; la sola presencia de una decisión de diseño no se considera cumplimiento.
+El Cuadro~\ref{tab:verificacion_rnf} presenta los criterios y métodos de verificación de los diez requisitos no funcionales.
 
 \begin{table}[H]
-    \caption{Verificación preliminar de requisitos no funcionales}
+    \caption{Criterios y métodos de verificación de requisitos no funcionales}
     \label{tab:verificacion_rnf}
-    \begin{tabularx}{\textwidth}{|l|X|l|}
+    \begin{tabularx}{\textwidth}{|l|X|X|}
         \hline
-        \textbf{RNF} & \textbf{Evidencia observada} & \textbf{Resultado} \\
+        \textbf{RNF} & \textbf{Criterio de verificación} & \textbf{Método / evidencia a registrar} \\
         \hline
-        RNF1 & Existen adaptadores FHIR y HL7v2 para la simulación, pero falta evidencia reproducible de conformidad, normalización y manejo de errores. & Parcial \\
+        RNF-01 & Acceso limitado por atribuciones, institución y asignación asistencial cuando corresponda. & Pruebas RLS positivas y negativas por permiso, tenant y asignación. \\
         \hline
-        RNF2 & Supabase Auth gestiona sesiones, FastAPI aplica autorización y Storage mantiene archivos privados; faltan pruebas de seguridad reproducibles. & Parcial \\
+        RNF-02 & Protección de información y ausencia de envío de contenido clínico a proveedores externos de IA. & Inspección de tráfico, configuración y flujos de tratamiento en condiciones reproducibles. \\
         \hline
-        RNF3 & El prototipo utiliza datos sintéticos; los controles del ciclo de vida de datos reales no están implementados. & Parcial \\
+        RNF-03 & Procedencia distinguible, duplicados prevenidos y cambios no autorizados rechazados. & Pruebas de integración, idempotencia y autorización; registrar casos y resultados. \\
         \hline
-        RNF4 & No existen mediciones reproducibles de latencia. & Pendiente \\
+        RNF-04 & Metadatos pertinentes de procedencia, autoría, tiempos y operaciones disponibles. & Inspección de registros y pruebas de persistencia y acceso. \\
         \hline
-        RNF5 & No existe una pista integral y protegida de auditoría. & Pendiente \\
+        RNF-05 & Contenido asistido sujeto a revisión, sin publicación automática, diagnósticos ni antecedentes ajenos a las fuentes. & Casos sintéticos adversos y verificación del flujo de revisión/publicación. \\
         \hline
-        RNF6 & La interfaz móvil está implementada, pero no ha sido evaluada mediante el protocolo de usabilidad. & Parcial \\
+        RNF-06 & Tareas principales comprensibles y realizables en la interfaz prevista. & Protocolo de recorridos; documentar participantes, condiciones, observaciones y resultados si se ejecuta. \\
         \hline
-        RNF7 & No existe persistencia clínica local ni sincronización diferida. & Pendiente \\
+        RNF-07 & El rendimiento de las operaciones relevantes es compatible con las tareas y sus criterios de aceptación. & Medir operaciones relevantes en dispositivos representativos y comparar resultados con los criterios de aceptación de las tareas; registrar dispositivo, carga y conectividad. \\
+        \hline
+        RNF-08 & Contratos explícitos permiten intercambiar y mapear información de las fuentes comprometidas. & Pruebas de contrato y mapeo con fixtures sintéticos de cada integración. \\
+        \hline
+        RNF-09 & Fallos preservan fuentes y permiten recuperación segura sin omitir autorización o revisión. & Pruebas de fallos y recuperación; registrar estado previo, error y resultado. \\
+        \hline
+        RNF-10 & Artefactos temporales se eliminan conforme a política, incluidos residuos de interrupciones. & Pruebas de ciclo de vida, cancelación y cierre de sesión con inspección del almacenamiento local. \\
         \hline
     \end{tabularx}
 \end{table}
 
-Los resultados no funcionales concentran los principales riesgos del siguiente hito. Seguridad, trazabilidad, rendimiento y operación con conectividad degradada requieren pruebas específicas antes de ampliar el alcance del sistema.
+Esta matriz recoge criterios y métodos propuestos, no resultados de verificación. Su presencia no implica que se hayan realizado las pruebas, mediciones o evaluaciones indicadas; la evidencia de implementación visual tampoco acredita usabilidad, eficacia, seguridad, calidad, rendimiento ni aceptación. RF-07 se mantiene como capacidad comprometida: el método indicado permite verificar la selección explícita del período y las fuentes autorizadas, y no presupone selección de turno ni gestión de turnos.

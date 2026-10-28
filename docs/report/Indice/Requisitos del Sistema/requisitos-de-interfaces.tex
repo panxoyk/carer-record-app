@@ -1,6 +1,6 @@
 \subsection{Requisitos de Interfaces}
 
-Los requisitos de interfaces definen las interacciones entre Carer-Record, el personal asistencial y las fuentes de datos clínicos. La Tabla~\ref{tab:eventos_externos} resume los eventos que ingresan al sistema, mientras que la Tabla~\ref{tab:respuestas_sistema} describe las respuestas esperadas. Ambas tablas expresan contratos lógicos y no obligan a utilizar una tecnología específica.
+Los requisitos de interfaces describen los intercambios entre Carer-Record, el personal asistencial y las fuentes de información hospitalaria. El Cuadro~\ref{tab:eventos_externos} resume los eventos que ingresan al sistema y el Cuadro~\ref{tab:respuestas_sistema} presenta las respuestas esperadas. Ambos expresan contratos lógicos; no obligan a utilizar una tecnología específica.
 
 \begin{table}[H]
     \caption{Eventos externos}
@@ -9,19 +9,17 @@ Los requisitos de interfaces definen las interacciones entre Carer-Record, el pe
         \hline
         \textbf{Evento} & \textbf{Descripción} & \textbf{Iniciador} & \textbf{Parámetros} & \textbf{Respuesta} \\
         \hline
-        Autenticación de personal clínico & Solicitud de acceso al sistema móvil para verificar la identidad y determinar los permisos del profesional. & Personal asistencial & Credenciales institucionales o una sesión previamente autorizada. & Validación de acceso clínico \\
+        Integración con fuente hospitalaria & Solicitud o entrega de información de pacientes y hospitalizaciones para vincularla con el contexto de Carer-Record. & Fuente hospitalaria autorizada o proceso de integración & Contrato de intercambio, identificadores y datos correspondientes. & Resultado de recepción, validación y vinculación. \\
         \hline
-        Integración hospitalaria simulada & Recepción de un caso clínico y sus antecedentes desde un sistema hospitalario simulado. & Simulador de SIH/FCE & Recursos FHIR o mensajes HL7v2 con datos sintéticos. & Resultado de validación, normalización y carga \\
+        Consulta del contexto clínico & El personal solicita localizar pacientes y consultar el contexto autorizado de una hospitalización. & Personal asistencial & Criterios de búsqueda o identificador de hospitalización. & Resultados autorizados de pacientes, antecedentes y eventos. \\
         \hline
-        Consulta de bitácora del paciente & El profesional solicita el perfil clínico activo y la línea de tiempo de hitos. & Personal asistencial & Identificador de hospitalización y sesión válida. & Despliegue de bitácora cronológica \\
+        Consulta de bitácora asistencial & El personal solicita los eventos y notas asociados a una hospitalización. & Personal asistencial & Identificador de hospitalización y contexto de consulta. & Bitácora cronológica con distinción de procedencia. \\
         \hline
-        Envío de hito asistencial & Transmisión de una nota de texto o una grabación de voz desde el dispositivo móvil. & Personal asistencial & Identificador de hospitalización, audio o texto y sesión válida. & Presentación de borrador para revisión \\
+        Registro de nota de contexto & El autor redacta una nota o dicta contenido para su transcripción, revisión y confirmación. & Personal asistencial & Hospitalización, texto o dictado y contenido revisado. & Nota confirmada asociada a su autor, o resultado de la operación. \\
         \hline
-        Confirmación y registro de evento & Acción explícita mediante la cual el profesional revisa y aprueba el contenido. & Personal asistencial & Identificador del borrador, texto final y categoría confirmada. & Registro trazable y publicación \\
+        Asistencia para la redacción & El autor solicita una propuesta de mejora sobre el texto de una nota. & Personal asistencial & Texto de origen y contexto permitido para la asistencia. & Propuesta editable para aceptar, modificar o descartar. \\
         \hline
-        Solicitud de borrador de evolución & Petición para consolidar los hitos validados de un turno. & Personal asistencial & Identificador de hospitalización y rango del turno. & Entrega de síntesis de evolución \\
-        \hline
-        Cierre de caso por alta médica & Declaración del término de la hospitalización y bloqueo de nuevos registros. & Personal asistencial & Identificador de hospitalización, confirmación y sesión válida. & Cierre de bitácora \\
+        Solicitud de resumen asistido & El personal solicita resumir eventos y notas para un intervalo seleccionado. & Personal asistencial & Hospitalización, período y fuentes autorizadas. & Resumen temporal presentado para revisión, sin publicación como nota. \\
         \hline
     \end{tabularx}
 \end{table}
@@ -33,21 +31,19 @@ Los requisitos de interfaces definen las interacciones entre Carer-Record, el pe
         \hline
         \textbf{Respuesta} & \textbf{Descripción} & \textbf{Parámetros} \\
         \hline
-        Validación de acceso clínico & El sistema verifica la identidad, determina permisos y establece una sesión. & Resultado de autenticación, sesión y permisos asignados. \\
+        Resultado de integración & Informa el resultado de procesar información de pacientes y hospitalizaciones y vincularla con el contexto de Carer-Record. & Estado de operación, elementos vinculados y errores pertinentes. \\
         \hline
-        Resultado de validación, normalización y carga & El sistema informa los recursos aceptados o rechazados, registra el caso normalizado y habilita su seguimiento. & Estado de la ingesta, identificador del caso y errores detectados. \\
+        Contexto clínico autorizado & Devuelve los resultados de búsqueda y la información clínica permitida para la hospitalización consultada. & Datos disponibles, referencias de procedencia y estado de la consulta. \\
         \hline
-        Despliegue de bitácora cronológica & El sistema recupera y ordena los eventos disponibles del paciente. & Datos mínimos del paciente y lista cronológica de hitos. \\
+        Bitácora asistencial & Presenta eventos y notas en orden cronológico, identificando su procedencia. & Elementos de bitácora y metadatos disponibles. \\
         \hline
-        Presentación de borrador para revisión & El sistema transcribe el audio cuando corresponda y presenta el texto para revisión humana. Las etapas de NER y clasificación se incorporarán antes de procesar IPS real. & Texto preliminar, categoría sugerida cuando esté disponible e identificador del borrador. \\
+        Resultado de nota de contexto & Presenta el texto transcrito o editado para revisión y, tras confirmación, informa el resultado del registro asociado al autor. & Texto editable, estado de confirmación y metadatos de autoría. \\
         \hline
-        Registro trazable y publicación & El sistema almacena el evento validado, registra su autoría y actualiza la bitácora. & Confirmación de publicación y metadatos del evento. \\
+        Propuesta de redacción & Devuelve una propuesta editable sin sustituir automáticamente el texto de origen. & Texto de origen y propuesta. \\
         \hline
-        Entrega de síntesis de evolución & El sistema consolida los hitos del turno en un texto revisable y copiable. & Borrador de evolución. \\
-        \hline
-        Cierre de bitácora & El sistema marca el término de la hospitalización e impide nuevos eventos. & Estado de cierre y confirmación de solo lectura. \\
+        Resumen asistido & Presenta una síntesis del período solicitado para revisión, sin crear una nota ni escribir en la FCE. & Período, resumen, fuentes autorizadas y estado de generación. \\
         \hline
     \end{tabularx}
 \end{table}
 
-Los contratos muestran que toda acción clínica parte de una identidad válida y produce una respuesta observable. La integración hospitalaria se evalúa mediante un simulador y datos sintéticos, de modo que su comportamiento puede verificarse sin depender de un convenio ni de infraestructura clínica real. Las etapas de procesamiento inteligente aún deben completarse antes del prototipo final.
+La autenticación y la autorización son condiciones transversales de acceso, no capacidades centrales de intercambio de esta especificación. Los contratos de integración, consulta y registro deben mantener la procedencia y los controles aplicables; Carer-Record no escribe en la FCE.

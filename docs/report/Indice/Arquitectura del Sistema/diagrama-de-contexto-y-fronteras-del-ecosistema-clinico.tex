@@ -1,6 +1,6 @@
 \subsection{Contexto del sistema y actores externos}
 
-La Figura~\ref{fig:diagrama_de_contexto} delimita Carer-Record como una única unidad y muestra solo entidades externas. Flutter, FastAPI y Supabase no aparecen como actores porque forman parte de la solución interna.
+La Figura~\ref{fig:diagrama_de_contexto} delimita Carer-Record como una unidad y muestra las entidades externas que interactúan con la solución.
 
 \begin{figure}[H]
     \centering
@@ -12,15 +12,15 @@ La Figura~\ref{fig:diagrama_de_contexto} delimita Carer-Record como una única u
     ]
         \node[actor] (clinical) {Personal asistencial\\Médicos y enfermería};
         \node[system, right=4.2cm of clinical] (carer) {Carer-Record\\Sistema de trazabilidad asistencial};
-        \node[actor, right=4.2cm of carer] (simulator) {Simulador de SIH/FCE\\Datos sintéticos};
+        \node[actor, right=4.2cm of carer] (source) {FCE simulada\\FHIR R4 en Docker, datos sintéticos};
 
-        \draw[flow] ([yshift=4mm]clinical.east) -- node[above, align=center]{Consulta y registra\\eventos} ([yshift=4mm]carer.west);
-        \draw[flow] ([yshift=-4mm]carer.west) -- node[below, align=center]{Bitácora y borradores\\para revisión} ([yshift=-4mm]clinical.east);
-        \draw[flow] (simulator.west) -- node[above, align=center]{Recursos FHIR o HL7v2\\sintéticos} (carer.east);
+        \draw[flow] ([yshift=4mm]clinical.east) -- node[above, align=center]{Consulta, registra notas\\y revisa propuestas} ([yshift=4mm]carer.west);
+        \draw[flow] ([yshift=-4mm]carer.west) -- node[below, align=center]{Contexto autorizado,\\bitácora y resúmenes} ([yshift=-4mm]clinical.east);
+        \draw[flow] (source.west) -- node[above, align=center]{Consulta mediante\\pasarela autorizada} (carer.east);
     \end{tikzpicture}%
     }
     \caption{Contexto y fronteras externas de Carer-Record}
     \label{fig:diagrama_de_contexto}
 \end{figure}
 
-El personal asistencial es el usuario principal: consulta pacientes, registra eventos y revisa los resultados del procesamiento. El simulador representa un SIH o una FCE externa y permite ejercitar la integración mediante recursos sintéticos, sin utilizar IPS real ni depender de acceso institucional. Esta simulación forma parte del alcance funcional de Hito 3; la conexión y validación con infraestructura hospitalaria real requieren una contraparte institucional y no se afirman como implementadas.
+El personal asistencial consulta información autorizada, registra notas propias y revisa propuestas. La aplicación accede a fuentes hospitalarias mediante una pasarela autorizada, no directamente. La demostración utiliza la FCE simulada FHIR R4 en Docker con datos sintéticos. Carer-Record no escribe en la FCE.

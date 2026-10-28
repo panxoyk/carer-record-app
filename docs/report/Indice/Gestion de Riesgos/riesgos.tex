@@ -1,6 +1,6 @@
 \subsection{Riesgos}
 
-La Tabla~\ref{tab:gestion_riesgos} reúne los riesgos prioritarios observados en el prototipo y las medidas necesarias para reducirlos.
+El Cuadro~\ref{tab:gestion_riesgos} reúne riesgos de diseño y medidas para mitigarlos; no informa mediciones ni resultados de mitigación.
 
 \begin{table}[H]
 \caption{Riesgos prioritarios y medidas de mitigación}
@@ -9,25 +9,25 @@ La Tabla~\ref{tab:gestion_riesgos} reúne los riesgos prioritarios observados en
 \hline
 \textbf{Riesgo} & \textbf{Medida de mitigación} \\
 \hline
-Transcripción incorrecta o ambigua. & Permitir revisión y corrección, medir el ASR con vocabulario clínico y conservar el audio durante el periodo definido. \\
+Transcripción incorrecta o ambigua. & Permitir revisión y corrección; evaluar ASR local con datos sintéticos y dispositivos representativos. \\
 \hline
-Configuración incorrecta de autenticación en endpoints clínicos. & Verificar la sesión en todas las rutas, derivar la identidad en el servidor y probar respuestas denegadas. \\
+Acceso clínico no autorizado. & Aplicar permisos efectivos, institución y asignación asistencial mediante RLS; verificar respuestas denegadas. \\
 \hline
-Permisos inconsistentes entre Flutter y FastAPI. & Centralizar la autorización por rol e institución en FastAPI y verificarla mediante pruebas automatizadas. \\
+Discrepancia entre controles de interfaz y autorización efectiva. & Mantener RLS como autoridad de acceso y probar permisos, institución y asignación en backend. \\
 \hline
-Exposición de audio o texto sensible. & Usar datos sintéticos, almacenamiento privado, enlaces temporales, validación de archivos y una política de eliminación. \\
+Exposición de audio o transcripción no confirmada. & Mantenerlos en el dispositivo, eliminar temporales conforme a política y comprobar el flujo de red y ciclo de vida. \\
 \hline
-Pérdida o duplicación durante sincronización. & Incorporar cola persistente, operaciones idempotentes, resolución de conflictos y pruebas de reconexión. \\
+Interrupción de consulta o persistencia. & Comunicar fallos y evitar pérdida o duplicación silenciosa; la mitigación no presupone operación offline completa. \\
 \hline
-Indisponibilidad de los servicios cloud. & Configurar monitoreo, respaldos, recuperación y manejo de errores para FastAPI y Supabase. \\
+Indisponibilidad de los servicios de backend o de la fuente. & Comunicar el estado y preservar la revisión y autorización; evaluar recuperación según el entorno. \\
 \hline
-Generación de contenido clínico incorrecto. & Aplicar NER antes del LLM, restringir las instrucciones y exigir HITL antes de publicar. \\
+Propuesta de redacción o resumen incorrecta. & Ejecutar asistencia local, limitarla a fuentes autorizadas y someter el contenido a revisión humana; no publicar automáticamente. \\
 \hline
-Normalización incorrecta o duplicación durante la integración simulada. & Validar recursos FHIR y mensajes HL7v2, aplicar operaciones idempotentes y probar casos sintéticos válidos, inválidos y repetidos. \\
+Consulta o vinculación incorrecta de información externa. & Validar los contratos de las fuentes y la vinculación con hospitalización mediante pruebas con datos sintéticos. \\
 \hline
-Baja adopción por usabilidad. & Ejecutar el protocolo de prueba con personal clínico y rediseñar las tareas que no cumplan sus umbrales. \\
+Baja comprensión de los recorridos. & Aplicar el protocolo definido si se realiza una evaluación; documentar método y observaciones sin presuponer participación o resultado. \\
 \hline
 \end{tabularx}
 \end{table}
 
-La tabla muestra que la infraestructura administrada no elimina por sí sola los riesgos del sistema. Autorización, privacidad, validación humana y evidencia de pruebas requieren medidas específicas en FastAPI, Flutter y la configuración de Supabase.
+La infraestructura administrada no elimina por sí sola los riesgos. Autorización, privacidad, revisión humana y ciclo de vida requieren controles en Flutter, la pasarela y Supabase; su eficacia debe sustentarse con evidencia.

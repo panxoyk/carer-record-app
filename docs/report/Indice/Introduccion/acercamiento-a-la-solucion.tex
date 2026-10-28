@@ -1,23 +1,23 @@
 \subsection{Acercamiento a la solución}
 
-\textbf{Contexto del desarrollo y justificación.} Carer-Record no busca reemplazar la FCE. Mientras la ficha oficial almacena antecedentes clínicos y administrativos formales, Carer-Record se enfoca en capturar el contexto cotidiano que apoya el traspaso de turno. El sistema aplica el principio de ``cero doble trabajo'' al sustituir métodos informales y no estandarizados, como libretas de papel o grupos de mensajería, por un flujo estructurado y trazable.
+\textbf{Contexto del desarrollo y justificación.} Carer-Record complementa la FCE, que continúa siendo el registro oficial. La solución reúne la consulta de información autorizada de la FCE con notas de contexto propias, para apoyar la continuidad informativa durante la hospitalización. No reemplaza la FCE ni escribe en ella.
 
-\textbf{Tecnologías y arquitectura implementada.} La solución se sustenta en las siguientes decisiones:
+\textbf{Solución técnica.} La arquitectura del producto final se sustenta en las siguientes decisiones:
 
 \begin{itemize}
     \item \textbf{Aplicación móvil:} Flutter permite construir una interfaz orientada a teléfonos del personal asistencial, con acceso rápido y baja fricción cognitiva.
     
-    \item \textbf{Servicios de aplicación:} FastAPI mantiene la lógica de negocio y expone una interfaz de programación de aplicaciones (API) para la aplicación móvil.
+    \item \textbf{Servicios de aplicación:} Supabase Auth, PostgreSQL con seguridad a nivel de fila (Row-Level Security, RLS), PostgREST, llamadas a procedimientos remotos (Remote Procedure Call, RPC) y Edge Functions proveen identidad, persistencia y operaciones autorizadas.
     
-    \item \textbf{Servicios administrados:} Supabase provee autenticación, persistencia en PostgreSQL y almacenamiento privado de archivos.
+    \item \textbf{Integración hospitalaria:} la consulta a la FCE se realiza mediante una pasarela autorizada; la aplicación móvil no consulta directamente la fuente hospitalaria.
 
-    \item \textbf{IA integrada:} la captura de audio utilizará reconocimiento de voz para obtener una transcripción preliminar. En una fase posterior, el LLM clasificará y estructurará el texto antes de su validación clínica.
+    \item \textbf{Procesamiento local:} el ASR y la asistencia de redacción y resumen se ejecutan en el dispositivo. El audio y la transcripción sin confirmar permanecen allí; solo la nota confirmada se persiste en el backend.
 \end{itemize}
 
-\textbf{Delimitación del prototipo parcial.} Para aislar el valor central del proyecto de las complejidades de infraestructura hospitalaria, se establecen los siguientes límites:
+\textbf{Delimitación académica.} El producto consulta fuentes autorizadas; la demostración utiliza exclusivamente datos sintéticos y no equivale a conexión o validación productiva hospitalaria. El contrato de cada integración se define con su fuente; la fuente de demostración descrita utiliza Fast Healthcare Interoperability Resources (FHIR), versión 4 (R4).
 
 \begin{itemize}
-    \item \textbf{Interoperabilidad simulada:} el prototipo simula la integración con sistemas hospitalarios mediante Fast Healthcare Interoperability Resources (FHIR), estándar de Health Level Seven (HL7), mensajes HL7v2 y datos sintéticos. Esta capacidad permite verificar la recepción y normalización de información sin depender de acceso a un SIH o una FCE institucional real.
-    \item \textbf{Privacidad y datos:} durante la fase académica se emplean datos ficticios o sintéticos y no información personal de salud (IPS) real.
+    \item \textbf{Entorno de demostración:} se utiliza una FCE simulada con FHIR R4 en Docker y datos sintéticos.
+    \item \textbf{Privacidad y datos:} la demostración académica emplea datos sintéticos y no información clínica real.
     \item \textbf{Alcance de usuarios:} el sistema se orienta exclusivamente al personal asistencial; la comunicación directa con familiares queda fuera del prototipo.
 \end{itemize}

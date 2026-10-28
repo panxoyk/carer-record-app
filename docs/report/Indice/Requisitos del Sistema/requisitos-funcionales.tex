@@ -1,43 +1,31 @@
 \subsection{Requisitos Funcionales}
 
-Los RF definen el comportamiento esperado del sistema y las capacidades que debe ofrecer al personal asistencial. Se expresan con independencia del avance del prototipo; su grado de cumplimiento se analiza posteriormente en la sección de verificación y validación.
+Los requisitos funcionales describen las capacidades comprometidas para la versión final V4 de Carer-Record. Se expresan con independencia de tecnologías concretas y no constituyen una afirmación sobre resultados de validación.
 
-\subsubsection*{\textbf{RF1} - Identificación Mínima Segura}
+\subsubsection*{\textbf{RF-01} - Integración con fuentes de información hospitalaria}
 
-El sistema debe permitir la apertura y gestión de un caso clínico mediante un identificador único de hospitalización, junto con los datos mínimos de contexto, ubicación y alertas críticas. Para fines académicos, se utilizarán datos sintéticos o ficticios.
+El sistema debe obtener información de pacientes y hospitalizaciones desde fuentes hospitalarias autorizadas y vincularla con el contexto correspondiente de Carer-Record.
 
-\subsubsection*{\textbf{RF2} - Captura Multimodal de Eventos}
+\subsubsection*{\textbf{RF-02} - Consulta del contexto clínico}
 
-El sistema debe proveer al personal asistencial la capacidad de ingresar hitos clínicos o comunicacionales de manera ágil, ya sea mediante la grabación nativa de audio desde el dispositivo móvil o a través de la digitación de texto libre.
+El sistema debe permitir localizar pacientes y consultar, para las hospitalizaciones accesibles, sus antecedentes, eventos y contexto de hospitalización autorizados.
 
-\subsubsection*{\textbf{RF3} - Procesamiento Asistido por Inteligencia Artificial}
+\subsubsection*{\textbf{RF-03} - Visualización de la bitácora asistencial}
 
-Al recibir un ingreso de audio, el sistema debe ejecutar ASR para generar una transcripción preliminar. Posteriormente, un LLM debe analizar el registro y sugerir una clasificación basada en categorías predefinidas.
+El sistema debe presentar cronológicamente los eventos y notas de contexto asociados a una hospitalización, distinguiendo la información procedente de fuentes externas de la registrada en Carer-Record.
 
-\subsubsection*{\textbf{RF4} - Filtrado dinámico de privacidad}
+\subsubsection*{\textbf{RF-04} - Registro de notas de contexto}
 
-Antes de enviar registros a un servicio externo de IA, el sistema debe ejecutar reconocimiento de entidades nombradas (NER) para detectar y reemplazar IPS por tokens genéricos, reduciendo el riesgo de identificación de personas.
+El sistema debe permitir redactar notas de contexto por texto o dictado, revisar su contenido y confirmar su registro; la nota confirmada debe quedar asociada a su autor y a una hospitalización autorizada.
 
-\subsubsection*{\textbf{RF5} - Validación clínica obligatoria}
+\subsubsection*{\textbf{RF-05} - Transcripción de dictados}
 
-El sistema debe bloquear la publicación automática de cualquier contenido generado por la IA, requiriendo un estado de revisión intermedio. El profesional deberá verificar, editar si es necesario, y confirmar explícitamente el evento, asumiendo la autoría clínica del registro.
+El sistema debe convertir dictados a texto editable para que la persona autora pueda revisarlo y corregirlo antes de confirmar una nota.
 
-\subsubsection*{\textbf{RF6} - Estructuración Inmutable de Metadatos}
+\subsubsection*{\textbf{RF-06} - Asistencia para la redacción}
 
-Tras la validación, el sistema debe asignar automáticamente a cada evento una marca temporal del servidor y el identificador del autor, garantizando la trazabilidad del dato.
+El sistema debe ofrecer asistencia para mejorar la redacción de una nota sin cambiar el significado del contenido de origen. La persona autora decide si acepta, edita o descarta la propuesta.
 
-\subsubsection*{\textbf{RF7} - Construcción de Bitácora Cronológica}
+\subsubsection*{\textbf{RF-07} - Resúmenes asistidos}
 
-El sistema debe organizar los eventos confirmados en una línea de tiempo interactiva y centralizada por paciente, permitiendo que cualquier profesional autorizado del equipo entrante visualice el historial completo de los turnos previos.
-
-\subsubsection*{\textbf{RF8} - Síntesis Automatizada de Jornada (Cero Doble Trabajo)}
-
-A petición del usuario, el sistema debe compilar los eventos registrados durante un turno y generar un documento estructurado denominado "Borrador de Evolución". Este borrador debe estar diseñado para ser copiado y pegado manualmente por el médico en la Ficha Clínica Electrónica oficial de la institución.
-
-\subsubsection*{\textbf{RF9} - Cierre de ciclo hospitalario}
-
-El sistema debe permitir declarar el alta médica. Esta acción debe dejar la bitácora en modo de solo lectura y bloquear nuevos ingresos para resguardar la integridad del historial.
-
-\subsubsection*{\textbf{RF10} - Integración hospitalaria simulada}
-
-El sistema debe permitir simular la integración con sistemas hospitalarios mediante la importación de recursos FHIR o mensajes HL7v2 con datos sintéticos. Los recursos recibidos deben validarse, normalizarse al modelo interno y quedar disponibles para su consulta en Carer-Record, sin requerir acceso a infraestructura ni datos clínicos reales.
+El sistema debe generar resúmenes de eventos y notas de una hospitalización para un período seleccionado, usando únicamente fuentes autorizadas. El resumen debe presentarse para revisión y no debe publicarse como nota ni escribirse en la FCE.
