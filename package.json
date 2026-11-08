@@ -16,7 +16,7 @@
     "integration:local": "python3 scripts/test_phase34_local_integration.py",
     "integration:fhir": "python3 scripts/test_fhir_gateway_local.py",
     "security:evidence:phase51": "python3 scripts/check_phase51_security.py",
-    "app:run": "./scripts/run-app.sh",
+    "app:run": "node scripts/run-app.mjs",
     "app:format": "cd app && fvm dart format lib test",
     "app:format:check": "cd app && fvm dart format --output=none --set-exit-if-changed lib test",
     "app:analyze": "cd app && fvm flutter analyze",
@@ -39,7 +39,7 @@
     "fhir:up": "docker compose -f docker/hapi-fhir/docker-compose.yml up -d",
     "fhir:down": "docker compose -f docker/hapi-fhir/docker-compose.yml down",
     "fhir:logs": "docker compose -f docker/hapi-fhir/docker-compose.yml logs -f",
-    "fhir:gateway:serve": "./scripts/serve-fhir-gateway.sh",
+    "fhir:gateway:serve": "node scripts/run-app.mjs --gateway-only",
     "fhir:sync": "node scripts/fhir-sync/generate-sync.mjs --apply",
     "fhir:demo:assignments": "node scripts/fhir-sync/generate-sync.mjs --demo-assignments",
     "fhir:sync:test": "node --test scripts/fhir-sync/*.test.mjs"

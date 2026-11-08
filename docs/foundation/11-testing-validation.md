@@ -274,4 +274,8 @@ La migración de autorización previa al lock verifica permiso antes de revelar 
 
 ### Orquestación local de `app:run`
 
-Se actualizó la orquestación para esperar la tarea seed de HAPI antes de sincronizar, verificar la pasarela y luego iniciar Flutter. No se ejecutaron pruebas, checks ni arranque de servicios para esta actualización; el comportamiento de arranque queda pendiente de validación.
+`pnpm app:run` usa orquestación Node multiplataforma y es la única entrada normal de inicio completo. HAPI mantiene sus datos en memoria. El arranque verifica HAPI en la red Docker esperada antes de iniciarlo; una red obsoleta falla con instrucciones explícitas, sin reset, purge ni recreación automática. La recuperación manual de red puede borrar los datos HAPI en memoria; el seed vuelve a aplicar fixtures sintéticos con PUT y sincroniza asignaciones sin cambios innecesarios. El gateway siempre se inicia con el archivo de entorno seleccionado y se espera antes de Flutter, que hereda su salida; solo se limpia el proceso iniciado por el comando.
+
+En POSIX, el cierre conserva la TTY de Flutter y termina los descendientes observados del proceso interactivo, con escalado TERM/KILL y comprobación de identidad; no señala el grupo foreground del usuario. Fixtures Node temporales en macOS verificaron el cierre de descendientes que ignoran TERM y la limpieza después de salir el padre. No se garantiza detectar procesos que se desvinculen antes de ser observados; Windows conserva `taskkill` por árbol y no fue validado en este corte.
+
+No hay pruebas automatizadas del arranque. La validación manual en Windows/Linux nativos, HAPI y Flutter está pendiente; no se afirma que los stacks reales hayan sido iniciados o verificados.

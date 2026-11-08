@@ -142,7 +142,7 @@ cd ../..
 
 ## Setup en Windows (manual)
 
-`pnpm app:run` es un script bash (Linux/macOS). En Windows nativo, ejecuta los pasos equivalentes manualmente:
+`pnpm app:run` usa Node y también admite Windows nativo. Para diagnosticar cada paso por separado:
 
 ```powershell
 # 1. Dependencias y configuración

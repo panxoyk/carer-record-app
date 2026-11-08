@@ -1,7 +1,7 @@
 # Servidor HAPI FHIR R4 de demostración para Carer Record. Solo desarrollo local.
 # Datos exclusivamente sintéticos; nunca cargues datos clínicos reales.
 #
-#   pnpm fhir:up      levanta el servidor y carga los pacientes de demostración
+#   pnpm app:run      inicia el flujo completo, incluido HAPI y su seed
 #   pnpm fhir:down    detiene y elimina el contenedor (la base vive en memoria)
 #
 # Base FHIR: http://127.0.0.1:${HAPI_FHIR_PORT:-8080}/fhir
