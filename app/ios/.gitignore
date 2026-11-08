@@ -11,6 +11,7 @@
 **/DerivedData/
 Icon?
 **/Pods/
+Flutter/Signing.local.xcconfig
 **/.symlinks/
 profile
 xcuserdata
