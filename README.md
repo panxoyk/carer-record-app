@@ -6,7 +6,7 @@ Prototipo móvil de contexto clínico e integración para hospitalización. La v
 
 ### Requisitos
 
-- Node 22 o superior y pnpm 10.17 o superior.
+- Node 22.9 o superior y pnpm 12.18.0 (la versión fijada por `packageManager`).
 - Deno 2.9.6 y Docker Desktop.
 - FVM y la versión de Flutter declarada en `app/.fvmrc`.
 - Para iOS: macOS, Xcode con un runtime de iOS Simulator y CocoaPods.
