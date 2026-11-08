@@ -83,7 +83,9 @@ void main() {
       await tester.drag(find.byType(ListView), const Offset(0, -1200));
       await tester.pumpAndSettle();
       expect(
-        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, 'Guardar'))
+            .onPressed,
         isNull,
       );
       expect(find.textContaining('00000000'), findsNothing);
