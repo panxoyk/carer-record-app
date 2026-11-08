@@ -1,4 +1,6 @@
 pre-commit:
   commands:
-    quality:
-      run: pnpm check
+    format-check:
+      run: pnpm format:check
+    lint:
+      run: pnpm lint

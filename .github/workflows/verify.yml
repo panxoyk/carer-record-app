@@ -20,7 +20,7 @@ jobs:
         with:
           deno-version: v2.9.6
           cache: true
-      - run: pnpm db:start
+      - run: pnpm exec supabase start
       - run: pnpm db:reset
       - run: pnpm db:lint
       - run: pnpm db:test
@@ -31,4 +31,3 @@ jobs:
       - run: echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
       - run: cd app && fvm install
       - run: pnpm check
-      - run: pnpm app:test

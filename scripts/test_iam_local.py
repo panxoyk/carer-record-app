@@ -231,7 +231,7 @@ def integration():
         registration = {
             "organizationId": org, "email": edge_email,
             "password": f"Synthetic-{uuid.uuid4()}-Password-42",
-            "displayName": "Synthetic phase gate", "roleId": role_id,
+            "displayName": "Synthetic IAM integration", "roleId": role_id,
             "idempotencyKey": edge_key,
         }
         code, _ = request("POST", f"{base}/functions/v1/create-practitioner", anon, admin, registration)
@@ -289,7 +289,7 @@ def integration():
                      "p_idempotency_key": str(uuid.uuid4())})
         if edge_process is not None:
             stop_edge(edge_process)
-    print("Local phase 3+4 integration passed (synthetic fixtures; credentials and payloads redacted).")
+    print("Local IAM integration passed (synthetic fixtures; credentials and payloads redacted).")
 
 
 if __name__ == "__main__":
@@ -301,7 +301,7 @@ if __name__ == "__main__":
         integration()
         succeeded = True
     except Exception as error:
-        print(f"Local phase 3+4 integration failed: {error}", file=sys.stderr)
+        print(f"Local IAM integration failed: {error}", file=sys.stderr)
     finally:
         cleanup = subprocess.run(["pnpm", "db:reset"], capture_output=True, text=True)
         if cleanup.returncode:

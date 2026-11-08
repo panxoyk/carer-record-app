@@ -22,7 +22,7 @@ fvm install
 cd ..
 ```
 
-La instalación registra un hook de pre-commit que ejecuta `pnpm check`.
+La instalación registra un hook de pre-commit que ejecuta `pnpm format:check` y `pnpm lint`.
 
 ### 2. Configura la app
 
@@ -48,13 +48,13 @@ La app consulta censo y ficha mediante la pasarela autorizada `clinical-record`;
 pnpm app:run
 ```
 
-La primera vez descarga imágenes y puede tardar varios minutos. `pnpm app:run` inicia HAPI y ejecuta su seed en primer plano con PUTs idempotentes antes de sincronizar; conserva recursos no incluidos en el bundle. `pnpm fhir:up` se puede ejecutar por separado para operar HAPI y seed.
+La primera vez descarga imágenes y puede tardar varios minutos. `pnpm app:run` inicia HAPI y ejecuta su seed en primer plano con PUTs idempotentes antes de sincronizar; conserva recursos no incluidos en el bundle. `docker compose -f docker/hapi-fhir/docker-compose.yml up -d` se puede ejecutar por separado para operar HAPI y seed.
 
 ```bash
-pnpm fhir:sync
+node scripts/fhir-sync/generate-sync.mjs --apply
 ```
 
-`pnpm fhir:sync` sincroniza estructura mínima; `pnpm app:run` además aplica las asignaciones declaradas. No es ingesta clínica completa. Si el puerto 8080 está ocupado, usa `HAPI_FHIR_PORT=8081 pnpm app:run`.
+`node scripts/fhir-sync/generate-sync.mjs --apply` sincroniza estructura mínima; `pnpm app:run` además aplica las asignaciones declaradas. No es ingesta clínica completa. Si el puerto 8080 está ocupado, usa `HAPI_FHIR_PORT=8081 pnpm app:run`.
 
 ### 4. Ejecuta la app
 
@@ -113,7 +113,7 @@ Android reserva `10.0.2.2` como alias de la máquina anfitriona. Por eso, para c
 SUPABASE_URL=http://10.0.2.2:54321
 ```
 
-`127.0.0.1` dentro de Android apunta al emulador, no a tu Mac. En iOS Simulator ocurre lo contrario para este flujo: usa `127.0.0.1`. Cambia solo el host; el puerto y la clave siguen siendo los mostrados por `pnpm db:start`.
+`127.0.0.1` dentro de Android apunta al emulador, no a tu Mac. En iOS Simulator ocurre lo contrario para este flujo: usa `127.0.0.1`. Cambia solo el host; el puerto y la clave siguen siendo los mostrados por `pnpm exec supabase start`.
 
 `FHIR_BASE_URL` se configura en Flutter (por `--dart-define` o `.env`) y apunta al servidor HAPI de demostración (`http://10.0.2.2:8080/fhir` en Android Emulator). La pasarela autorizada `clinical-record` consulta HAPI desde el servidor.
 
@@ -151,13 +151,13 @@ cp .env.example .env
 # Edita .env con SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY y FHIR_BASE_URL
 
 # 2. Base de datos
-pnpm db:start
+pnpm exec supabase start
 pnpm db:reset
 
 # 3. Servidor FHIR de demostración
-pnpm fhir:up
-pnpm fhir:sync
-pnpm fhir:demo:assignments
+docker compose -f docker/hapi-fhir/docker-compose.yml up -d
+node scripts/fhir-sync/generate-sync.mjs --apply
+node scripts/fhir-sync/generate-sync.mjs --demo-assignments
 
 # 4. Gateway (en una terminal aparte, con Git Bash)
 bash scripts/serve-fhir-gateway.sh
@@ -186,7 +186,7 @@ Notas:
 | `admin@example.test`        | Administrador | Activa     |
 | `camila.vera@example.test`  | Médico        | Suspendida |
 
-`pnpm fhir:up` carga 20 pacientes sintéticos en HAPI; no borra recursos legacy adicionales. Son ficticios, no representan indicaciones clínicas reales y deben mantenerse así.
+`docker compose -f docker/hapi-fhir/docker-compose.yml up -d` carga 20 pacientes sintéticos en HAPI; no borra recursos legacy adicionales. Son ficticios, no representan indicaciones clínicas reales y deben mantenerse así.
 
 | Ficha    | Paciente          | Ubicación                     | Escenario sintético                               |
 | -------- | ----------------- | ----------------------------- | ------------------------------------------------- |
@@ -201,37 +201,37 @@ Notas:
 | CRA-0109 | Lucía Paredes     | Maternidad, cama 09           | Puerperio posterior a cesárea                     |
 | CRA-0110 | Héctor Vega       | Medicina interna, cama 05     | Enfermedad renal crónica, diabetes e hipertensión |
 
-El censo de la app proviene de la vista RLS de Supabase. `pnpm fhir:sync` enlaza los recursos del servidor; la pasarela entrega ficha y timeline solo tras autorización. El dataset actual sincroniza 20 pacientes y 20 episodios, 14 abiertos (8 asignados y 6 sin asignar) y 6 cerrados históricos.
+El censo de la app proviene de la vista RLS de Supabase. `node scripts/fhir-sync/generate-sync.mjs --apply` enlaza los recursos del servidor; la pasarela entrega ficha y timeline solo tras autorización. El dataset actual sincroniza 20 pacientes y 20 episodios, 14 abiertos (8 asignados y 6 sin asignar) y 6 cerrados históricos.
 
 ## Operaciones diarias
 
-| Necesidad                                  | Comando                         |
-| ------------------------------------------ | ------------------------------- |
-| Detener Supabase y conservar datos         | `pnpm db:stop`                  |
-| Reconstruir migraciones y datos sintéticos | `pnpm db:reset`                 |
-| Eliminar Supabase y sus volúmenes          | `pnpm db:purge`                 |
-| Formatear todos los lenguajes              | `pnpm format`                   |
-| Ejecutar los checks locales                | `pnpm check`                    |
-| Validar cambios de Edge Functions          | `pnpm functions:check`          |
-| Regenerar tipos tras una migración         | `pnpm functions:types:generate` |
-| Levantar el servidor FHIR de demostración  | `pnpm fhir:up`                  |
-| Ver los logs del servidor FHIR             | `pnpm fhir:logs`                |
-| Detener el servidor FHIR                   | `pnpm fhir:down`                |
-| Enlazar los pacientes de HAPI con Supabase | `pnpm fhir:sync`                |
+| Necesidad                                  | Comando                                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Detener Supabase y conservar datos         | `pnpm db:stop`                                                                                          |
+| Reconstruir migraciones y datos sintéticos | `pnpm db:reset`                                                                                         |
+| Eliminar Supabase y sus volúmenes          | `pnpm exec supabase stop --no-backup`                                                                   |
+| Formatear todos los lenguajes              | `pnpm format`                                                                                           |
+| Ejecutar los checks locales                | `pnpm check`                                                                                            |
+| Validar cambios de Edge Functions          | `pnpm functions:format:check && pnpm functions:lint && pnpm functions:typecheck && pnpm functions:test` |
+| Regenerar tipos tras una migración         | `pnpm functions:types:generate`                                                                         |
+| Levantar el servidor FHIR de demostración  | `docker compose -f docker/hapi-fhir/docker-compose.yml up -d`                                           |
+| Ver los logs del servidor FHIR             | `pnpm fhir:logs`                                                                                        |
+| Detener el servidor FHIR                   | `pnpm fhir:down`                                                                                        |
+| Enlazar los pacientes de HAPI con Supabase | `node scripts/fhir-sync/generate-sync.mjs --apply`                                                      |
 
-`pnpm db:purge` es destructivo. Úsalo si se introducen datos reales por error, elimina cualquier exportación o log afectado y revisa las credenciales antes de continuar. No expongas Supabase local mediante túneles ni redes compartidas no confiables.
+`pnpm exec supabase stop --no-backup` es destructivo. Úsalo si se introducen datos reales por error, elimina cualquier exportación o log afectado y revisa las credenciales antes de continuar. No expongas Supabase local mediante túneles ni redes compartidas no confiables.
 
-El servidor HAPI FHIR de demostración no tiene autenticación y guarda sus datos en memoria: `pnpm fhir:down` los elimina y `pnpm fhir:up` los vuelve a cargar. El compose de desarrollo se limita a loopback; el runtime legado aún escucha en `0.0.0.0`, por lo que no lo expongas fuera de tu equipo ni cargues datos clínicos reales.
+El servidor HAPI FHIR de demostración no tiene autenticación y guarda sus datos en memoria: `pnpm fhir:down` los elimina y `docker compose -f docker/hapi-fhir/docker-compose.yml up -d` los vuelve a cargar. El compose de desarrollo se limita a loopback; el runtime legado aún escucha en `0.0.0.0`, por lo que no lo expongas fuera de tu equipo ni cargues datos clínicos reales.
 
 ## Verificación por cambio
 
 - Flutter: `pnpm app:format:check`, `pnpm app:analyze` y las pruebas Dart relacionadas.
 - Documentación y JSON: `pnpm docs:format:check`, `pnpm docs:lint` y `git diff --check`.
-- Edge Functions: `pnpm functions:check`.
+- Edge Functions: `pnpm functions:format:check && pnpm functions:lint && pnpm functions:typecheck && pnpm functions:test`.
 - Migraciones, RLS o funciones SQL: `pnpm db:reset`, `pnpm db:lint` y `pnpm db:test`.
 - Servidor FHIR de demostración: `docker compose -f docker/hapi-fhir/docker-compose.yml config` y `node --check scripts/fhir-sync/generate-sync.mjs`.
 
-CI ejecuta `pnpm check` y las pruebas de Flutter. La estrategia completa está en [testing y validación](docs/foundation/11-testing-validation.md).
+CI ejecuta `pnpm check`, que incluye las pruebas de Flutter, Edge y sync FHIR. La estrategia completa está en [testing y validación](docs/foundation/11-testing-validation.md).
 
 ## Reglas del repositorio
 

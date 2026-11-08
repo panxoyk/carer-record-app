@@ -12,13 +12,13 @@ En resumen:
 pnpm install --frozen-lockfile
 cd app && fvm install && cd ..
 cp .env.example .env
-pnpm db:start
-pnpm fhir:up
-pnpm fhir:sync
+pnpm exec supabase start
+docker compose -f docker/hapi-fhir/docker-compose.yml up -d
+node scripts/fhir-sync/generate-sync.mjs --apply
 pnpm app:run
 ```
 
-Completa `SUPABASE_URL` y `SUPABASE_PUBLISHABLE_KEY` en `.env` con los valores mostrados por `pnpm db:start`. `scripts/run-app.sh` los pasa a Flutter. `.env` esta ignorado por Git.
+Completa `SUPABASE_URL` y `SUPABASE_PUBLISHABLE_KEY` en `.env` con los valores mostrados por `pnpm exec supabase start`. `scripts/run-app.sh` los pasa a Flutter. `.env` esta ignorado por Git.
 
 La lista de pacientes y la ficha clinica se consultan directamente en un servidor HAPI FHIR R4. La URL llega con `--dart-define=FHIR_BASE_URL=...`, que `scripts/run-app.sh` toma de `FHIR_BASE_URL` en `.env`; si esta vacia, vale `http://10.0.2.2:8080/fhir` (emulador Android). En iOS Simulator o en un dispositivo con `adb reverse` usa `http://127.0.0.1:8080/fhir`. El servidor de demostracion esta en `docker/hapi-fhir`; el README principal explica el flujo completo.
 
