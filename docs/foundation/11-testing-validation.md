@@ -199,6 +199,8 @@ Los resultados negativos son válidos. No se convierten en afirmaciones clínica
 
 ## Comandos y evidencia actual
 
+- Seguridad: `pnpm security:check` inspecciona candidatos JWT/Service Role en archivos tracked y untracked no ignorados, sin imprimir valores ni rutas. `pnpm db:test` incluye `security_invariants.test.sql` para `SECURITY DEFINER` con `search_path` vacío en `public`/`private`, trigger append-only de auditoría, grants completos de RPC de asignación, índices esperados con esquema `public` y ausencia de autoridad clínica por nombre/enum de rol.
+
 - Base: `pnpm db:reset`, `pnpm db:lint`, `pnpm db:test` y `pnpm db:upgrade:test` para validar upgrades con datos sintéticos previos (`package.json:12-15`).
 - Flutter: `pnpm app:format:check`, `pnpm app:analyze`, `pnpm app:test` (`package.json:16-19`).
 - Edge: `pnpm functions:check` (`package.json:21-26`).
@@ -209,11 +211,9 @@ Los resultados negativos son válidos. No se convierten en afirmaciones clínica
 
 La trazabilidad objetivo está en [requirements-traceability.md](appendices/requirements-traceability.md) y las brechas vigentes en [evidence-index.md](appendices/evidence-index.md). El módulo `on_device_ai` posee ASR, síntesis, UI/gestión de modelos y lifecycle de capacidades; `context_note` conserva sus tres controladores, puertos de negocio, vault y casos de uso (ADR-018). `LocalCapabilityRepository` es la única frontera de provisioning y los leases son genéricos.
 
-### Evidencia dirigida fase 5.1 (2026-10-11)
+### Cobertura de invariantes de seguridad
 
-`pnpm security:evidence:phase51` inspecciona el esquema local resetado, grants/runtime DML, `proconfig` de funciones `SECURITY DEFINER`, policies/helper clínicos legacy, opciones de vistas, presencia de índices y literales de claves/JWT en archivos del working tree; además imprime `EXPLAIN` estimado para organización+hospitalización, membership, role assignment y care assignment. EXPLAIN solo muestra planificación/indexabilidad sobre el seed pequeño: no prueba ejecución de RLS ni comportamiento runtime. No se exige que el planner elija un índice con el seed pequeño ni se agregan índices para alterar ese plan. No usa `ANALYZE` ni datos reales.
-
-`care_assignment_operations_phase2.test.sql` comprueba adicionalmente que metadata de auditoría no contiene campos de email, credenciales, RUT, nombres ni contenido/payload clínico. Las pruebas existentes comprueban denegaciones atribuibles, vistas invoker/barrier, technician sin asignación/acceso clínico y filas sin vínculo inequívoco ocultas. `integration:local` verifica censo, `clinical_patient_demographics_by_hospitalization` y timeline permitidos/manipulados/revocados con el mismo JWT clínico; también prueba Edge 403/400, alta 201, replay 200, conflicto 409 y denegación del caller clínico/Service Role. La identidad sintética única se mantiene en memoria; reset antes/después limpia exclusivamente el proyecto local desechable e incluye auditoría append-only.
+El antiguo harness `security:evidence:phase51` se retiró. Los legacy helpers/policies, runtime DML y vistas clínicas invoker/barrier/grants ya están cubiertos por `clinical_rls_phase3.test.sql` y `function_privileges.test.sql`; los escenarios de técnico/asignaciones y denegaciones RPC están en los tests de asignaciones. `care_assignment_operations_phase2.test.sql` comprueba además que metadata de auditoría no contiene campos de email, credenciales, RUT, nombres ni contenido/payload clínico. `integration:local` verifica censo, `clinical_patient_demographics_by_hospitalization` y timeline permitidos/manipulados/revocados con el mismo JWT clínico; también prueba Edge 403/400, alta 201, replay 200, conflicto 409 y denegación del caller clínico/Service Role. La identidad sintética única se mantiene en memoria; reset antes/después limpia exclusivamente el proyecto local desechable e incluye auditoría append-only. `EXPLAIN` se retiró porque sus estimaciones no garantizan comportamiento runtime.
 
 La evidencia es local y acotada; no constituye autorización para producción ni garantía de seguridad. La carrera concurrente del último Administrador entre dos sesiones sigue siendo un límite: pgTAP valida contrato/invariantes sin concurrencia real y no se agregó una prueba determinista de bloqueo entre dos procesos.
 
@@ -279,3 +279,9 @@ La migración de autorización previa al lock verifica permiso antes de revelar 
 En POSIX, el cierre conserva la TTY de Flutter y termina los descendientes observados del proceso interactivo, con escalado TERM/KILL y comprobación de identidad; no señala el grupo foreground del usuario. Fixtures Node temporales en macOS verificaron el cierre de descendientes que ignoran TERM y la limpieza después de salir el padre. No se garantiza detectar procesos que se desvinculen antes de ser observados; Windows conserva `taskkill` por árbol y no fue validado en este corte.
 
 No hay pruebas automatizadas del arranque. La validación manual en Windows/Linux nativos, HAPI y Flutter está pendiente; no se afirma que los stacks reales hayan sido iniciados o verificados.
+
+### Validación de simplificación de comandos (2026-11-07)
+
+`pnpm run check` pasó formato y lint, pero falló en Flutter: 374 pruebas aprobadas, 1 omitida y 1 fallida en `roles_permissions_screen_test.dart`, caso `shows grouped delegable composition and protects hidden permissions` (`Too many elements` al buscar un único `FilledButton`). No se modificaron código ni pruebas Flutter en este cambio. Como el agrupador se detuvo, se ejecutaron aparte `pnpm run functions:test` (30 aprobadas) y `pnpm run fhir:sync:test` (10 aprobadas y 1 omitida por requerir integración PostgreSQL opt-in).
+
+`pnpm exec supabase test db supabase/tests/security_invariants.test.sql` pasó sus 5 comprobaciones sobre el Supabase local ya activo, con rollback. No se ejecutaron reset, la suite DB completa, integraciones HTTP ni arranque manual de la app; no se iniciaron ni detuvieron servicios. El lockfile se validó con instalación frozen en modo lockfile-only y pasaron las comprobaciones de sintaxis Node y documentación.
