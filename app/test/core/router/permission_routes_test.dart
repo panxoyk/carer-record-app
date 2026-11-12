@@ -72,6 +72,52 @@ void main() {
     );
   });
 
+  test('period summary routes require every source and summary permission', () {
+    const routes = [
+      '/hospitalizations/episode/summaries',
+      '/hospitalizations/episode/summaries/new',
+      '/hospitalizations/episode/summaries/snapshot',
+    ];
+    const required = {
+      'clinical.summary.use',
+      'clinical.census.read',
+      'clinical.patient.read',
+      'clinical.timeline.read',
+      'context.note.read',
+    };
+    for (final route in routes) {
+      expect(permissionRedirectForLocation(_context(required), route), isNull);
+      for (final missing in required) {
+        expect(
+          permissionRedirectForLocation(
+            _context(required.difference({missing})),
+            route,
+          ),
+          '/settings',
+          reason: '$route must deny without $missing',
+        );
+      }
+    }
+    expect(
+      permissionRedirectForLocation(
+        _context(required),
+        '/hospitalizations/episode/details',
+      ),
+      isNull,
+    );
+    expect(
+      permissionRedirectForLocation(
+        _context({
+          'clinical.census.read',
+          'clinical.patient.read',
+          'clinical.timeline.read',
+        }),
+        '/hospitalizations/episode/summaries-extra',
+      ),
+      isNull,
+    );
+  });
+
   test(
     'settings navigation offers only destinations allowed by IAM permissions',
     () {

@@ -310,6 +310,8 @@ La Edge Function `clinical-summary` del baseline solo validaba la existencia de 
 - la salida se marca como generada y revisable;
 - el resumen nunca se convierte en fuente clínica ni revela filas fuera de alcance.
 
+Para el MVP de ADR-021, `period_summaries` permite al autor leer sus propios snapshots solo mientras conserva `clinical.summary.use`, `clinical.census.read`, `clinical.patient.read`, `clinical.timeline.read` y `context.note.read`, además de acceso vigente al episodio. La composición seed concede `clinical.summary.use` al Personal clínico y al Administrador de demo; este último no recibe override de asignación. La generación no equivale a confirmación como nota, y el texto generado almacenado es dato sensible sujeto a esas policies.
+
 ## Lectura directa de FHIR (demo, ADR-019)
 
 La lista de pacientes y la ficha clínica de la demo se leen de un servidor FHIR que queda **fuera del alcance de RLS**: la solicitud no lleva `auth.uid()` y ningún perfil, membresía, permiso o asignación se evalúa en el servidor.

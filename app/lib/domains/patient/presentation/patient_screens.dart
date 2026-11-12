@@ -8,7 +8,7 @@ import '../../../core/time/clinical_time.dart';
 import '../../clinical_event/domain/entities/clinical_event.dart';
 import '../../clinical_event/presentation/clinical_event_providers.dart';
 import '../../context_note/presentation/milestone_editor_sheet.dart';
-import '../../context_note/presentation/period_summary_sheet.dart';
+import '../../period_summary/presentation/period_summary_providers.dart';
 import '../../institutional/presentation/iam_providers.dart';
 import '../../fhir_record/presentation/fhir_record_providers.dart';
 import '../../fhir_record/domain/authorized_clinical_record.dart';
@@ -221,6 +221,7 @@ class PatientDetailScreen extends ConsumerWidget {
       authorizedClinicalTimelineProvider(hospitalizationId),
     );
     final iamState = ref.watch(iamContextProvider);
+    final summaryAllowed = ref.watch(periodSummaryAllowedProvider);
     final iam = iamState.valueOrNull;
     // UI guard only: RLS on context_notes remains the authorization authority.
     final canAddMilestone =
@@ -267,27 +268,23 @@ class PatientDetailScreen extends ConsumerWidget {
         title: 'Bitácora',
         actions: patient.valueOrNull != null
             ? [
-                IconButton(
-                  tooltip: 'Resumir bitácora',
-                  icon: const Icon(Icons.summarize_outlined),
-                  onPressed: () {
-                    final events = ref
-                        .read(
-                          hospitalizationClinicalEventsProvider(
-                            hospitalizationId,
-                          ),
-                        )
-                        .valueOrNull;
-                    final notes =
-                        events
-                            ?.where((e) => e.isMilestone)
-                            .map((e) => e.summary)
-                            .where((s) => s.trim().isNotEmpty)
-                            .toList() ??
-                        const <String>[];
-                    showPeriodSummarySheet(context, notes: notes);
-                  },
-                ),
+                if (summaryAllowed &&
+                    patient.hasValue &&
+                    !patient.isLoading &&
+                    !patient.hasError &&
+                    patient.valueOrNull != null &&
+                    !iamState.isLoading &&
+                    !iamState.hasError)
+                  Tooltip(
+                    message: 'Resúmenes',
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.summarize_outlined),
+                      label: const Text('Resúmenes'),
+                      onPressed: () => context.push(
+                        '/hospitalizations/$hospitalizationId/summaries',
+                      ),
+                    ),
+                  ),
                 if (canAddMilestone)
                   IconButton(
                     tooltip: 'Añadir nota de contexto',

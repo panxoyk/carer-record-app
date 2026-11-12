@@ -17,6 +17,7 @@ import '../../domains/institutional/domain/iam_entities.dart';
 import '../../domains/users/presentation/users_screen.dart';
 import '../../domains/users/presentation/assignments_screen.dart';
 import '../../domains/users/presentation/roles_permissions_screen.dart';
+import '../../domains/period_summary/presentation/screens/period_summary_screens.dart';
 import 'navigation_policy.dart';
 import 'route_entry_refresh.dart';
 import 'router_refresh.dart';
@@ -158,6 +159,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => ClinicalEntryRefresh(
           child: PatientInformationScreen(
             hospitalizationId: state.pathParameters['hospitalizationId']!,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/hospitalizations/:hospitalizationId/summaries',
+        builder: (_, state) => ClinicalEntryRefresh(
+          child: PeriodSummaryHistoryScreen(
+            hospitalizationId: state.pathParameters['hospitalizationId']!,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/hospitalizations/:hospitalizationId/summaries/new',
+        builder: (_, state) => ClinicalEntryRefresh(
+          child: GeneratePeriodSummaryScreen(
+            hospitalizationId: state.pathParameters['hospitalizationId']!,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/hospitalizations/:hospitalizationId/summaries/:summaryId',
+        builder: (_, state) => ClinicalEntryRefresh(
+          child: PeriodSummaryDetailScreen(
+            hospitalizationId: state.pathParameters['hospitalizationId']!,
+            summaryId: state.pathParameters['summaryId']!,
           ),
         ),
       ),

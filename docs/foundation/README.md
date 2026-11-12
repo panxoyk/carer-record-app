@@ -44,7 +44,7 @@ Carer Record es una capa de contexto clínico e integración para hospitalizaci�
 9. Las notas de audio conservan el audio en el dispositivo, usan ASR local y solo persisten el texto que su autor confirmó; no hay proveedor cloud de síntesis.
 10. No existe mapa reversible porque nada sale del dispositivo; la única respuesta posible es la que la persona autora revisa.
 11. Audio, transcripción, borrador y artefactos intermedios se eliminan al confirmar, descartar, cerrar sesión o expirar.
-12. Un resumen de periodo es una vista temporal con caché invalidable; nunca se publica automáticamente como nota.
+12. El MVP de resumen de periodo conserva snapshots históricos inmutables con acceso por permiso y episodio; nunca se publica automáticamente como nota (ADR-021).
 13. Gestión de turnos, RRHH, handoff formal, FHIR universal, datos reales y cumplimiento productivo quedan fuera del prototipo.
 14. Los hitos de bitácora son notas de contexto confirmadas e inmutables; el hito de audio se dicta y se transcribe en el dispositivo, y solo su texto confirmado llega al servidor (ADR-016).
 15. La app nunca consulta HAPI directamente: el corte vigente usa sincronización estructural FHIR y consulta autorizada por pasarela; ADR-020 sucede y sustituye la dirección de consulta de ADR-019. La pasarela protege `record` y `timeline`; HAPI local sigue siendo solo sintético y solo loopback en la configuración documentada.

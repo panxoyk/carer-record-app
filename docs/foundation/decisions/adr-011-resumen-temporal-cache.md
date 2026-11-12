@@ -6,6 +6,8 @@
 
 ## Contexto
 
+Para el MVP de resumen histórico, las decisiones de caché e invalidación de esta ADR quedan parcialmente sustituidas por [ADR-021](adr-021-resumen-periodo-persistido.md). Esta ADR se conserva como antecedente; el MVP usa snapshots históricos inmutables sin caché invalidable.
+
 Una síntesis sin ventana, zona horaria o versión de fuentes puede mezclar información y quedar obsoleta. Regenerarla siempre agrega latencia, costo y variabilidad. El timeline actual ordena eventos por `occurred_at` (`app/lib/domains/clinical_event/data/clinical_event_repository.dart:10-16`) pero no define resumen ni cache.
 
 ## Decisión

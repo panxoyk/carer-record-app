@@ -4,7 +4,7 @@
 
 La validación debe producir evidencia proporcionada al riesgo del prototipo, especialmente en autorización, privacidad, transformación clínica e idempotencia. No demuestra seguridad o eficacia clínica productiva. Una prueba automatizada confirma un contrato bajo condiciones conocidas; no reemplaza revisión jurídica, clínica, de usabilidad o seguridad independiente.
 
-La suite y los registros de ejecución del baseline son evidencia histórica, no el estado actual; el enmascaramiento de RUT dejó de ser requisito cuando se eliminó su consulta y presentación. El workflow observado levanta Supabase, reconstruye la base, ejecuta lint y pgTAP y luego valida Flutter (`.github/workflows/verify.yml:19-35`). FHIR, UI NER, resumen/cache y outbox continúan pendientes; hay evidencia parcial actual de audio/ASR, borrado básico y síntesis local, detallada más abajo.
+La suite y los registros de ejecución del baseline son evidencia histórica, no el estado actual; el enmascaramiento de RUT dejó de ser requisito cuando se eliminó su consulta y presentación. El workflow observado levanta Supabase, reconstruye la base, ejecuta lint y pgTAP y luego valida Flutter (`.github/workflows/verify.yml:19-35`). La ingesta FHIR, UI NER y outbox continúan pendientes. El MVP de resumen histórico (ADR-021) tiene pruebas automatizadas de DB, dominio, repositorio, controlador, UI y ruta; la inspección manual de red y el benchmark/inferencia nativa siguen pendientes. Hay evidencia parcial actual de audio/ASR, borrado básico y síntesis local, detallada más abajo.
 
 ## Principios
 
@@ -34,6 +34,12 @@ La suite y los registros de ejecución del baseline son evidencia histórica, no
 | Spikes                 | factibilidad y límites, sin compromiso productivo           | protocolo reproducible                                 | Pendiente                                                                                           |
 
 Las afirmaciones de ausencia de tests HTTP/widget/mappings en la fotografía del baseline son históricas. Actualmente existen pruebas widget/controlador y tests HTTP para `create-practitioner`; FHIR/mappings siguen sin ingesta. Las pruebas adicionales no convierten capacidades futuras en existentes.
+
+## Evidencia dirigida de resúmenes históricos (ADR-021)
+
+Las pruebas en `app/test/domains/period_summary/`, `app/test/core/router/permission_routes_test.dart`, `app/test/domains/patient/presentation/patient_screens_test.dart` y `app/test/architecture/on_device_ai_boundaries_test.dart` cubren el contrato del MVP con fakes y transporte HTTP sintético. `supabase/tests/period_summaries.test.sql` verifica autorización y persistencia con fixtures propios y roles reales de PostgreSQL; no depende de pacientes precargados por la demo FHIR.
+
+La validación integrada del 2026-11-08 pasó 108 pruebas Flutter relacionadas y las 60 aserciones de resúmenes en pgTAP. El análisis Flutter y los checks de formato/documentación pasaron. La suite general `pnpm db:test` no quedó verde: varias pruebas anteriores esperan pacientes y episodios legacy que el `supabase/seed.sql` vigente no crea. No se modificaron esos módulos ni se interpreta ese fallo como evidencia contra la RLS nueva. `pnpm db:lint` informó una variable SQL `kind` sin uso en `save_period_summary`. La inferencia nativa del flujo nuevo y la inspección manual de tráfico en iPhone siguen pendientes; no se ejecutó toda la suite Flutter ni las integraciones FHIR/IAM.
 
 ## pgTAP y base de datos
 
@@ -165,7 +171,7 @@ Casos obligatorios: dos requests secuenciales iguales, dos concurrentes, mismo I
 | F-05 Audio/ASR        | captura sintética, revisión y publicación local   | permiso negado, interrupción, cleanup; decodificación nativa env-gated aún pendiente |
 | F-06 NER              | UI señala entidades sin alterar texto (pendiente) | falsos negativos y cobertura por clase; evaluación pendiente                         |
 | F-07 Síntesis local   | borrador sintético con fake determinista          | timeout, cancelación y redacción; benchmark local pendiente                          |
-| F-08 Resumen/cache    | genera y reutiliza versión exacta                 | fuente cambia, expiración, aislamiento RLS                                           |
+| F-08 Resumen          | crea y consulta snapshot autorizado               | fuente posterior no invalida, acceso propio, aislamiento RLS                         |
 | F-09 Eliminación      | borra original y derivados                        | retry, artefacto ausente, fallo parcial                                              |
 | F-10 Outbox/auditoría | publica una vez de forma observable               | worker crash, duplicado, dead-letter                                                 |
 

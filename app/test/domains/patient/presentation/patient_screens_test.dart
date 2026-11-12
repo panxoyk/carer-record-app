@@ -20,6 +20,7 @@ import 'package:carer_record_app/core/design_system/clinical_design_system.dart'
 import 'package:carer_record_app/domains/on_device_ai/domain/local_capability_repository.dart';
 import 'package:carer_record_app/domains/on_device_ai/presentation/local_ai_providers.dart';
 import 'package:carer_record_app/domains/context_note/presentation/context_note_providers.dart';
+import 'package:carer_record_app/domains/period_summary/presentation/period_summary_providers.dart';
 import 'package:carer_record_app/domains/context_note/presentation/milestone_editor_sheet.dart';
 import 'package:carer_record_app/domains/context_note/data/context_note_repository.dart';
 import 'package:carer_record_app/domains/context_note/data/draft_vault.dart';
@@ -65,6 +66,7 @@ Widget screen(Widget child, List<Override> overrides) => ProviderScope(
   key: UniqueKey(),
   overrides: [
     authorizationRefreshProvider.overrideWithValue(() {}),
+    periodSummaryAllowedProvider.overrideWithValue(false),
     authorizedClinicalTimelineProvider(hospitalizationId)
         .overrideWith((ref) async => _record),
     ...overrides,
@@ -73,6 +75,60 @@ Widget screen(Widget child, List<Override> overrides) => ProviderScope(
 );
 
 void main() {
+  testWidgets(
+    'patient summaries action opens episode history instead of a modal',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: '/hospitalizations/$hospitalizationId',
+        routes: [
+          GoRoute(
+            path: '/hospitalizations/:id',
+            builder: (_, __) =>
+                const PatientDetailScreen(hospitalizationId: hospitalizationId),
+          ),
+          GoRoute(
+            path: '/hospitalizations/:id/summaries',
+            builder: (_, state) =>
+                Scaffold(body: Text('Historial ${state.pathParameters['id']}')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authorizationRefreshProvider.overrideWithValue(() {}),
+            periodSummaryAllowedProvider.overrideWithValue(true),
+            patientProvider(hospitalizationId)
+                .overrideWith((ref) async => episode),
+            authorizedClinicalTimelineProvider(hospitalizationId)
+                .overrideWith((ref) async => _record),
+            hospitalizationClinicalEventsProvider(hospitalizationId)
+                .overrideWith((ref) async => []),
+            iamContextProvider.overrideWith(
+              (ref) async => _iam(const {
+                'clinical.summary.use',
+                'clinical.census.read',
+                'clinical.patient.read',
+                'clinical.timeline.read',
+                'context.note.read',
+              }),
+            ),
+          ],
+          child: MaterialApp.router(
+            theme: ClinicalTheme.build(),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Resúmenes'));
+      await tester.pumpAndSettle();
+      expect(find.text('Historial $hospitalizationId'), findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
+    },
+  );
+
   testWidgets('context note sheet is usable on narrow and enlarged screens', (
     tester,
   ) async {

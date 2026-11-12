@@ -20,7 +20,7 @@ PostgreSQL refleja esa forma: `practitioners`, `patients` y `clinical_events` (`
 
 ### Estado actual acotado
 
-El IAM actual separa perfiles, membresías y asignaciones de permisos efectivos; la autorización clínica se evalúa por hospitalización y asignación vigente, según [ADR-018](decisions/adr-018-modulo-ia-local-compartido.md) no altera este contrato. El dominio implementa hospitalizaciones, ubicaciones y asignaciones, y una lectura mínima del censo/paciente/timeline. También existen `context_notes` confirmadas e inmutables, incluidos hitos de audio que persisten solo texto confirmado. Esto no implica ingesta FHIR completa ni la entrega de las tablas canónicas tipadas descritas en el modelo objetivo.
+El IAM actual separa perfiles, membresías y asignaciones de permisos efectivos; la autorización clínica se evalúa por hospitalización y asignación vigente. El dominio implementa hospitalizaciones, ubicaciones y asignaciones, y una lectura mínima del censo/paciente/timeline. También existen `context_notes` confirmadas e inmutables, incluidos hitos de audio que persisten solo texto confirmado. `period_summary` genera snapshots históricos inmutables del episodio con inferencia local y persistencia sujeta a RLS; esto no implica ingesta FHIR completa ni la entrega de las tablas canónicas tipadas descritas en el modelo objetivo. La validación nativa del motor para resúmenes sigue pendiente.
 
 ### Modelo objetivo
 

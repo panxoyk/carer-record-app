@@ -2,144 +2,70 @@
 
 ## Estado y objetivo
 
-Este flujo es un contrato objetivo y sigue sin entrega: ADR-017 retiró la Edge Function `clinical-summary` y dejó la síntesis en el dispositivo, pero el resumen cacheado aún no existe. Su objetivo es generar una vista sintetizada de fuentes clínicas autorizadas dentro de un intervalo temporal configurable. El resultado sirve para consulta, tiene caché invalidable y nunca se publica como nota ni se agrega a la timeline.
+**MVP implementado; validación nativa pendiente.** ADR-021 define el resumen histórico persistido. Las pantallas de historial, creación y detalle se abren desde la hospitalización del paciente, sin modal. Código y pruebas automatizadas cubren DB/RLS, dominio, repositorio, controlador, UI y ruta; no se afirma benchmark ni validación manual de privacidad/red en dispositivo.
 
-Antes de V6 deben reconciliarse las descripciones de persistencia de caché local y servidor y sus implicaciones de privacidad. Este documento no decide entre ellas ni modifica la política del producto; el flujo y todas sus pruebas de aceptación siguen pendientes, y la función no está habilitada.
+El resumen es una vista derivada e inmutable, no una nota ni un evento clínico. Se genera localmente con `SynthesisProvider`; fuentes y prompt no salen del dispositivo. El texto generado sí se persiste en Supabase como dato clínico sensible sujeto a RLS.
 
-La síntesis sigue el mismo límite de privacidad: selección autorizada en el contexto del usuario y ejecución íntegramente local. No hay proveedor cloud, ni tokenización reversible, ni salida de texto (ADR-017). Solo se emplean fuentes sintéticas en desarrollo, evaluación y pruebas.
+## Actores y permisos
 
-## Actores
+- Profesional activo con permiso `clinical.summary.use`, permisos de lectura de fuentes y acceso vigente al episodio.
+- Administrador de demo con el mismo permiso y los mismos requisitos de acceso propio al episodio; no existe override administrativo.
+- Anónimo, suspendido, sin perfil, sin permiso o sin acceso al episodio: denegado.
 
-- Perfil con membresía activa y permisos de lectura sobre todas las fuentes solicitadas.
-- Aplicación Flutter con el runtime local de síntesis y caché cifrada.
-- Postgres con RLS como origen de pacientes, eventos y notas publicadas.
-- `SynthesisProvider` local como puerto del dominio, con adaptador GGUF y fake determinista.
-- Administrador, suspendido, perfil ausente o anónimo como actores denegados.
+El permiso único `clinical.summary.use` habilita crear y leer. No habilita lectura de fuentes ni amplía acceso clínico. La concesión inicial es para roles clínicos de demo y administrador; la autoridad final es RLS.
 
-## Permisos
+## Selección del periodo y fuentes
 
-- Una membresía activa puede solicitar y ver un resumen solo de hospitalizaciones y fuentes cubiertas por sus permisos y alcance.
-- Una autoridad IAM no obtiene acceso clínico por ningún ajuste del modelo local.
-- La app no usa Service Role para ampliar o completar fuentes ocultas.
-- El resumen no puede publicarse, confirmarse como nota ni convertirse automáticamente en evento.
-- Un `SummarySnapshot` se protege con la misma organización, hospitalización, permisos y RLS que sus fuentes; una réplica local nunca amplía esa autoridad.
+Las opciones son 6, 12, 24 o 48 horas, 7 días y rango personalizado de fecha/hora. El valor predeterminado es 24 horas. Se conserva el rango exacto `[from_utc, to_utc)` y la zona IANA institucional. Una fecha seleccionada sin hora incluye el día calendario local completo y se indica claramente como fecha sin hora. Fuentes sin fecha se excluyen y su cantidad se informa.
 
-## Precondiciones
-
-- Sesión válida, perfil/membresía activos y hospitalización visible dentro del alcance.
-- Intervalo válido y explícito, con zona horaria y semántica de límites definidas.
-- Tipos de fuente y filtros seleccionados pertenecen a una configuración permitida.
-- La app obtiene las fuentes por consultas RLS y calcula un fingerprint reproducible en el dispositivo, sin confiar en el cliente.
-- El runtime local de síntesis y el modelo GGUF están instalados, o existe una entrada de caché todavía válida.
-- No hay proveedor cloud al que enviar nada: la ausencia de egreso es la guarantee de privacidad (ADR-017).
-- Límites de cantidad/tamaño evitan prompts incompletos o consumos no acotados de memoria y batería.
+Solo entran notas confirmadas del episodio y eventos de la timeline FHIR que el actor puede consultar. Filtros opcionales reducen ese conjunto; nunca amplían la autorización. La preparación de fuentes verifica completitud y límites: una fuente truncada, error de consulta o presupuesto excedido impide generar. El MVP asume contexto de modelo de 2048 tokens y preparación conservadora; no incluye chunking.
 
 ## Flujo principal
 
-1. El usuario abre el resumen del paciente y elige rango, zona horaria, tipos de evento/fuente y opciones permitidas.
-2. La app normaliza el intervalo a `[desde, hasta)` en UTC y consulta bajo RLS solo fuentes cuyo `occurred_at` cae en el rango.
-3. La app verifica completitud/paginación y ordena las fuentes de manera determinista, y calcula el `source_fingerprint` local.
-4. Se calcula una clave de caché con organización, hospitalización/paciente, rango, configuración, fingerprint y versiones de pipeline, prompt y modelo.
-5. Si RLS permite un `SummarySnapshot` exacto y no expirado, se devuelve como cache hit sin ejecutar el modelo.
-6. Si no, la app ejecuta la síntesis en el dispositivo con el modelo GGUF instalado y sus límites configurados.
-7. La app pasa a `SynthesisProvider` el texto de las fuentes y la configuración; el puerto controla timeout, cancelación e idempotencia.
-8. El adaptador local devuelve texto generado y, si el modelo la soporta, salida estructurada; ningún texto sale del dispositivo.
-9. La app persiste mediante una operación idempotente un `SummarySnapshot` inmutable bajo RLS. El borrador intermedio se purga.
-10. La UI presenta rango, configuración, fuentes incluidas, fecha de generación y advertencia de síntesis. No ofrece “Publicar como nota”.
+1. Desde el episodio, el usuario abre historial o inicia un resumen nuevo.
+2. El historial devuelve únicamente filas autorizadas por `clinical.summary.use` y acceso vigente al episodio.
+3. Para nueva generación, el usuario selecciona rango y filtros; se reúnen fuentes permitidas y se informa cualquier limitación y cantidad de fuentes sin fecha.
+4. Si las fuentes no están completas o exceden límites, se detiene sin inferencia ni persistencia.
+5. `SynthesisProvider` ejecuta inferencia local. La interfaz muestra advertencia sobre la naturaleza asistida y limitaciones disponibles.
+6. Se persiste un resumen histórico inmutable con UUID, autor, organización, paciente, hospitalización, rango exacto, zona, fuentes/procedencia, generación y texto.
+7. Ante error ambiguo de guardado, retry reusa el mismo UUID y resultado; no ejecuta inferencia otra vez.
+8. El detalle presenta el snapshot histórico. Fuentes nuevas no lo invalidan ni fuerzan regeneración; otra generación requiere acción explícita.
 
-```mermaid
-flowchart TD
-  A["Configurar rango y fuentes"] --> B["Consultar fuentes bajo RLS"]
-  B --> C["Ordenar y calcular fingerprint"]
-  C --> D{"SummarySnapshot válido bajo RLS"}
-  D -->|Sí| E["Mostrar resumen"]
-  D -->|No| F["Síntesis local con modelo GGUF"]
-  F --> G{"Modelo instalado y disponible"}
-  G -->|No| L["Informar no disponible; no publicar nota"]
-  G -->|Sí| H["SynthesisProvider local"]
-  H --> I["Validar salida estructurada"]
-  I --> J["Persistir SummarySnapshot e invalidación"]
-  J --> E
-  E --> K["Vista temporal, no nota"]
-```
+La cancelación lógica puede descartar un resultado local antes de persistir. No se promete aborto nativo del motor.
 
-## Flujos alternativos y errores
+## Exclusiones
 
-- Rango vacío: se muestra “Sin fuentes en el periodo” y no se ejecuta el modelo.
-- Rango inválido, futuro no permitido o demasiado amplio: la validación local rechaza con error corregible.
-- Fuente solicitada no visible: la consulta bajo RLS no la devuelve y la síntesis opera solo sobre lo autorizado.
-- Respuesta paginada incompleta: no se genera hasta obtener todas las páginas o aplicar un límite visible y aceptado.
-- Sin conexión: la síntesis local no necesita red. Si el snapshot de fuentes está completo se genera igual; la escritura del resumen queda encolada y sin fuentes completas no se genera.
-- Cambia una fuente, aparece una nueva dentro del rango, cambia configuración, rol, estado, prompt o modelo: se invalida la entrada y se regenera bajo autorización vigente.
-- Timeout, cancelación o fallo del motor local: se avisa, el texto original se conserva y el resumen previo válido puede mostrarse marcado con su fecha si sigue autorizado.
-- Salida estructurada malformada o fuera de límites: se rechaza el resultado y no se actualiza caché.
-- Suspensión, revocación de permiso o pérdida de alcance: RLS vuelve inalcanzable el snapshot, se purgan réplicas locales y no se generan resumenes nuevos.
-- Solicitud de publicar: no existe endpoint ni acción. Para crear una nota, el usuario inicia deliberadamente el flujo de nota y redacta/confirma su propio contenido.
+- No se edita ni elimina desde la aplicación.
+- No hay caché invalidable, regeneración automática ni invalidación por eventos nuevos.
+- No hay historia compartida: cada resumen conserva su autor y el acceso al episodio.
+- No hay publicación automática, confirmación como nota ni inserción en timeline.
+- No se usa proveedor cloud ni se envían fuentes/prompt fuera del dispositivo.
 
-## Estados
+## Datos y RLS
 
-| Estado             | Significado                                   |
-| ------------------ | --------------------------------------------- |
-| `configuring`      | Usuario define rango y fuentes                |
-| `loading_sources`  | Consultas RLS y paginación en curso           |
-| `empty`            | No hay fuentes autorizadas en el rango        |
-| `cache_hit`        | SummarySnapshot exacto y autorizado           |
-| `processing_local` | Fingerprint o ejecución local del modelo      |
-| `queued_offline`   | Solicitud completa espera conectividad        |
-| `synthesizing`     | `SynthesisProvider` local genera el borrador  |
-| `ready`            | Resumen generado visible como vista temporal  |
-| `stale`            | Caché invalidada; no se presenta como vigente |
-| `failed`           | Error recuperable o terminal                  |
-
-No hay estados `ready_to_confirm`, `published` ni `awaiting_review`, porque el resumen no es una nota.
-
-## Datos
-
-- Configuración: `patient_id`, `from_utc` inclusivo, `to_utc` exclusivo, zona horaria de visualización, tipos de fuente, orden, extensión/estilo permitido y versión.
-- Fuentes autorizadas: ids, `occurred_at`, tipo, autor y contenido necesario de eventos/notas visibles bajo RLS.
-- Síntesis local: texto de las fuentes, configuración, límites, idempotency key y versiones de prompt/modelo; nada sale del dispositivo.
-- Caché servidor: `SummarySnapshot` inmutable con organización, hospitalización/paciente, resumen generado, `source_fingerprint`, configuración, versiones, `generated_at` y expiración.
-- Local: artefactos de outbox cifrados solo durante generación; una réplica del snapshot requiere política explícita y no es autoridad.
-- No se inserta fila en `clinical_events` ni en `context_notes`; el snapshot tiene tabla/entidad derivada propia y RLS equivalente a las fuentes.
-- Auditoría excluye fuentes, prompt y resumen; registra metadata de la solicitud y resultado.
-
-## RLS y auditoría
-
-Las fuentes se leen con el JWT y las policies clínicas vigentes; la app solo sintetiza lo que RLS ya le devolvió, y una lista o fingerprint del cliente nunca amplía esa autoridad. El modelo local no consulta la base de datos y Service Role no participa en lectura clínica.
-
-La clave se invalida al cambiar hospitalización/paciente, rango, filtros, conjunto o versión de fuentes, prompt o modelo. RLS vuelve el snapshot inalcanzable cuando cambian membresía, permisos o alcance, aunque la clave coincida. Una expiración temporal complementa, pero no reemplaza, fingerprint ni autorización. Al cerrar sesión se purgan réplicas y artefactos locales.
-
-La auditoría registra actor, paciente, rango, filtros, ids o hash del conjunto de fuentes, cache hit/miss, versiones, latencia, resultado e invalidación. No registra texto fuente, resumen, tokens, mapa ni prompt completo.
+La entidad persistida es tipada y asocia UUID, autor, organización, paciente, hospitalización, límites UTC, zona IANA, filtros/procedencia, texto, advertencia y timestamp de generación. El contrato Flutter para cualquier JSONB consumido es Dart tipado. Grants, constraints y RLS validan tenant, episodio, autoría y `clinical.summary.use`; los identificadores enviados por Flutter no prueban autoridad. No se expone contenido en logs de auditoría.
 
 ## Criterios de aceptación
 
-- El usuario configura explícitamente rango y fuentes, con semántica `[desde, hasta)` y zona horaria visible.
-- Solo se incluyen fuentes/hospitalizaciones que el solicitante puede leer; una fuente no autorizada hace fallar la operación completa.
-- Ningún texto sale del dispositivo: la síntesis y la persistencia del snapshot ocurren localmente y bajo RLS.
-- Una clave de caché cambia cuando cambia cualquier fuente, configuración o versión relevante.
-- Un snapshot de otra organización, fuera de alcance o ya no autorizado nunca se muestra.
-- El resumen indica periodo, fuentes, generación y naturaleza asistida.
-- No existe acción, estado ni endpoint que lo publique como nota/evento.
-- Sin conexión solo se usa una réplica permitida por política o una outbox completa; no se genera con fuentes parciales.
-- Todas las evaluaciones usan datos clínicos sintéticos.
+- Historial y detalle solo son alcanzables desde el episodio autorizado y nunca como modal.
+- Permiso ausente, revocado, cuenta suspendida, otro tenant o falta de acceso al episodio deniegan creación y lectura, también para administrador.
+- Los rangos y fechas locales producen límites UTC exactos, incluyendo DST; fechas sin hora cubren el día local completo y eventos sin fecha se cuentan/excluyen.
+- Solo notas confirmadas y timeline FHIR autorizada son entradas; los filtros solo reducen fuentes.
+- Respuesta incompleta, truncada, fallida o sobre presupuesto no genera ni persiste.
+- Inferencia local, advertencia al generar, snapshot inmutable, UUID estable ante retry de guardado y ninguna inferencia duplicada por retry.
+- Eventos posteriores no invalidan ni regeneran; nueva inferencia requiere acción explícita.
+- No existe edición, borrado UI, publicación automática ni historia compartida.
 
-## Pruebas
+## Evidencia y validación pendiente
 
-- pgTAP: fuentes y `SummarySnapshot` visibles con membresía, permisos y alcance correctos; denegados entre organizaciones, fuera de alcance, suspendido, permiso ausente, sin perfil y `anon`.
-- Local: fingerprint, paginación, límites de longitud y cancelación del caso de uso con `SynthesisProvider` fake.
-- Unitarias: normalización temporal, límites inclusivo/exclusivo, orden determinista, fingerprint y clave de caché.
-- Caché: unicidad/concurrencia, hit, expiración, nueva fuente, nueva versión, cambio de filtro/prompt/modelo, suspensión, revocación y cruce de organización.
-- Puerto: el fake y el adaptador GGUF cumplen el mismo contrato, los mismos límites y los mismos códigos de error.
-- Outbox: modo avión con snapshot completo/incompleto, reinicio, backoff, timeout e idempotencia.
-- Manual: rango vacío, resumen largo, indicación de fuentes y ausencia de cualquier acción de publicación.
-- Privacidad: inspección de red, logs y caché con corpus sintético para comprobar el límite de confianza.
+- pgTAP, pruebas de dominio, repositorio, controlador, UI y ruta cubren los contratos anteriores con datos sintéticos.
+- Benchmark y ejecución del modelo nativo en dispositivo siguen pendientes.
+- Revisión manual de privacidad/red sigue pendiente. Las pruebas automatizadas verifican payloads/mocks, no ausencia de tráfico real; el texto generado persistido es dato clínico sensible sujeto a RLS.
 
-## Evidencia y referencias
+## Referencias
 
-- [ADR-017](../decisions/adr-017-sintesis-local.md) retiró la Edge Function `clinical-summary` y dejó la síntesis íntegramente en el dispositivo; no existe proveedor cloud.
-- En el baseline, [`ClinicalEventRepository`](../../../app/lib/domains/clinical_event/data/clinical_event_repository.dart#L10-L17) obtenía la timeline por paciente sin filtrar un periodo en servidor.
-- [`clinical_timeline.sql`](../../../supabase/migrations/20260910110000_clinical_timeline.sql#L53-L68) somete eventos a la matriz de lectura clínica.
-- [Arquitectura de audio, IA y NER](../09-audio-ai-ner.md) define el límite de confianza, la síntesis local y el outbox.
-- [ADR-011](../decisions/adr-011-resumen-temporal-cache.md) define intervalo semiabierto, `SummarySnapshot`, clave exacta e invalidación.
-- [Supabase: autorización en Edge Functions](https://supabase.com/docs/guides/functions/auth) documenta cómo validar solicitudes y conservar contexto Auth, aunque esta ruta ya no se usa para síntesis.
-- [Supabase: Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security) documenta que la autorización de filas se ejecuta dentro de la base.
+- [ADR-021](../decisions/adr-021-resumen-periodo-persistido.md) define el MVP vigente.
+- [ADR-011](../decisions/adr-011-resumen-temporal-cache.md) conserva antecedentes de intervalo/procedencia; caché e invalidación no rigen el MVP.
+- [ADR-017](../decisions/adr-017-sintesis-local.md) define síntesis local.
+- [Migración del MVP](../../../supabase/migrations/20261013050000_period_summaries.sql) y [pruebas pgTAP](../../../supabase/tests/period_summaries.test.sql) documentan persistencia/RLS y sus casos automatizados.
+- `app/lib/domains/period_summary/` y `app/test/domains/period_summary/` contienen la implementación y pruebas Flutter del corte.

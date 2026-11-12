@@ -138,7 +138,7 @@ Este corte no incluye ingesta FHIR completa, escritura clínica, solicitudes de 
 - exigir trazabilidad entre la procedencia técnica y la versión del modelo;
 - ejecutar el modelo de síntesis en el dispositivo detrás de una interfaz abstracta.
 
-**Confirmado en alcance local.** [ADR-016](decisions/adr-016-asr-local-transcripcion-confirmada.md) implementa la captura, la transcripción con `sherpa_onnx`, la confirmación del autor y la purga; [ADR-017](decisions/adr-017-sintesis-local.md) implementa `SynthesisProvider` con adaptador GGUF y fake determinista. No queda proveedor cloud, Edge Function de síntesis ni tokenización reversible. La medición de latencia, RAM, batería y temperatura sobre corpus sintético y el resumen de periodo siguen **Pendientes**; la calidad clínica del reconocimiento no se afirma en ningún caso.
+**Confirmado en alcance local.** [ADR-016](decisions/adr-016-asr-local-transcripcion-confirmada.md) implementa la captura, la transcripción con `sherpa_onnx`, la confirmación del autor y la purga; [ADR-017](decisions/adr-017-sintesis-local.md) implementa `SynthesisProvider` con adaptador GGUF y fake determinista. No queda proveedor cloud, Edge Function de síntesis ni tokenización reversible. La medición de latencia, RAM, batería y temperatura sobre corpus sintético y la validación nativa del resumen de periodo siguen **Pendientes**; su MVP funcional local/sintético tiene código y pruebas automatizadas. La calidad clínica del reconocimiento no se afirma en ningún caso.
 
 **Confirmado.** [ADR-018](decisions/adr-018-modulo-ia-local-compartido.md) organiza las capacidades locales existentes en un módulo compartido; no cambia arquitectura de producto, privacidad, permisos ni requisitos pendientes.
 
@@ -147,10 +147,10 @@ Este corte no incluye ingesta FHIR completa, escritura clínica, solicitudes de 
 - permitir seleccionar un intervalo explícito con zona horaria institucional;
 - resumir únicamente fuentes autorizadas y versionadas;
 - ejecutar el resumen con el modelo local y su versión declarados, sin egreso;
-- conservar como máximo un cache invalidable, no una nota ni un evento clínico;
+- conservar snapshots históricos inmutables, no una nota ni un evento clínico;
 - mostrar periodo, generación, fuentes y estado de vigencia.
 
-**Decidido.** Gestión de turnos, scheduling, handoff y RRHH quedan fuera del prototipo. Los periodos de resumen no crean una entidad de turno ni permisos dependientes de horario, según [ADR-012](decisions/adr-012-turnos-fuera-de-alcance.md). El resumen se ejecuta con el modelo en el dispositivo ([ADR-017](decisions/adr-017-sintesis-local.md)); la caché sigue **Pendiente**.
+**MVP implementado; validación nativa pendiente.** Gestión de turnos, scheduling, handoff y RRHH quedan fuera del prototipo. Los periodos de resumen no crean una entidad de turno ni permisos dependientes de horario, según [ADR-012](decisions/adr-012-turnos-fuera-de-alcance.md). El MVP usa `SynthesisProvider` local y snapshots inmutables bajo RLS conforme a [ADR-021](decisions/adr-021-resumen-periodo-persistido.md); no usa caché invalidable. Código, migraciones y pruebas automatizadas respaldan el corte; benchmark y revisión manual de privacidad/red en dispositivo siguen pendientes.
 
 ## Fuera del alcance académico
 

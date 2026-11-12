@@ -19,7 +19,7 @@ La implementación y todas sus pruebas usan exclusivamente datos sintéticos. Au
 7. Al confirmar o descartar se purgan audio, transcripción, borrador y demás artefactos temporales locales; no hay outbox offline implementada.
 8. La publicación requiere conexión. Restauración offline mediante outbox cifrada y reintentos con backoff permanece como requisito pendiente; no se implementa todavía.
 9. Una nota textual puede publicarse directamente, sin IA, o usar opcionalmente la mejora local de redacción. La asistencia nunca bloquea la publicación.
-10. Un resumen de periodo es una vista temporal configurable y cacheable, no una nota clínica ni un evento publicado; permanece pendiente y no está expuesto como capacidad.
+10. El resumen de periodo (ADR-021) genera snapshots históricos inmutables, no una nota clínica ni un evento publicado. El MVP está implementado; la validación nativa sigue pendiente.
 
 ## Límite de confianza
 
@@ -68,7 +68,7 @@ El modelo declara origen, licencia, checksum y tamaño en `app/assets/llm_model_
 
 La app modela por separado las capacidades de transcripción y asistencia de texto: cada una tiene estado, identidad de modelo y operación de instalación/verificación/limpieza independiente. En cada arranque consulta los archivos y el registro local `.verified-model.json`; ese registro solo se escribe después de verificar los pesos. Si hay archivos utilizables sin registro (instalación anterior), los verifica antes de adoptarlos. La comprobación ordinaria compara identidad, existencia y tamaños, no recalcula hashes; por ello no detecta corrupción que conserve el tamaño. La verificación explícita de gestión vuelve a comprobar integridad.
 
-La pantalla inicial «Preparar el dispositivo» permite omitir la descarga para esa ejecución; esto no instala modelos ni evita comprobarlos en el siguiente arranque. Desde «Ajustes > IA» se pueden verificar, limpiar o volver a descargar los modelos individualmente; esta gestión no es el flujo inicial de preparación. La ruta `/models` permanece disponible para una sesión autenticada aunque una limpieza deje modelos ausentes. Al salir de gestión tras una limpieza exitosa se registra un skip solo en memoria para evitar redirigir a onboarding durante esa ejecución. No se persiste esa decisión ni se cambia la disponibilidad real de los modelos. Una limpieza fallida no inicia la reinstalación, aunque se hubiera elegido descargar después. La descarga informa etapa y progreso; el resumen de periodo no está expuesto como capacidad de producto.
+La pantalla inicial «Preparar el dispositivo» permite omitir la descarga para esa ejecución; esto no instala modelos ni evita comprobarlos en el siguiente arranque. Desde «Ajustes > IA» se pueden verificar, limpiar o volver a descargar los modelos individualmente; esta gestión no es el flujo inicial de preparación. La ruta `/models` permanece disponible para una sesión autenticada aunque una limpieza deje modelos ausentes. Al salir de gestión tras una limpieza exitosa se registra un skip solo en memoria para evitar redirigir a onboarding durante esa ejecución. No se persiste esa decisión ni se cambia la disponibilidad real de los modelos. Una limpieza fallida no inicia la reinstalación, aunque se hubiera elegido descargar después. La descarga informa etapa y progreso; el resumen de periodo consume la capacidad local pero no forma parte de la gestión de modelos.
 
 Los usos, en orden: mejorar la redacción del hito escrito a mano, señalar entidades y, como última adición, el resumen de periodo (ADR-011).
 

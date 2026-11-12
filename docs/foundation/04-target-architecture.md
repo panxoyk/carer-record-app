@@ -146,6 +146,8 @@ En el corte IAM actualmente implementado, `institutional/domain/` contiene entid
 
 El dominio vertical `on_device_ai` encapsula ASR, síntesis local y gestión de modelos en `data/domain/presentation` (ADR-018). `context_note` conserva los casos de uso de negocio, vault y los controladores de dictado, asistencia y edición/publicación; consume capacidades de IA mediante leases genéricos y puertos. `LocalCapabilityRepository` es la única frontera de provisioning. `ConfirmedMilestoneWriter` y `DictationAudio` pertenecen al dominio de notas. La composición raíz inyecta el hook genérico de limpieza al cerrar sesión.
 
+El dominio `period_summary` implementa el MVP de ADR-021 en `data/domain/presentation`: consume notas confirmadas y timeline FHIR autorizada del episodio, sintetiza localmente mediante `SynthesisProvider` y persiste snapshots históricos inmutables en Supabase. La persistencia del texto generado no implica que fuentes o prompt se envíen a un servicio de IA; las pruebas automatizadas verifican el payload de persistencia, no inspeccionan tráfico real del dispositivo. RLS exige permiso, tenant y acceso propio al episodio también para administradores. Benchmark y validación manual nativa siguen pendientes.
+
 ### Supabase Auth
 
 Autentica credenciales, recupera contraseñas y emite sesiones. No es el catálogo de profesionales ni el motor de permisos. `auth.users` prueba identidad técnica; `profiles` y `organization_memberships` determinan si esa identidad tiene una persona activa en una institución. Esta separación evita almacenar contraseñas en el dominio y permite que una cuenta participe en más de una organización.

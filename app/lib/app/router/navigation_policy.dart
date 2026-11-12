@@ -54,6 +54,19 @@ String? permissionRedirectForLocation(IamContext context, String location) {
           !context.allows('clinical.patient.read'))) {
     return '/settings';
   }
+  final summaryRoute = RegExp(
+    r'^/hospitalizations/[^/]+/summaries(?:/new|/[^/]+)?/?$',
+  ).hasMatch(location);
+  if (summaryRoute &&
+      ![
+        'clinical.summary.use',
+        'clinical.census.read',
+        'clinical.patient.read',
+        'clinical.timeline.read',
+        'context.note.read',
+      ].every(context.allows)) {
+    return '/settings';
+  }
   if (location.startsWith('/hospitalizations/') &&
       (!context.allows('clinical.census.read') ||
           !context.allows('clinical.patient.read'))) {
