@@ -124,7 +124,9 @@ El subcorte DB de V2 implementa IAM, hospitalizaciones/asignaciones y RLS clíni
 
 **Criterio de salida:** el dominio no importa SDK ni tipos del runtime; cambiar el fake por el adaptador no cambia el caso de uso; ningún texto sale del dispositivo; un hito se publica incluso con el modelo ausente.
 
-## V6 - Resumen temporal y caché
+## V6 - Resumen temporal y caché (antecedente sustituido parcialmente)
+
+Este corte documenta el diseño histórico de caché; no rige el MVP persistido de ADR-021 ni la UX/narrativa vigente de ADR-022. Consultar esas ADR para el contrato actual.
 
 **Valor:** la persona consulta un resumen sintético de una ventana temporal y una segunda lectura reutiliza solo una entrada exactamente vigente.
 

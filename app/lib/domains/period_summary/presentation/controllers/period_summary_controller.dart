@@ -36,6 +36,9 @@ class PeriodSummaryController extends ChangeNotifier {
   SummaryDraft? draft;
   PeriodSummary? saved;
   SummarySaveAttempt? _attempt;
+  SummaryWindow? _resultWindow;
+  SummaryWindow? get resultWindow =>
+      saved?.window ?? _attempt?.window ?? _resultWindow;
   bool _cancelRequested = false;
   bool get cancelRequested => _cancelRequested;
   bool _disposed = false;
@@ -76,6 +79,8 @@ class PeriodSummaryController extends ChangeNotifier {
       if (!batch.complete) {
         throw const PeriodSummaryException('sources_incomplete');
       }
+      // Preview only prepares sources; context capacity is measured by the
+      // provider later, when generation sends the complete prompt to inference.
       final prepared = prepareSummary(
         batch.sources,
         window: window,
@@ -101,6 +106,12 @@ class PeriodSummaryController extends ChangeNotifier {
     final selectedKinds = Set<SummarySourceKind>.unmodifiable(kinds);
     if (!_authorized) return _deny();
     _cancelRequested = false;
+    _resultWindow = window;
+    draft = null;
+    saved = null;
+    _attempt = null;
+    sourceCount = 0;
+    excludedUndatedCount = 0;
     phase = PeriodSummaryPhase.generating;
     errorCode = null;
     _notify();
@@ -151,6 +162,17 @@ class PeriodSummaryController extends ChangeNotifier {
   void cancelGeneration() {
     if (phase != PeriodSummaryPhase.generating) return;
     _cancelRequested = true;
+  }
+
+  void clearResult() {
+    if (busy || phase == PeriodSummaryPhase.saveFailed) return;
+    draft = null;
+    saved = null;
+    _attempt = null;
+    _resultWindow = null;
+    errorCode = null;
+    phase = PeriodSummaryPhase.ready;
+    _notify();
   }
 
   Future<void> retrySave() async {

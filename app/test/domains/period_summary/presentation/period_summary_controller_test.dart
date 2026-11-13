@@ -68,6 +68,7 @@ void main() {
     final c = controller(repo);
     await c.generate(window, {kind});
     expect(c.phase, PeriodSummaryPhase.saved);
+    expect(c.resultWindow, window);
     expect(repo.saves, 1);
   });
   test(

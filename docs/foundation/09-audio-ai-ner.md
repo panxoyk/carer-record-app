@@ -19,7 +19,7 @@ La implementación y todas sus pruebas usan exclusivamente datos sintéticos. Au
 7. Al confirmar o descartar se purgan audio, transcripción, borrador y demás artefactos temporales locales; no hay outbox offline implementada.
 8. La publicación requiere conexión. Restauración offline mediante outbox cifrada y reintentos con backoff permanece como requisito pendiente; no se implementa todavía.
 9. Una nota textual puede publicarse directamente, sin IA, o usar opcionalmente la mejora local de redacción. La asistencia nunca bloquea la publicación.
-10. El resumen de periodo (ADR-021) genera snapshots históricos inmutables, no una nota clínica ni un evento publicado. El MVP está implementado; la validación nativa sigue pendiente.
+10. El resumen de periodo (ADR-021/023) genera snapshots históricos inmutables, no una nota clínica ni un evento publicado; su salida vigente es factual conforme a ADR-023. El MVP está implementado; la inferencia nativa y calidad semántica siguen pendientes.
 
 ## Límite de confianza
 
@@ -70,11 +70,11 @@ La app modela por separado las capacidades de transcripción y asistencia de tex
 
 La pantalla inicial «Preparar el dispositivo» permite omitir la descarga para esa ejecución; esto no instala modelos ni evita comprobarlos en el siguiente arranque. Desde «Ajustes > IA» se pueden verificar, limpiar o volver a descargar los modelos individualmente; esta gestión no es el flujo inicial de preparación. La ruta `/models` permanece disponible para una sesión autenticada aunque una limpieza deje modelos ausentes. Al salir de gestión tras una limpieza exitosa se registra un skip solo en memoria para evitar redirigir a onboarding durante esa ejecución. No se persiste esa decisión ni se cambia la disponibilidad real de los modelos. Una limpieza fallida no inicia la reinstalación, aunque se hubiera elegido descargar después. La descarga informa etapa y progreso; el resumen de periodo consume la capacidad local pero no forma parte de la gestión de modelos.
 
-Los usos, en orden: mejorar la redacción del hito escrito a mano, señalar entidades y, como última adición, el resumen de periodo (ADR-011).
+Los usos, en orden: mejorar la redacción del hito escrito a mano, señalar entidades y, como última adición, el resumen de periodo (ADR-021/023).
 
 Cuando el motor falla o el modelo no está instalado, el hito se publica directamente. La asistencia nunca bloquea la escritura clínica.
 
-El motor de síntesis queda cargado durante la sesión y la ayuda de redacción está disponible en las dos formas de entrada de la nota, con el mismo contrato: su salida es un borrador que el autor revisa y edita antes de confirmar. El presupuesto de tiempo de la síntesis local es de tres minutos, que cubre la carga de los pesos y la generación en el objetivo más lento soportado; al agotarse, el texto del autor se conserva. El runtime no recalcula el checksum de los pesos en cada carga, porque la instalación ya lo verificó y el arranque comprueba identidad y tamaño.
+El motor de síntesis queda cargado durante la sesión y la ayuda de redacción está disponible en las dos formas de entrada de la nota, con el mismo contrato: su salida es un borrador que el autor revisa y edita antes de confirmar. Su prompt de sistema es `note-improve.v2`: no añade «Carer Record» y conserva la marca si el autor ya la escribió. El presupuesto de tiempo de la síntesis local es de tres minutos, que cubre la carga de los pesos y la generación en el objetivo más lento soportado; al agotarse, el texto del autor se conserva. El runtime no recalcula el checksum de los pesos en cada carga, porque la instalación ya lo verificó y el arranque comprueba identidad y tamaño.
 
 ## Outbox y ciclo de vida local
 
@@ -105,6 +105,10 @@ La confirmación persiste solo la nota final y metadatos de procedencia no sensi
 - Comprobación de que ni los plugins ni los binarios emiten telemetría o tráfico de audio o texto.
 
 ## Evidencia y referencias
+
+### Evaluación sintética del resumen de periodo
+
+El corpus y harness de resumen se mantienen en `app/test/domains/period_summary/`. Son opt-in y usan el adapter nativo real solo con GGUF local validado contra su manifest; no descargan/instalan el modelo ni acceden a DB, Supabase, HAPI o servicios. El corpus ofrece hechos/prohibiciones para revisión, no respuestas clínicas goldens ni garantía de capacidad. La preparación y el validador de `period-summary-v4` comprueban patrones estructurales, no calidad semántica; el fake no participa en la evaluación. Solo el resumen cuenta los tokens del chat template renderizado completo en la generación y verifica finalización normal/completa contra contexto, reserva de salida y margen. La inferencia real no se ha ejecutado; benchmark, revisión humana y privacidad/red nativa siguen pendientes. La tabla de rúbrica, safety gates y reproducibilidad está en el [flujo de resumen](flows/period-summary.md#protocolo-de-evaluación-del-resumen).
 
 ### Evidencia implementada
 

@@ -5,22 +5,12 @@ import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../../../core/design_system/clinical_design_system.dart';
-import '../../../on_device_ai/presentation/local_ai_providers.dart';
 import '../../../patient/presentation/patient_providers.dart';
 import '../../domain/period_summary.dart';
 import '../controllers/period_summary_controller.dart';
 import '../period_summary_providers.dart';
 
-const _labels = {
-  SummarySourceKind.contextNote: 'Notas',
-  SummarySourceKind.condition: 'Diagnósticos',
-  SummarySourceKind.observation: 'Observaciones',
-  SummarySourceKind.medicationRequest: 'Medicaciones',
-  SummarySourceKind.procedure: 'Procedimientos',
-  SummarySourceKind.diagnosticReport: 'Informes',
-};
-const _historicalWarning =
-    'Síntesis asistida: incluye la información disponible al momento de su generación. No es una nota clínica y no se actualiza automáticamente.';
+enum _PeriodMode { sixHours, twelveHours, day, dates }
 
 class _EpisodeBody extends ConsumerWidget {
   const _EpisodeBody({required this.episode, required this.child});
@@ -116,10 +106,6 @@ class _HistoryState extends ConsumerState<PeriodSummaryHistoryScreen> {
                           final item = list[index];
                           return ListTile(
                             title: Text(_range(item.window)),
-                            subtitle: Text(
-                              'Generado: ${_zonedDate(item.generatedAt, item.window.timezone)}\n${item.window.timezone} · ${item.sources.length} fuentes',
-                            ),
-                            isThreeLine: true,
                             trailing: const Icon(Icons.chevron_right),
                             onTap: () => context.push(
                               '/hospitalizations/$id/summaries/${item.id}',
@@ -160,96 +146,29 @@ class GeneratePeriodSummaryScreen extends ConsumerStatefulWidget {
   const GeneratePeriodSummaryScreen({
     super.key,
     required this.hospitalizationId,
+    this.clock = DateTime.now,
   });
   final String hospitalizationId;
+  final DateTime Function() clock;
   @override
   ConsumerState<GeneratePeriodSummaryScreen> createState() => _GenerateState();
 }
 
 class _GenerateState extends ConsumerState<GeneratePeriodSummaryScreen> {
-  DateTime anchor = DateTime.now().toUtc();
-  int hours = 24;
-  DateTime? customFrom, customTo;
-  final kinds = SummarySourceKind.values.toSet();
-  bool previewCurrent = false;
-  bool navigated = false;
-
-  SummaryWindow? _window(String zone) {
-    if (customFrom != null && customTo == null) return null;
-    try {
-      return customFrom == null
-          ? SummaryWindow.utc(
-              from: anchor.subtract(Duration(hours: hours)),
-              to: anchor,
-              timezone: zone,
-            )
-          : SummaryWindow.localDateTimes(
-              from: customFrom!,
-              to: customTo!,
-              timezone: zone,
-            );
-    } on PeriodSummaryException {
-      return null;
-    }
-  }
-
-  Future<void> _pick(String zone, {required bool start}) async {
-    final localNow = _inZone(DateTime.now(), zone);
-    final initial =
-        (start ? customFrom : customTo) ??
-        (start ? localNow.subtract(Duration(hours: hours)) : localNow);
-    final date = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(1900),
-      lastDate: localNow,
-    );
-    if (!mounted || date == null) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
-    );
-    if (!mounted || time == null) return;
-    setState(() {
-      final wall = DateTime.utc(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
-      if (start) {
-        customFrom = wall;
-      } else {
-        customTo = wall;
-      }
-      previewCurrent = false;
-    });
-  }
+  DateTime? fromDate, throughDate;
+  bool _initialized = false;
+  _PeriodMode _mode = _PeriodMode.day;
+  String? _invalidatedSavedId;
+  bool _invalidWindow = false;
 
   @override
   Widget build(BuildContext context) {
     final id = widget.hospitalizationId;
     final episode = ref.watch(periodSummaryContextProvider(id));
-    final model = ref.watch(synthesisProviderProvider);
     final controller = ref.watch(periodSummaryControllerProvider(id));
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
-        final saved = controller.saved;
-        if (saved != null &&
-            controller.phase == PeriodSummaryPhase.saved &&
-            !navigated) {
-          navigated = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted &&
-                ref.read(periodSummaryAllowedProvider) &&
-                controller.phase == PeriodSummaryPhase.saved) {
-              ref.invalidate(periodSummaryHistoryProvider);
-              context.go('/hospitalizations/$id/summaries/${saved.id}');
-            }
-          });
-        }
         final pending = controller.phase == PeriodSummaryPhase.saveFailed;
         final locked = controller.busy || pending;
         return Scaffold(
@@ -268,123 +187,136 @@ class _GenerateState extends ConsumerState<GeneratePeriodSummaryScreen> {
                 ),
               ),
               data: (value) {
-                final window = _window(value.timezone);
+                final previewNow = widget.clock();
+                final now = _inZone(previewNow, value.timezone);
+                if (!_initialized) {
+                  fromDate = DateTime(now.year, now.month, now.day);
+                  throughDate = fromDate;
+                  _initialized = true;
+                }
+                SummaryWindow? window;
+                try {
+                  window = _mode == _PeriodMode.dates
+                      ? SummaryWindow.localDates(
+                          fromDate: fromDate!,
+                          throughDate: throughDate!,
+                          timezone: value.timezone,
+                          now: previewNow,
+                        )
+                      : SummaryWindow.utc(
+                          from: previewNow.toUtc().subtract(
+                            Duration(hours: _hours(_mode)),
+                          ),
+                          to: previewNow,
+                          timezone: value.timezone,
+                          now: previewNow,
+                        );
+                } on PeriodSummaryException {
+                  window = null;
+                }
+                final saved = controller.saved;
+                if (saved != null && _invalidatedSavedId != saved.id) {
+                  _invalidatedSavedId = saved.id;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && controller.saved?.id == saved.id) {
+                      ref.invalidate(periodSummaryHistoryProvider);
+                    }
+                  });
+                }
                 return ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    Text('Zona horaria institucional: ${value.timezone}'),
-                    const SizedBox(height: 12),
                     Text(
-                      'Periodo',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      _windowLabel(
+                        controller.resultWindow ?? window,
+                        mode: _mode,
+                      ),
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
+                    const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       children: [
-                        for (final h in [6, 12, 24, 48, 168])
+                        for (final entry in const [
+                          (_PeriodMode.sixHours, 'Últimas 6 h'),
+                          (_PeriodMode.twelveHours, 'Últimas 12 h'),
+                          (_PeriodMode.day, 'Últimas 24 h'),
+                          (_PeriodMode.dates, 'Elegir fechas'),
+                        ])
                           ChoiceChip(
-                            label: Text(h == 168 ? '7 días' : '$h horas'),
-                            selected: hours == h && customFrom == null,
+                            label: Text(entry.$2),
+                            selected: _mode == entry.$1,
                             onSelected: locked
                                 ? null
-                                : (_) => setState(() {
-                                    hours = h;
-                                    anchor = DateTime.now().toUtc();
-                                    customFrom = null;
-                                    customTo = null;
-                                    previewCurrent = false;
-                                  }),
+                                : (_) {
+                                    controller.clearResult();
+                                    setState(() {
+                                      _mode = entry.$1;
+                                      _invalidWindow = false;
+                                    });
+                                  },
                           ),
                       ],
                     ),
-                    TextButton(
-                      onPressed: locked
-                          ? null
-                          : () => _pick(value.timezone, start: true),
-                      child: Text(
-                        customFrom == null
-                            ? 'Rango personalizado'
-                            : 'Desde: ${_date(customFrom!)}',
-                      ),
-                    ),
-                    if (customFrom != null)
-                      TextButton(
+                    if (_mode == _PeriodMode.dates)
+                      OutlinedButton.icon(
                         onPressed: locked
                             ? null
-                            : () => _pick(value.timezone, start: false),
-                        child: Text(
-                          customTo == null
-                              ? 'Seleccionar fecha y hora de término'
-                              : 'Hasta: ${_date(customTo!)}',
+                            : () async {
+                                final picked = await showDateRangePicker(
+                                  context: context,
+                                  firstDate: DateTime(1900),
+                                  lastDate: DateTime(
+                                    now.year,
+                                    now.month,
+                                    now.day,
+                                  ),
+                                  currentDate: DateTime(
+                                    now.year,
+                                    now.month,
+                                    now.day,
+                                  ),
+                                  initialDateRange:
+                                      fromDate == null || throughDate == null
+                                      ? null
+                                      : DateTimeRange(
+                                          start: fromDate!,
+                                          end: throughDate!,
+                                        ),
+                                );
+                                if (!mounted || picked == null) return;
+                                controller.clearResult();
+                                _invalidWindow = false;
+                                setState(() {
+                                  fromDate = picked.start;
+                                  throughDate = picked.end;
+                                });
+                              },
+                        icon: const Icon(Icons.calendar_month),
+                        label: Text(
+                          fromDate == null || throughDate == null
+                              ? 'Seleccionar fechas'
+                              : '${_calendar(fromDate!)} – ${_calendar(throughDate!)}',
                         ),
                       ),
-                    Text(
-                      window == null
-                          ? 'Rango inválido: revisa las fechas y horas. No se permiten horas futuras o inexistentes por cambio horario.'
-                          : '${_range(window)} (fin excluido)',
-                    ),
-                    if (customFrom != null)
-                      const Text(
-                        'En una hora repetida por cambio horario se utiliza su primera ocurrencia.',
-                      ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Fuentes',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final entry in _labels.entries)
-                          FilterChip(
-                            label: Text(entry.value),
-                            selected: kinds.contains(entry.key),
-                            onSelected: locked
-                                ? null
-                                : (selected) => setState(() {
-                                    if (selected) {
-                                      kinds.add(entry.key);
-                                    } else {
-                                      kinds.remove(entry.key);
-                                    }
-                                    previewCurrent = false;
-                                  }),
-                          ),
-                      ],
-                    ),
-                    const Text(
-                      'Los eventos sin hora se incluyen por día, indicando su precisión. Los eventos sin fecha se excluyen.',
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(_historicalWarning),
-                    model.when(
-                      skipLoadingOnRefresh: false,
-                      skipError: false,
-                      loading: () => const Text('Preparando modelo local…'),
-                      error: (_, __) =>
-                          const Text('No se pudo preparar el modelo local.'),
-                      data: (provider) => Text(
-                        provider?.isAvailable == true
-                            ? 'Modelo local disponible.'
-                            : 'Modelo local no disponible.',
-                      ),
-                    ),
-                    if (!model.isLoading &&
-                        model.valueOrNull?.isAvailable != true)
-                      TextButton(
-                        onPressed: locked
-                            ? null
-                            : () => context.push('/models'),
-                        child: const Text('Configurar modelo'),
-                      ),
-                    if (controller.phase == PeriodSummaryPhase.preview &&
-                        previewCurrent)
-                      Text(
-                        'Fuentes incluidas: ${controller.sourceCount}. Sin fecha excluidas: ${controller.excludedUndatedCount}.',
-                      ),
+                    if (_mode == _PeriodMode.dates && window == null)
+                      const Text('El periodo seleccionado no es válido.'),
                     if (controller.phase == PeriodSummaryPhase.error)
                       Text(
                         _errorMessage(controller.errorCode),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    if (controller.phase == PeriodSummaryPhase.error &&
+                        controller.errorCode == 'provider_unavailable')
+                      TextButton(
+                        onPressed: () => context.push('/models'),
+                        child: const Text('Revisar ajustes de IA'),
+                      ),
+                    if (_invalidWindow)
+                      Text(
+                        'El periodo seleccionado no es válido para la hora actual.',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.error,
                         ),
@@ -393,63 +325,63 @@ class _GenerateState extends ConsumerState<GeneratePeriodSummaryScreen> {
                       const Text(
                         'Generación cancelada. No se guardó un resumen.',
                       ),
-                    if (controller.busy) ...[
-                      const Center(child: CircularProgressIndicator()),
-                      Text(
-                        controller.cancelRequested
-                            ? 'Cancelando: el motor puede seguir trabajando hasta finalizar.'
-                            : switch (controller.phase) {
-                                PeriodSummaryPhase.loadingSources =>
-                                  'Consultando fuentes autorizadas…',
-                                PeriodSummaryPhase.saving =>
-                                  'Guardando resumen…',
-                                _ => 'Generando en este dispositivo…',
-                              },
-                      ),
-                    ],
                     if (pending) ...[
                       const Text(
-                        'No se pudo confirmar el guardado. Reintenta sin volver a generar el resumen.',
+                        'Guardado pendiente. Puedes reintentar sin volver a generar.',
                       ),
-                      SelectableText(controller.draft?.prepared.content ?? ''),
                       FilledButton(
                         onPressed: controller.retrySave,
                         child: const Text('Reintentar guardado'),
                       ),
                     ],
-                    OutlinedButton(
-                      onPressed: locked || kinds.isEmpty || window == null
+                    FilledButton(
+                      onPressed: locked || window == null
                           ? null
-                          : () async {
-                              await controller.preview(window, Set.of(kinds));
-                              if (mounted) {
-                                setState(
-                                  () => previewCurrent =
-                                      controller.phase ==
-                                      PeriodSummaryPhase.preview,
+                          : () {
+                              try {
+                                final generationNow = widget.clock();
+                                final generationWindow =
+                                    _mode == _PeriodMode.dates
+                                    ? SummaryWindow.localDates(
+                                        fromDate: fromDate!,
+                                        throughDate: throughDate!,
+                                        timezone: value.timezone,
+                                        now: generationNow,
+                                      )
+                                    : SummaryWindow.utc(
+                                        from: generationNow.toUtc().subtract(
+                                          Duration(hours: _hours(_mode)),
+                                        ),
+                                        to: generationNow,
+                                        timezone: value.timezone,
+                                        now: generationNow,
+                                      );
+                                _invalidWindow = false;
+                                controller.generate(
+                                  generationWindow,
+                                  SummarySourceKind.values.toSet(),
                                 );
+                              } on PeriodSummaryException {
+                                setState(() => _invalidWindow = true);
                               }
                             },
-                      child: const Text('Consultar fuentes'),
-                    ),
-                    FilledButton(
-                      onPressed:
-                          locked ||
-                              !previewCurrent ||
-                              window == null ||
-                              model.isLoading ||
-                              model.hasError ||
-                              model.valueOrNull?.isAvailable != true
-                          ? null
-                          : () => controller.generate(window, Set.of(kinds)),
                       child: const Text('Generar resumen'),
                     ),
-                    if (controller.phase == PeriodSummaryPhase.generating)
+                    _SynthesisCard(
+                      text:
+                          controller.saved?.content ??
+                          controller.draft?.prepared.content,
+                      pending: pending,
+                      saving: controller.phase == PeriodSummaryPhase.saving,
+                      loading:
+                          controller.phase == PeriodSummaryPhase.generating ||
+                          controller.phase == PeriodSummaryPhase.loadingSources,
+                    ),
+                    if (controller.phase == PeriodSummaryPhase.generating &&
+                        !controller.cancelRequested)
                       TextButton(
-                        onPressed: controller.cancelRequested
-                            ? null
-                            : controller.cancelGeneration,
-                        child: const Text('Cancelar'),
+                        onPressed: controller.cancelGeneration,
+                        child: const Text('Cancelar generación'),
                       ),
                   ],
                 );
@@ -460,6 +392,47 @@ class _GenerateState extends ConsumerState<GeneratePeriodSummaryScreen> {
       },
     );
   }
+}
+
+class _SynthesisCard extends StatelessWidget {
+  const _SynthesisCard({
+    required this.text,
+    required this.pending,
+    required this.saving,
+    required this.loading,
+  });
+  final String? text;
+  final bool pending, saving, loading;
+  @override
+  Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(minHeight: 150),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surface,
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      borderRadius: BorderRadius.circular(ClinicalRadii.card),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (text == null || loading) ...[
+          Text('Síntesis', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+        ],
+        if (saving) ...[const Text('Guardando…'), const SizedBox(height: 8)],
+        if (pending) ...[
+          const Text('Guardado pendiente'),
+          const SizedBox(height: 8),
+        ],
+        SelectableText(
+          loading
+              ? 'Redactando síntesis…'
+              : (text ?? 'La síntesis aparecerá aquí al generar el resumen.'),
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
+        ),
+      ],
+    ),
+  );
 }
 
 class PeriodSummaryDetailScreen extends ConsumerWidget {
@@ -490,35 +463,17 @@ class PeriodSummaryDetailScreen extends ConsumerWidget {
           data: (item) => ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text('Periodo: ${_range(item.window)}'),
-              Text('Zona horaria: ${item.window.timezone}'),
               Text(
-                'Generado: ${_zonedDate(item.generatedAt, item.window.timezone)}',
+                _range(item.window),
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-              const SizedBox(height: 12),
-              const Text(_historicalWarning),
+              _SynthesisCard(
+                text: item.content,
+                pending: false,
+                saving: false,
+                loading: false,
+              ),
               const SizedBox(height: 16),
-              SelectableText(item.content),
-              const SizedBox(height: 16),
-              Text(
-                '${item.sources.length} fuentes · ${item.excludedUndatedCount} sin fecha excluidas',
-              ),
-              ExpansionTile(
-                title: const Text('Fuentes incluidas'),
-                children: [
-                  for (final source in item.sources)
-                    ListTile(
-                      title: Text(
-                        '${_sourceLabel(source.kind)} · ${source.id}',
-                      ),
-                      subtitle: Text(
-                        source.precision == 'date'
-                            ? '${source.toJson()['occurred_at']} · sin hora registrada'
-                            : '${_zonedDate(source.occurredAt!, item.window.timezone)} · ${item.window.timezone}',
-                      ),
-                    ),
-                ],
-              ),
               FilledButton(
                 onPressed: () => context.push(
                   '/hospitalizations/$hospitalizationId/summaries/new',
@@ -543,31 +498,74 @@ tz.TZDateTime _inZone(DateTime date, String zone) {
 }
 
 String _date(DateTime d) =>
-    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-String _zonedDate(DateTime date, String zone) => _date(_inZone(date, zone));
-String _range(SummaryWindow window) =>
-    '${_zonedDate(window.fromUtc, window.timezone)} → ${_zonedDate(window.toUtc, window.timezone)}';
-String _sourceLabel(String kind) {
-  for (final entry in _labels.entries) {
-    if (summaryKindValue(entry.key) == kind) return entry.value;
+    '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+String _calendar(DateTime d) =>
+    '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+String _range(SummaryWindow window) {
+  final start = _inZone(window.fromUtc, window.timezone);
+  final end = _inZone(window.toUtc, window.timezone);
+  final startAtMidnight =
+      start.hour == 0 &&
+      start.minute == 0 &&
+      start.second == 0 &&
+      start.millisecond == 0 &&
+      start.microsecond == 0;
+  final endAtMidnight =
+      end.hour == 0 &&
+      end.minute == 0 &&
+      end.second == 0 &&
+      end.millisecond == 0 &&
+      end.microsecond == 0;
+  if (endAtMidnight) {
+    if (!startAtMidnight) return '${_date(start)} – ${_date(end)}';
+    final inclusiveEnd = DateTime.utc(end.year, end.month, end.day - 1);
+    return '${_calendar(start)} – ${_calendar(inclusiveEnd)}';
   }
-  return kind;
+  return '${_date(start)} – ${_date(end)}';
+}
+
+int _hours(_PeriodMode mode) => switch (mode) {
+  _PeriodMode.sixHours => 6,
+  _PeriodMode.twelveHours => 12,
+  _ => 24,
+};
+
+String _windowLabel(SummaryWindow? window, {required _PeriodMode mode}) {
+  if (window == null) {
+    return mode == _PeriodMode.dates
+        ? 'Periodo seleccionado'
+        : switch (mode) {
+            _PeriodMode.sixHours => 'Últimas 6 h',
+            _PeriodMode.twelveHours => 'Últimas 12 h',
+            _ => 'Últimas 24 h',
+          };
+  }
+  if (mode != _PeriodMode.dates) {
+    return switch (mode) {
+      _PeriodMode.sixHours => 'Últimas 6 h · ${_range(window)}',
+      _PeriodMode.twelveHours => 'Últimas 12 h · ${_range(window)}',
+      _ => 'Últimas 24 h · ${_range(window)}',
+    };
+  }
+  return _range(window);
 }
 
 String _errorMessage(String? code) => switch (code) {
+  'input_over_budget' => 'Hay demasiada información para este periodo. Reduce el periodo e intenta nuevamente.',
+  'incomplete_output' =>
+    'No se completó la síntesis y no se guardó. Puedes intentar nuevamente.',
+  'measurement_unavailable' =>
+    'No se pudo completar la síntesis. Intenta nuevamente más tarde.',
+  'invalid_output' => 'El modelo devolvió los datos de entrada o una respuesta sin síntesis válida. No se guardó el resumen.',
+  'provider_unavailable' => 'La síntesis no está disponible en este momento.',
   'generation_busy' =>
-    'El motor aún está finalizando otro resumen. Espera y vuelve a intentar.',
-  'input_over_budget' => 'Hay demasiada información para el modelo local. Reduce el periodo o las categorías; no se omitieron fuentes silenciosamente.',
+    'Espera a que termine el intento anterior y vuelve a intentar.',
   'sources_incomplete' =>
-    'No se obtuvieron todas las fuentes. Reintenta antes de generar.',
+    'No se pudo reunir toda la información del periodo. Intenta nuevamente.',
   'no_dated_sources' =>
-    'No hay fuentes con fecha para el periodo y filtros seleccionados.',
+    'No hay información fechada en el periodo seleccionado.',
   'authorization_lost' => 'No fue posible verificar tu acceso al episodio.',
-  'invalid_output' =>
-    'El modelo devolvió una respuesta no válida. No se guardó el resumen.',
-  'provider_unavailable' => 'El modelo local no está disponible.',
-  'nonexistent_local_time' ||
-  'invalid_window' ||
-  'timezone_mismatch' => 'Revisa el rango y la zona horaria institucional.',
-  _ => 'No fue posible generar el resumen. Puedes reintentar.',
+  'nonexistent_local_time' || 'invalid_window' || 'timezone_mismatch' =>
+    'El periodo seleccionado no es válido para la zona horaria institucional.',
+  _ => 'No fue posible generar el resumen. Puedes intentar nuevamente.',
 };
