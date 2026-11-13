@@ -25,7 +25,7 @@ const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 
 /**
  * Attaches one clinical photo to an open, authorized encounter as a FHIR
- * `Binary` + `DocumentReference` (ADR-022). The app never talks to HAPI.
+ * `Binary` + `DocumentReference` (ADR-024). The app never talks to HAPI.
  */
 export function createAttachmentHandler(deps: {
   authenticate(auth: string): Promise<boolean>;

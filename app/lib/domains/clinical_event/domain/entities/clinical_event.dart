@@ -31,7 +31,7 @@ class ClinicalEvent {
   /// Nullable display name resolved for a confirmed context note by Postgres.
   final String? authorDisplayName;
 
-  /// Category the author chose for a context note (ADR-022).
+  /// Category the author chose for a context note (ADR-024).
   final String? category;
 
   /// Profession of the note author captured by the server at publication.

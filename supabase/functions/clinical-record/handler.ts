@@ -152,7 +152,7 @@ export function createHandler(deps: {
       !["record", "timeline", "attachment"].includes(purpose)
     ) return json(400, { error: "invalid_request" });
     // A photo download is an exact read of one document of the encounter; it
-    // is authorized like the clinical record (ADR-022).
+    // is authorized like the clinical record (ADR-024).
     const documentId = input.documentId;
     if (
       (purpose === "attachment") !== (documentId !== undefined) ||

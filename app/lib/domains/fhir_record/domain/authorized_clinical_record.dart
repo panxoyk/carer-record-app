@@ -60,7 +60,7 @@ class ClinicalRecordEntry {
   final String? detail, date;
   final bool isDateOnly;
 
-  /// Compact measured value, e.g. `120/80 mmHg` (ADR-022).
+  /// Compact measured value, e.g. `120/80 mmHg` (ADR-024).
   final String? value;
 
   /// Out of range value from the source interpretation or reference range.
@@ -168,7 +168,7 @@ class AuthorizedClinicalRecord {
   ];
 }
 
-/// One clinical photo downloaded through the gateway (ADR-022).
+/// One clinical photo downloaded through the gateway (ADR-024).
 class ClinicalPhoto {
   const ClinicalPhoto({required this.contentType, required this.bytes});
   final String contentType;

@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap;
 select plan(14);
 
--- ADR-022 fixture: one author with a profession, one reader, one outsider.
+-- ADR-024 fixture: one author with a profession, one reader, one outsider.
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at,

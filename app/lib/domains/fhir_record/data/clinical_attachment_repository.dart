@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/authorized_clinical_record.dart';
 
-/// Maximum photo size accepted by the gateway (ADR-022).
+/// Maximum photo size accepted by the gateway (ADR-024).
 const maxClinicalPhotoBytes = 5000000;
 
 /// Clinical photos stored in the FHIR server through the gateway. The app

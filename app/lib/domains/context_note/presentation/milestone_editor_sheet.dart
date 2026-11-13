@@ -36,7 +36,7 @@ import 'controllers/note_assistance_controller.dart';
 /// author review the draft, and only then persist the text the author
 /// confirmed. The recording and the raw transcription are deleted on every
 /// exit path and never leave the device. The professional chooses the event
-/// category (ADR-022); a clinical photo, if any, goes to the FHIR server
+/// category (ADR-024); a clinical photo, if any, goes to the FHIR server
 /// through the gateway.
 ///
 /// [onSaved] runs once, when the author leaves the published confirmation,

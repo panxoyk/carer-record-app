@@ -1,6 +1,6 @@
 import '../design_system/clinical_tokens.dart';
 
-/// Category the professional chooses for each bitácora event (ADR-022).
+/// Category the professional chooses for each bitácora event (ADR-024).
 ///
 /// `wire` values match the `context_notes.category` check constraint.
 enum EventCategory {
@@ -38,7 +38,7 @@ enum EventCategory {
   };
 }
 
-/// Clinical profession of a member, snapshotted on each note (ADR-022).
+/// Clinical profession of a member, snapshotted on each note (ADR-024).
 enum Profession {
   medicina('medicina', 'Medicina', 'Médico'),
   enfermeria('enfermeria', 'Enfermería', 'Enfermería'),

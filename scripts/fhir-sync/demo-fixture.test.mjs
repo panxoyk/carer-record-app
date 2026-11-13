@@ -83,7 +83,7 @@ test('open episodes have temporal series and closed clinical evidence stays with
   assert.ok(Date.parse(shared.location[0].period.end) <= Date.parse(shared.location[1].period.start));
 });
 
-test('ADR-022 nursing data: doses, fluid balance and clinical photo', () => {
+test('ADR-024 nursing data: doses, fluid balance and clinical photo', () => {
   const resources = entries.map(({ resource }) => resource);
   const balance = 'http://carer-record.local/fhir/CodeSystem/observation-category';
   assert.ok(encounters.every((e) => e.participant?.[0]?.individual?.display && e.reasonCode?.[0]?.text), 'attending physician and reason');

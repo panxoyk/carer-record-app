@@ -27,7 +27,7 @@ class Patient {
   final String familyName;
   final DateTime? birthDate;
 
-  /// Service (unit) name, resolved only for readable episodes (ADR-022).
+  /// Service (unit) name, resolved only for readable episodes (ADR-024).
   final String? unitDisplayName;
 
   String get fullName => '$givenName $familyName';

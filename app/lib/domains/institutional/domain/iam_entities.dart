@@ -20,7 +20,7 @@ class IamContext {
   final String membershipStatus;
   final Set<String> permissions;
 
-  /// Clinical profession wire value (ADR-022), if assigned.
+  /// Clinical profession wire value (ADR-024), if assigned.
   final String? profession;
 
   /// Institutional identifier of the membership, if any.

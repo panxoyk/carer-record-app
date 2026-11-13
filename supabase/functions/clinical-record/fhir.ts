@@ -10,7 +10,7 @@ export type Entry = {
   date: string | null;
   isDateOnly: boolean;
   sourceKind: string;
-  /** Compact measured value, e.g. `120/80 mmHg` (ADR-022). */
+  /** Compact measured value, e.g. `120/80 mmHg` (ADR-024). */
   value: string | null;
   /** Abnormal value from `interpretation` or `referenceRange`. */
   flag: Flag | null;
@@ -66,7 +66,7 @@ const TYPES = [
   "MedicationAdministration",
   "DocumentReference",
 ] as const;
-/** Category code for clinical photos and system for note links (ADR-022). */
+/** Category code for clinical photos and system for note links (ADR-024). */
 export const PHOTO_CATEGORY = "clinical-photo";
 export const NOTE_IDENTIFIER_SYSTEM = "urn:carer-record:context-note";
 const ID = /^[A-Za-z0-9.-]{1,64}$/;

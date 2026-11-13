@@ -38,7 +38,7 @@ where organization.slug = 'demo-hospital'
   and (role.name = 'Personal clínico' or role.protected_kind = 'demo_administrator')
 on conflict (organization_id, role_id, permission_code) do nothing;
 
--- ADR-022: demo professions for timeline filters and author snapshots.
+-- ADR-024: demo professions for timeline filters and author snapshots.
 update public.organization_memberships m
 set profession = demo.profession
 from public.profiles p

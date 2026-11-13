@@ -593,7 +593,7 @@ Deno.test("closed inpatient Encounter maps to discharged and date-only patient b
   );
 });
 
-Deno.test("ADR-022: values, flags, scheduled doses and photos", async () => {
+Deno.test("ADR-024: values, flags, scheduled doses and photos", async () => {
   const resource = (r: Record<string, unknown>) => ({
     subject: { reference: "Patient/p1" },
     encounter: { reference: "Encounter/e1" },

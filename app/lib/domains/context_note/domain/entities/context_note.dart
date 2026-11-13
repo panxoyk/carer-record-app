@@ -46,7 +46,7 @@ class ContextNoteMilestone {
   /// Client-generated UUID so a retried save never duplicates the milestone.
   final String clientEventId;
 
-  /// Category chosen by the professional (`EventCategory.wire`, ADR-022).
+  /// Category chosen by the professional (`EventCategory.wire`, ADR-024).
   final String category;
 
   ContextNoteMilestone copyWith({

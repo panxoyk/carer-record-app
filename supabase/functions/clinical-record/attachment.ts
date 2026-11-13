@@ -1,7 +1,7 @@
 import type { Context } from "./handler.ts";
 import { NOTE_IDENTIFIER_SYSTEM, PHOTO_CATEGORY } from "./fhir.ts";
 
-/** Base64 of at most 5 MB of image bytes (ADR-022). */
+/** Base64 of at most 5 MB of image bytes (ADR-024). */
 export const MAX_PHOTO_BYTES = 5_000_000;
 const MAX_RESPONSE_BYTES = 8_000_000;
 const TIMEOUT_MS = 10_000;

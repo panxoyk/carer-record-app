@@ -1,4 +1,4 @@
--- ADR-022: event categories chosen by the author, author profession snapshot,
+-- ADR-024: event categories chosen by the author, author profession snapshot,
 -- service (unit) name in the census and a bounded write context for clinical
 -- photos stored in the FHIR server. Additive only; RLS remains the authority.
 
@@ -12,7 +12,7 @@ alter table public.organization_memberships
     ('medicina', 'enfermeria', 'tens', 'kinesiologia', 'nutricion', 'otro'));
 
 comment on column public.organization_memberships.profession is
-  'Clinical profession of the member (ADR-022). Snapshotted into context notes for timeline filters.';
+  'Clinical profession of the member (ADR-024). Snapshotted into context notes for timeline filters.';
 
 -- 2. Category chosen by the professional for each context note, plus the
 --    profession of the author captured at insert time for audit and filters.
@@ -118,7 +118,7 @@ where n.status = 'confirmed';
 revoke all on public.clinical_timeline_by_hospitalization from public, anon;
 grant select on public.clinical_timeline_by_hospitalization to authenticated;
 comment on view public.clinical_timeline_by_hospitalization is
-  'Episode timeline of clinical events and confirmed context milestones with author-chosen category, author profession snapshot and the note client event id that links clinical photos (ADR-022). Author UUID and email remain private.';
+  'Episode timeline of clinical events and confirmed context milestones with author-chosen category, author profession snapshot and the note client event id that links clinical photos (ADR-024). Author UUID and email remain private.';
 
 -- 4. Service name in the census without granting org.unit.read: resolved only
 --    for an episode the caller can already read.
@@ -163,7 +163,7 @@ from public.clinical_census_by_hospitalization c
 where private.fhir_census_episode_is_authorized(c.organization_id, c.hospitalization_id);
 
 comment on view public.clinical_census_by_hospitalization is
-  'Episode-scoped census and minimum demographics; unit_display_name is resolved only for readable episodes (ADR-022).';
+  'Episode-scoped census and minimum demographics; unit_display_name is resolved only for readable episodes (ADR-024).';
 
 -- 5. Current member context exposes profession and institutional identifier.
 create or replace view public.iam_current_context
@@ -238,4 +238,4 @@ revoke all on function public.fhir_authorized_encounter_write_context(uuid, uuid
 grant execute on function public.fhir_authorized_encounter_write_context(uuid, uuid)
   to authenticated;
 comment on function public.fhir_authorized_encounter_write_context(uuid, uuid) is
-  'Returns FHIR identifiers of an open episode only when the caller may publish notes and attach clinical photos (ADR-022). Empty otherwise.';
+  'Returns FHIR identifiers of an open episode only when the caller may publish notes and attach clinical photos (ADR-024). Empty otherwise.';

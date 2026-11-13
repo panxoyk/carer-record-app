@@ -1,4 +1,4 @@
-# ADR-022: Categoría de eventos, profesión del autor y fotos clínicas en FHIR
+# ADR-024: Categoría de eventos, profesión del autor y fotos clínicas en FHIR
 
 - Estado: Aceptada
 - Fecha: 2026-11-14
@@ -27,5 +27,5 @@ El diseño definitivo clasifica cada evento de la bitácora (Nota clínica, Sign
 
 - Las notas antiguas sin categoría se muestran como `nota_clinica`.
 - El fixture sintético agrega médico tratante, motivo, dosis programadas/administradas, HGT, diuresis, ingresos/egresos y una foto demo (maniquí).
-- Pruebas: `supabase/tests/event_category_profession.test.sql`, `supabase/functions/clinical-attachment/handler_test.ts`, `fhir_test.ts` (ADR-022) y `app/test/domains/figma_v2_flows_test.dart`.
+- Pruebas: `supabase/tests/event_category_profession.test.sql`, `supabase/functions/clinical-attachment/handler_test.ts`, `fhir_test.ts` (ADR-024) y `app/test/domains/figma_v2_flows_test.dart`.
 - Riesgo abierto: HAPI local sigue sin autenticación; la escritura de fotos solo ocurre desde la pasarela del servidor.

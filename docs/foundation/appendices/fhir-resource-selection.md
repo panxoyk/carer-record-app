@@ -278,7 +278,7 @@ Referencia oficial: [Guide to Resources: Clinical Findings](https://hl7.org/fhir
 
 ### 7.2 DocumentReference
 
-> Actualización ADR-022: para **fotos clínicas** se aceptan `Binary` + `DocumentReference` (categoría `clinical-photo`) escritos solo por la pasarela, con JPEG/PNG ≤ 5 MB, autorización de escritura por episodio abierto y sin URLs públicas. `MedicationAdministration` se lee para el horario de medicamentos.
+> Actualización ADR-024: para **fotos clínicas** se aceptan `Binary` + `DocumentReference` (categoría `clinical-photo`) escritos solo por la pasarela, con JPEG/PNG ≤ 5 MB, autorización de escritura por episodio abierto y sin URLs públicas. `MedicationAdministration` se lee para el horario de medicamentos.
 
 El evento interno `document` no basta para soportar `DocumentReference`. Este recurso puede apuntar a contenido por URL o attachment y requiere resolver disponibilidad, tipo MIME, hash, tamaño, custodia, autoría, contexto y seguridad. Antes de seleccionarlo deben existir Storage privado, escaneo, límites, expiración de URLs, retención y RLS específicas.
 
