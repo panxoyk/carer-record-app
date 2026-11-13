@@ -52,6 +52,7 @@ class ContextNoteRepository implements ConfirmedMilestoneWriter {
       if (transcription != null)
         'transcription_metadata': transcription.toJson(),
       'client_event_id': milestone.clientEventId,
+      'category': milestone.category,
     });
     try {
       await _remote.insert(payload);
@@ -92,6 +93,7 @@ class SupabaseContextNoteRemote implements ContextNoteRemote {
         'p_content': payload['content'],
         'p_transcription_metadata': payload['transcription_metadata'],
         'p_client_event_id': payload['client_event_id'],
+        'p_category': payload['category'],
       },
     );
     return result == true;

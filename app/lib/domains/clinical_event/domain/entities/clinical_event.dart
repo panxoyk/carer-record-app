@@ -10,6 +10,9 @@ class ClinicalEvent {
     required this.summary,
     this.sourceKind = 'clinical_event',
     this.authorDisplayName,
+    this.category,
+    this.authorProfession,
+    this.clientEventId,
   });
 
   final String organizationId;
@@ -27,6 +30,15 @@ class ClinicalEvent {
 
   /// Nullable display name resolved for a confirmed context note by Postgres.
   final String? authorDisplayName;
+
+  /// Category the author chose for a context note (ADR-022).
+  final String? category;
+
+  /// Profession of the note author captured by the server at publication.
+  final String? authorProfession;
+
+  /// Client event id of a context note; clinical photos link to it.
+  final String? clientEventId;
 
   /// Milestone authored by dictation. The published row is the text its author
   /// confirmed after local transcription; the audio itself is never stored

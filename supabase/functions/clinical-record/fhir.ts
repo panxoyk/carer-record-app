@@ -2,6 +2,7 @@ import type { Context } from "./handler.ts";
 import type { UtcRange } from "./handler.ts";
 
 export type Purpose = "record" | "timeline";
+export type Flag = "high" | "low" | "abnormal";
 export type Entry = {
   id: string;
   title: string;
@@ -9,6 +10,18 @@ export type Entry = {
   date: string | null;
   isDateOnly: boolean;
   sourceKind: string;
+  /** Compact measured value, e.g. `120/80 mmHg` (ADR-022). */
+  value: string | null;
+  /** Abnormal value from `interpretation` or `referenceRange`. */
+  flag: Flag | null;
+  /** First coded concept of the resource (LOINC for observations). */
+  code: string | null;
+  /** First category code (`vital-signs`, `laboratory`, `fluid-intake`…). */
+  category: string | null;
+  /** Administration instant matched to a scheduled dose. */
+  administeredAt: string | null;
+  /** Context note client event id a clinical photo belongs to. */
+  noteRef: string | null;
 };
 export type TimelineItem = {
   id: string;
@@ -36,6 +49,8 @@ export type ClinicalRecord = {
     dischargedAt: string | null;
     unit: string | null;
     bed: string | null;
+    attendingPhysician: string | null;
+    reason: string | null;
   };
   sections: { type: string; entries: Entry[] }[];
   timeline: TimelineItem[];
@@ -48,7 +63,12 @@ const TYPES = [
   "Procedure",
   "DiagnosticReport",
   "AllergyIntolerance",
+  "MedicationAdministration",
+  "DocumentReference",
 ] as const;
+/** Category code for clinical photos and system for note links (ADR-022). */
+export const PHOTO_CATEGORY = "clinical-photo";
+export const NOTE_IDENTIFIER_SYSTEM = "urn:carer-record:context-note";
 const ID = /^[A-Za-z0-9.-]{1,64}$/;
 const MAX_PAGES = 20,
   MAX_RESOURCES = 500,
@@ -145,7 +165,13 @@ function patientReference(r: Resource): string | null {
   return ref(r.subject?.reference ?? r.patient?.reference, "Patient");
 }
 function episodeReference(r: Resource): string | null {
-  return ref(r.encounter?.reference, "Encounter");
+  // MedicationAdministration names its encounter `context`; DocumentReference
+  // keeps it in `context.encounter[]` (FHIR R4).
+  return ref(
+    r.encounter?.reference ?? r.context?.reference ??
+      r.context?.encounter?.[0]?.reference,
+    "Encounter",
+  );
 }
 function ensureResource(r: Resource, type: string, ctx: Context): void {
   if (
@@ -297,6 +323,14 @@ function detailFor(
       r.clinicalStatus?.coding?.map((c: Resource) => c.display || c.code)
         .filter(Boolean).join(" / ") || "",
     );
+  } else if (type === "MedicationAdministration") {
+    const dose = formatQuantity(r.dosage?.dose);
+    parts.push(
+      [dose, r.dosage?.route ? `vía ${codeText(r.dosage.route)}` : null]
+        .filter(Boolean).join(" · "),
+    );
+  } else if (type === "DocumentReference") {
+    parts.push(r.content?.[0]?.attachment?.title ?? "");
   } else if (type === "Procedure") parts.push(r.status || "");
   else if (type === "AllergyIntolerance") {
     parts.push(
@@ -314,16 +348,192 @@ function sectionName(t: string): string {
     Procedure: "procedures",
     DiagnosticReport: "reports",
     AllergyIntolerance: "allergies",
+    MedicationAdministration: "administrations",
+    DocumentReference: "photos",
   } as Record<string, string>)[t];
 }
 function titleFor(t: string, r: Resource): string {
+  if (t === "DocumentReference") {
+    return r.description?.trim() || r.content?.[0]?.attachment?.title?.trim() ||
+      "Foto clínica";
+  }
   return codeText(
-    t === "MedicationRequest"
+    t === "MedicationRequest" || t === "MedicationAdministration"
       ? r.medicationCodeableConcept
       : t === "AllergyIntolerance"
       ? r.code
       : r.code ?? r.type,
   );
+}
+const firstCode = (cc: Resource): string | null =>
+  cc?.coding?.find((c: Resource) => typeof c.code === "string")?.code ?? null;
+function codeFor(t: string, r: Resource): string | null {
+  return firstCode(
+    t === "MedicationRequest" || t === "MedicationAdministration"
+      ? r.medicationCodeableConcept
+      : r.code,
+  );
+}
+function categoryFor(r: Resource): string | null {
+  const categories = Array.isArray(r.category) ? r.category : [r.category];
+  for (const category of categories) {
+    const code = firstCode(category);
+    if (code) return code;
+  }
+  return null;
+}
+const compact = (q: Resource): string | null =>
+  q?.value == null ? null : String(q.value);
+/** Measured value, joining systolic/diastolic components as `120/80 mmHg`. */
+function valueFor(t: string, r: Resource): string | null {
+  if (t !== "Observation") return null;
+  if (r.valueQuantity) return formatQuantity(r.valueQuantity);
+  if (r.valueString != null) return String(r.valueString);
+  const parts = (r.component ?? []).map((c: Resource) =>
+    compact(c.valueQuantity)
+  ).filter(Boolean);
+  if (parts.length) {
+    const unit = r.component?.[0]?.valueQuantity?.unit ?? "";
+    return `${parts.join("/")}${unit ? ` ${unit}` : ""}`;
+  }
+  return null;
+}
+const INTERPRETATION: Record<string, Flag> = {
+  H: "high",
+  HH: "high",
+  HU: "high",
+  L: "low",
+  LL: "low",
+  LU: "low",
+  A: "abnormal",
+  AA: "abnormal",
+};
+function quantityOutside(q: Resource, range: Resource): Flag | null {
+  if (q?.value == null) return null;
+  const sameUnit = (bound: Resource) =>
+    bound?.value != null && (bound.unit ?? bound.code) === (q.unit ?? q.code);
+  if (sameUnit(range.high) && q.value > range.high.value) return "high";
+  if (sameUnit(range.low) && q.value < range.low.value) return "low";
+  return null;
+}
+/** Uses the source interpretation; otherwise compares with referenceRange. */
+function flagFor(t: string, r: Resource): Flag | null {
+  if (t !== "Observation") return null;
+  for (const interpretation of r.interpretation ?? []) {
+    for (const coding of interpretation.coding ?? []) {
+      const flag = INTERPRETATION[coding.code];
+      if (flag) return flag;
+    }
+  }
+  for (const range of r.referenceRange ?? []) {
+    const own = quantityOutside(r.valueQuantity, range);
+    if (own) return own;
+  }
+  for (const component of r.component ?? []) {
+    for (const range of component.referenceRange ?? []) {
+      const flag = quantityOutside(component.valueQuantity, range);
+      if (flag) return flag;
+    }
+  }
+  return null;
+}
+/**
+ * What a photo belongs to: a context note (its client event id) or a FHIR
+ * event of the same timeline (its entry id, e.g. a wound-care Procedure).
+ */
+function noteRefFor(t: string, r: Resource): string | null {
+  if (t !== "DocumentReference") return null;
+  for (const related of r.context?.related ?? []) {
+    if (related.identifier?.system === NOTE_IDENTIFIER_SYSTEM) {
+      const value = related.identifier.value;
+      return typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value)
+        ? value.toLowerCase()
+        : null;
+    }
+    const match = /^(Procedure|Observation)\/([A-Za-z0-9.-]{1,64})$/.exec(
+      String(related.reference ?? ""),
+    );
+    if (match) return entryId(match[1], match[2]);
+  }
+  return null;
+}
+function entryFor(
+  type: string,
+  r: Resource,
+  observations: Map<string, Resource>,
+): Entry {
+  const d = dateInfo(dateFor(r));
+  return {
+    id: entryId(type, r.id),
+    title: titleFor(type, r),
+    detail: detailFor(type, r, observations),
+    date: d.value,
+    isDateOnly: d.dateOnly,
+    sourceKind: type,
+    value: valueFor(type, r),
+    flag: flagFor(type, r),
+    code: codeFor(type, r),
+    category: categoryFor(r),
+    administeredAt: type === "MedicationAdministration" ? d.value : null,
+    noteRef: noteRefFor(type, r),
+  };
+}
+/**
+ * Scheduled doses from `MedicationRequest.dosageInstruction.timing.event`,
+ * each matched to the nearest administration of the same order (±3 h). The
+ * remaining administrations are listed on their own.
+ */
+function administrationEntries(
+  requests: Resource[],
+  administrations: Resource[],
+  observations: Map<string, Resource>,
+): Entry[] {
+  const unused = new Set(administrations.map((a) => a.id));
+  const entries: Entry[] = [];
+  for (const request of requests) {
+    const events = (request.dosageInstruction ?? []).flatMap((d: Resource) =>
+      d.timing?.event ?? []
+    ).filter((value: unknown) => typeof value === "string");
+    for (const scheduled of events) {
+      const at = dateInfo(scheduled);
+      if (!at.value || at.dateOnly) continue;
+      const time = Date.parse(at.value);
+      let match: Resource | null = null;
+      for (const administration of administrations) {
+        if (!unused.has(administration.id)) continue;
+        if (
+          ref(administration.request?.reference, "MedicationRequest") !==
+            request.id
+        ) continue;
+        const given = dateFor(administration);
+        if (!given || Math.abs(Date.parse(given) - time) > 3 * 3_600_000) {
+          continue;
+        }
+        if (
+          !match ||
+          Math.abs(Date.parse(given) - time) <
+            Math.abs(Date.parse(dateFor(match)!) - time)
+        ) match = administration;
+      }
+      if (match) unused.delete(match.id);
+      entries.push({
+        ...entryFor("MedicationRequest", request, observations),
+        id: `${entryId("MedicationRequest", request.id)}@${at.value}`,
+        sourceKind: "MedicationAdministration",
+        date: at.value,
+        isDateOnly: false,
+        administeredAt: match ? dateFor(match) : null,
+      });
+    }
+  }
+  for (const administration of administrations) {
+    if (unused.has(administration.id)) {
+      entries.push(
+        entryFor("MedicationAdministration", administration, observations),
+      );
+    }
+  }
+  return entries.sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
 }
 function entryId(t: string, id: string): string {
   return `demo-hapi/${t}/${id}`;
@@ -411,7 +621,10 @@ export async function loadClinicalRecord(
       _count: "100",
     });
     if (!patientOnly) {
-      params.set("encounter", `Encounter/${ctx.encounter_fhir_id}`);
+      params.set(
+        type === "MedicationAdministration" ? "context" : "encounter",
+        `Encounter/${ctx.encounter_fhir_id}`,
+      );
     }
     if (range && dateParam) {
       const lower = new Date(Math.max(
@@ -541,6 +754,8 @@ export async function loadClinicalRecord(
     procedures,
     reports,
     allergies,
+    administrations,
+    documents,
   ] = await Promise.all([
     range
       ? Promise.all([
@@ -569,6 +784,10 @@ export async function loadClinicalRecord(
       ]).then((rows) => mergeUnique(rows.flat()))
       : search("DiagnosticReport", false),
     search("AllergyIntolerance", true),
+    search("MedicationAdministration", false),
+    search("DocumentReference", false).then((rows) =>
+      rows.filter((r) => categoryFor(r) === PHOTO_CATEGORY)
+    ),
   ]);
   const byType = new Map<string, Resource[]>(
     TYPES.map((
@@ -583,6 +802,8 @@ export async function loadClinicalRecord(
         procedures,
         reports,
         allergies,
+        administrations,
+        documents,
       ][i],
     ]),
   );
@@ -665,21 +886,23 @@ export async function loadClinicalRecord(
   }
   const sections = TYPES.map((type) => ({
     type: sectionName(type),
-    entries: (byType.get(type) ?? []).map((r) => {
-      const d = dateInfo(dateFor(r));
-      return {
-        id: entryId(type, r.id),
-        title: titleFor(type, r),
-        detail: detailFor(type, r, observationMap),
-        date: d.value,
-        isDateOnly: d.dateOnly,
-        sourceKind: type,
-      };
-    }).sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")),
+    entries: type === "MedicationAdministration"
+      ? administrationEntries(
+        byType.get("MedicationRequest") ?? [],
+        byType.get("MedicationAdministration") ?? [],
+        observationMap,
+      )
+      : (byType.get(type) ?? []).map((r) => entryFor(type, r, observationMap))
+        .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")),
   }));
   const timeline: TimelineItem[] = [];
   if (purpose === "timeline") {
-    for (const type of TYPES.filter((t) => t !== "AllergyIntolerance")) {
+    // Photos are shown inside the note they belong to, not as own events.
+    for (
+      const type of TYPES.filter((t) =>
+        t !== "AllergyIntolerance" && t !== "DocumentReference"
+      )
+    ) {
       for (const r of byType.get(type) ?? []) {
         const d = dateInfo(dateFor(r));
         timeline.push({
@@ -739,8 +962,37 @@ export async function loadClinicalRecord(
       dischargedAt: end.value,
       unit,
       bed,
+      attendingPhysician: attendingPhysician(encounter),
+      reason: admissionReason(encounter, byType.get("Condition") ?? []),
     },
     sections,
     timeline,
   };
+}
+
+/** Attending physician display from `Encounter.participant` (ATND first). */
+function attendingPhysician(encounter: Resource): string | null {
+  const participants: Resource[] = encounter.participant ?? [];
+  const attending =
+    participants.find((p) =>
+      p.type?.some((t: Resource) =>
+        t.coding?.some((c: Resource) => c.code === "ATND")
+      )
+    ) ?? participants[0];
+  const display = attending?.individual?.display;
+  return typeof display === "string" && display.trim() ? display.trim() : null;
+}
+
+/** Admission reason from `Encounter.reasonCode`, else the principal diagnosis. */
+function admissionReason(
+  encounter: Resource,
+  conditions: Resource[],
+): string | null {
+  const reason = encounter.reasonCode?.[0];
+  if (reason) return codeText(reason);
+  const principal = encounter.diagnosis?.find((d: Resource) => d.rank === 1) ??
+    encounter.diagnosis?.[0];
+  const id = ref(principal?.condition?.reference, "Condition");
+  const condition = id ? conditions.find((c) => c.id === id) : null;
+  return condition ? codeText(condition.code) : null;
 }

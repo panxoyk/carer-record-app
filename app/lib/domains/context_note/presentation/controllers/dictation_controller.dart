@@ -32,6 +32,58 @@ class DictationController extends ChangeNotifier {
   Future<void>? _cleanup;
   bool _cleanupFailed = false;
 
+  /// Recording time, excluding pauses (Figma timer).
+  Duration _recorded = Duration.zero;
+  DateTime? _runningSince;
+  bool _paused = false;
+
+  bool get paused => _paused;
+  bool get canPause => _pausable != null;
+
+  PausableDictationAudio? get _pausable {
+    final sound = _sound;
+    return sound is PausableDictationAudio
+        ? sound as PausableDictationAudio
+        : null;
+  }
+
+  Duration get elapsed {
+    final since = _runningSince;
+    return since == null
+        ? _recorded
+        : _recorded + DateTime.now().difference(since);
+  }
+
+  /// Input level stream for the waveform; empty when unsupported.
+  Stream<double> levels() {
+    return _pausable?.levels() ?? const Stream.empty();
+  }
+
+  Future<void> pauseRecording() async {
+    final sound = _pausable;
+    if (session.stage != DictationStage.recording || _paused || sound == null) {
+      return;
+    }
+    await sound.pause();
+    _recorded = elapsed;
+    _runningSince = null;
+    _paused = true;
+    if (!_closed) notifyListeners();
+  }
+
+  Future<void> resumeRecording() async {
+    final sound = _pausable;
+    if (session.stage != DictationStage.recording ||
+        !_paused ||
+        sound == null) {
+      return;
+    }
+    await sound.resume();
+    _runningSince = DateTime.now();
+    _paused = false;
+    if (!_closed) notifyListeners();
+  }
+
   void updateDraft(String value) {
     if (session.transcript == null || _closed) return;
     _emit(
@@ -89,6 +141,9 @@ class DictationController extends ChangeNotifier {
         ),
       );
       await _sound.startPcm16(path);
+      _recorded = Duration.zero;
+      _runningSince = DateTime.now();
+      _paused = false;
       if (_closed || epoch != _epoch) return;
     } catch (_) {
       try {
@@ -109,6 +164,9 @@ class DictationController extends ChangeNotifier {
     final id = operationId;
     var path = session.recordingPath;
     final epoch = _epoch;
+    _recorded = elapsed;
+    _runningSince = null;
+    _paused = false;
     try {
       final stopped = await _sound.stop();
       if (stopped != null && stopped.isNotEmpty) path = stopped;

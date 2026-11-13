@@ -46,11 +46,40 @@ class _EpisodeBody extends ConsumerWidget {
           data: (patient) => patient == null
               ? const Center(child: Text('Episodio no disponible.'))
               : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ListTile(
-                      title: Text(patient.fullName),
-                      subtitle: Text(
-                        'Hospitalización · ${patient.locationLabel}',
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: ClinicalCard(
+                        radius: ClinicalRadii.button,
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                        child: Row(
+                          children: [
+                            ClinicalAvatar(
+                              initials: clinicalInitials(patient.fullName),
+                              size: 36,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    patient.fullName,
+                                    style: ClinicalTextStyles.headline,
+                                  ),
+                                  Text(
+                                    'Hospitalización · ${patient.locationLabel}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: ClinicalColors.secondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     Expanded(child: child),
@@ -78,79 +107,119 @@ class _HistoryState extends ConsumerState<PeriodSummaryHistoryScreen> {
     final key = (episodeId: id, offset: offset);
     final rows = ref.watch(periodSummaryHistoryProvider(key));
     return Scaffold(
-      appBar: clinicalBackAppBar(context, title: 'Mis resúmenes'),
-      body: _EpisodeBody(
-        episode: id,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: FilledButton.icon(
-                onPressed: () =>
-                    context.push('/hospitalizations/$id/summaries/new'),
-                icon: const Icon(Icons.add),
-                label: const Text('Generar resumen'),
-              ),
-            ),
-            Expanded(
-              child: rows.when(
-                skipLoadingOnRefresh: false,
-                skipError: false,
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, __) => Center(
-                  child: TextButton(
-                    onPressed: () =>
-                        ref.invalidate(periodSummaryHistoryProvider(key)),
-                    child: const Text('Reintentar carga de resúmenes'),
+      appBar: clinicalBackAppBar(context, title: ''),
+      bottomNavigationBar: const ClinicalBottomNavigation(
+        current: ClinicalTab.handoff,
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const ClinicalLargeTitle(
+            'Entrega de turno',
+            subtitle: 'Mis resúmenes',
+          ),
+          Expanded(
+            child: _EpisodeBody(
+              episode: id,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    child: FilledButton.icon(
+                      onPressed: () =>
+                          context.push('/hospitalizations/$id/summaries/new'),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Generar resumen'),
+                    ),
                   ),
-                ),
-                data: (list) => list.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Aún no has generado resúmenes para esta hospitalización.',
+                  Expanded(
+                    child: rows.when(
+                      skipLoadingOnRefresh: false,
+                      skipError: false,
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (_, __) => Center(
+                        child: TextButton(
+                          onPressed: () =>
+                              ref.invalidate(periodSummaryHistoryProvider(key)),
+                          child: const Text('Reintentar carga de resúmenes'),
                         ),
-                      )
-                    : ListView.builder(
-                        itemCount: list.length,
-                        itemBuilder: (_, index) {
-                          final item = list[index];
-                          return ListTile(
-                            title: Text(_range(item.window)),
-                            subtitle: Text(
-                              'Generado: ${_zonedDate(item.generatedAt, item.window.timezone)}\n${item.window.timezone} · ${item.sources.length} fuentes',
-                            ),
-                            isThreeLine: true,
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => context.push(
-                              '/hospitalizations/$id/summaries/${item.id}',
-                            ),
-                          );
-                        },
                       ),
+                      data: (list) => list.isEmpty
+                          ? const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(24),
+                                child: Text(
+                                  'Aún no has generado resúmenes para esta hospitalización.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: ClinicalColors.secondary,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              itemCount: list.length,
+                              itemBuilder: (_, index) {
+                                final item = list[index];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: ClinicalCard(
+                                    radius: ClinicalRadii.button,
+                                    child: ListTile(
+                                      contentPadding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        6,
+                                        8,
+                                        6,
+                                      ),
+                                      title: Text(_range(item.window)),
+                                      subtitle: Text(
+                                        'Generado: ${_zonedDate(item.generatedAt, item.window.timezone)}\n${item.window.timezone} · ${item.sources.length} fuentes',
+                                      ),
+                                      isThreeLine: true,
+                                      trailing: const Icon(Icons.chevron_right),
+                                      onTap: () => context.push(
+                                        '/hospitalizations/$id/summaries/${item.id}',
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: offset == 0 || rows.isLoading
+                            ? null
+                            : () => setState(() => offset -= 20),
+                        child: const Text('Anterior'),
+                      ),
+                      TextButton(
+                        onPressed:
+                            !rows.isLoading &&
+                                !rows.hasError &&
+                                rows.valueOrNull?.length == 20
+                            ? () => setState(() => offset += 20)
+                            : null,
+                        child: const Text('Siguiente'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 96),
+                ],
               ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton(
-                  onPressed: offset == 0 || rows.isLoading
-                      ? null
-                      : () => setState(() => offset -= 20),
-                  child: const Text('Anterior'),
-                ),
-                TextButton(
-                  onPressed:
-                      !rows.isLoading &&
-                          !rows.hasError &&
-                          rows.valueOrNull?.length == 20
-                      ? () => setState(() => offset += 20)
-                      : null,
-                  child: const Text('Siguiente'),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -488,20 +557,60 @@ class PeriodSummaryDetailScreen extends ConsumerWidget {
             ),
           ),
           data: (item) => ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
-              Text('Periodo: ${_range(item.window)}'),
-              Text('Zona horaria: ${item.window.timezone}'),
-              Text(
-                'Generado: ${_zonedDate(item.generatedAt, item.window.timezone)}',
+              ClinicalCard(
+                radius: ClinicalRadii.button,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Periodo: ${_range(item.window)}',
+                      style: ClinicalTextStyles.headline,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Zona horaria: ${item.window.timezone}',
+                      style: ClinicalTextStyles.footnote,
+                    ),
+                    Text(
+                      'Generado: ${_zonedDate(item.generatedAt, item.window.timezone)}',
+                      style: ClinicalTextStyles.footnote,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
-              const Text(_historicalWarning),
-              const SizedBox(height: 16),
-              SelectableText(item.content),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: ClinicalColors.softMint,
+                  borderRadius: BorderRadius.circular(ClinicalRadii.control),
+                  border: Border.all(color: const Color(0x404eddb3)),
+                ),
+                child: const Text(
+                  _historicalWarning,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: ClinicalColors.mintText,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ClinicalCard(
+                radius: ClinicalRadii.button,
+                padding: const EdgeInsets.all(16),
+                child: SelectableText(
+                  item.content,
+                  style: ClinicalTextStyles.body,
+                ),
+              ),
               const SizedBox(height: 16),
               Text(
                 '${item.sources.length} fuentes · ${item.excludedUndatedCount} sin fecha excluidas',
+                style: ClinicalTextStyles.footnote,
               ),
               ExpansionTile(
                 title: const Text('Fuentes incluidas'),
@@ -519,6 +628,7 @@ class PeriodSummaryDetailScreen extends ConsumerWidget {
                     ),
                 ],
               ),
+              const SizedBox(height: 8),
               FilledButton(
                 onPressed: () => context.push(
                   '/hospitalizations/$hospitalizationId/summaries/new',

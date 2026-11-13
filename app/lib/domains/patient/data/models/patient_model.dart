@@ -13,6 +13,7 @@ class PatientModel extends Patient {
     required super.givenName,
     required super.familyName,
     required super.birthDate,
+    super.unitDisplayName,
   });
 
   factory PatientModel.fromJson(Map<String, dynamic> json) {
@@ -48,6 +49,7 @@ class PatientModel extends Patient {
       birthDate: json['birth_date'] == null
           ? null
           : DateTime.parse(json['birth_date'] as String),
+      unitDisplayName: json['unit_display_name'] as String?,
     );
   }
 }

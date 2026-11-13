@@ -592,3 +592,109 @@ Deno.test("closed inpatient Encounter maps to discharged and date-only patient b
     "closed/date mapping incorrect",
   );
 });
+
+Deno.test("ADR-022: values, flags, scheduled doses and photos", async () => {
+  const resource = (r: Record<string, unknown>) => ({
+    subject: { reference: "Patient/p1" },
+    encounter: { reference: "Encounter/e1" },
+    ...r,
+  });
+  const bundle = (...resources: unknown[]) => ({
+    resourceType: "Bundle",
+    type: "searchset",
+    entry: resources.map((r) => ({ resource: r })),
+  });
+  const { fetcher } = client({
+    "Encounter/e1": {
+      ...fixtures["Encounter/e1"] as Record<string, unknown>,
+      participant: [{
+        type: [{ coding: [{ code: "ATND" }] }],
+        individual: { display: "Dra. Ana Torres" },
+      }],
+      reasonCode: [{ text: "Neumonía" }],
+    },
+    "Observation": bundle(resource({
+      resourceType: "Observation",
+      id: "hr",
+      category: [{ coding: [{ code: "vital-signs" }] }],
+      code: { coding: [{ system: "http://loinc.org", code: "8867-4" }] },
+      effectiveDateTime: "2026-01-02T10:00:00Z",
+      valueQuantity: { value: 112, unit: "/min" },
+      referenceRange: [{
+        low: { value: 60, unit: "/min" },
+        high: { value: 100, unit: "/min" },
+      }],
+    })),
+    "MedicationRequest": bundle(resource({
+      resourceType: "MedicationRequest",
+      id: "mr",
+      medicationCodeableConcept: { text: "Ceftriaxona 1 g" },
+      dosageInstruction: [{
+        timing: { event: ["2026-01-02T08:00:00Z", "2026-01-02T20:00:00Z"] },
+      }],
+    })),
+    "MedicationAdministration": bundle({
+      resourceType: "MedicationAdministration",
+      id: "ma",
+      subject: { reference: "Patient/p1" },
+      context: { reference: "Encounter/e1" },
+      request: { reference: "MedicationRequest/mr" },
+      medicationCodeableConcept: { text: "Ceftriaxona 1 g" },
+      effectiveDateTime: "2026-01-02T08:15:00Z",
+    }),
+    "DocumentReference": bundle({
+      resourceType: "DocumentReference",
+      id: "photo",
+      subject: { reference: "Patient/p1" },
+      date: "2026-01-02T09:00:00Z",
+      category: [{ coding: [{ code: "clinical-photo" }] }],
+      content: [{
+        attachment: { url: "Binary/b1", contentType: "image/jpeg" },
+      }],
+      context: {
+        encounter: [{ reference: "Encounter/e1" }],
+        related: [{
+          identifier: {
+            system: "urn:carer-record:context-note",
+            value: "33333333-3333-4333-8333-333333333333",
+          },
+        }],
+      },
+    }),
+  });
+  const result = await loadClinicalRecord(
+    ctx,
+    "timeline",
+    fetcher,
+    "http://hapi/fhir",
+  );
+  const section = (type: string) =>
+    result.sections.find((s) => s.type === type)!.entries;
+  const hr = section("observations")[0];
+  assert(hr.value === "112 /min" && hr.flag === "high", "range flag missing");
+  assert(
+    hr.category === "vital-signs" && hr.code === "8867-4",
+    "codes missing",
+  );
+  const doses = section("administrations");
+  assert(doses.length === 2, "one entry per scheduled dose");
+  assert(
+    doses[0].administeredAt === "2026-01-02T08:15:00Z" &&
+      doses[1].administeredAt === null,
+    "administration must match the nearest scheduled dose only",
+  );
+  const photo = section("photos")[0];
+  assert(
+    photo.noteRef === "33333333-3333-4333-8333-333333333333",
+    "photo must point to its note",
+  );
+  assert(
+    !result.timeline.some((t) => t.resourceType === "DocumentReference"),
+    "photos are not timeline events",
+  );
+  assert(
+    result.hospitalization.attendingPhysician === "Dra. Ana Torres" &&
+      result.hospitalization.reason === "Neumonía",
+    "encounter summary missing",
+  );
+});

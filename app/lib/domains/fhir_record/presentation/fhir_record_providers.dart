@@ -4,6 +4,7 @@ import '../../auth/presentation/auth_providers.dart';
 import '../../../core/network/supabase_client.dart';
 import '../../institutional/presentation/iam_providers.dart';
 import '../data/authorized_clinical_record_repository.dart';
+import '../data/clinical_attachment_repository.dart';
 import '../domain/authorized_clinical_record.dart';
 
 final authorizedClinicalRecordRepositoryProvider =
@@ -52,6 +53,35 @@ final authorizedClinicalTimelineProvider = FutureProvider.autoDispose
               organizationId: context.organizationId,
               hospitalizationId: hospitalizationId,
               purpose: ClinicalRecordPurpose.timeline,
+            );
+      } on ClinicalAuthorizationLost {
+        return null;
+      }
+    });
+
+final clinicalAttachmentRepositoryProvider =
+    Provider.autoDispose<ClinicalAttachmentRepository>(
+      (ref) => SupabaseClinicalAttachmentRepository(
+        ref.watch(supabaseClientProvider),
+      ),
+    );
+
+/// One clinical photo, downloaded on demand and cached while it is shown.
+final clinicalPhotoProvider = FutureProvider.autoDispose
+    .family<ClinicalPhoto?, ({String hospitalizationId, String documentId})>((
+      ref,
+      key,
+    ) async {
+      if (ref.watch(sessionProvider) == null) return null;
+      final context = await ref.watch(iamContextProvider.future);
+      if (context == null) return null;
+      try {
+        return await ref
+            .watch(clinicalAttachmentRepositoryProvider)
+            .download(
+              organizationId: context.organizationId,
+              hospitalizationId: key.hospitalizationId,
+              documentId: key.documentId,
             );
       } on ClinicalAuthorizationLost {
         return null;

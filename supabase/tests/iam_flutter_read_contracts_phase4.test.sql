@@ -127,7 +127,7 @@ select ok(public.has_active_iam_permission(
 select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', true);
 select ok(
   (select array_agg(attname::text order by attnum) from pg_attribute where attrelid='public.iam_current_context'::regclass and attnum>0 and not attisdropped)
-    = array['organization_id','organization_name','profile_id','display_name','profile_status','membership_id','membership_status','permission_code']::text[]
+    = array['organization_id','organization_name','profile_id','display_name','profile_status','membership_id','membership_status','permission_code','profession','local_identifier']::text[]
   and (select array_agg(attname::text order by attnum) from pg_attribute where attrelid='public.iam_member_directory'::regclass and attnum>0 and not attisdropped)
     = array['organization_id','membership_id','profile_id','display_name','profile_status','membership_status','valid_from','valid_until']::text[]
   and (select array_agg(attname::text order by attnum) from pg_attribute where attrelid='public.iam_role_directory'::regclass and attnum>0 and not attisdropped)

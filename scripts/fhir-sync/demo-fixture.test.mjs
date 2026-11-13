@@ -83,6 +83,29 @@ test('open episodes have temporal series and closed clinical evidence stays with
   assert.ok(Date.parse(shared.location[0].period.end) <= Date.parse(shared.location[1].period.start));
 });
 
+test('ADR-022 nursing data: doses, fluid balance and clinical photo', () => {
+  const resources = entries.map(({ resource }) => resource);
+  const balance = 'http://carer-record.local/fhir/CodeSystem/observation-category';
+  assert.ok(encounters.every((e) => e.participant?.[0]?.individual?.display && e.reasonCode?.[0]?.text), 'attending physician and reason');
+  for (const episode of encounters.filter((e) => e.status === 'in-progress')) {
+    const encounter = `Encounter/${episode.id}`;
+    const request = resources.find((r) => r.resourceType === 'MedicationRequest' && r.encounter.reference === encounter);
+    const events = request.dosageInstruction[0].timing.event;
+    const given = resources.filter((r) => r.resourceType === 'MedicationAdministration' && r.request.reference === `MedicationRequest/${request.id}`);
+    assert.ok(events.length > given.length && given.length > 0, `${episode.id} needs administered and pending doses`);
+    assert.ok(given.every((g) => g.context.reference === encounter && g.subject.reference === episode.subject.reference));
+    const fluids = resources.filter((r) => r.resourceType === 'Observation' && r.encounter?.reference === encounter && r.category?.[0]?.coding?.[0]?.system === balance);
+    assert.ok(fluids.some((o) => o.category[0].coding[0].code === 'fluid-intake'), `${episode.id} needs intake`);
+    assert.ok(fluids.some((o) => o.category[0].coding[0].code === 'fluid-output'), `${episode.id} needs output`);
+  }
+  const photo = resources.find((r) => r.resourceType === 'DocumentReference');
+  const binary = byRef.get(photo.content[0].attachment.url);
+  assert.equal(binary.resourceType, 'Binary');
+  assert.equal(binary.contentType, 'image/jpeg');
+  assert.ok(Buffer.from(binary.data, 'base64').length < 5_000_000, 'photo within the 5 MB limit');
+  assert.equal(photo.context.encounter[0].reference, 'Encounter/enc-med-ana');
+});
+
 test('scenario manifest remains stable', () => {
   assert.deepEqual(Object.values(scenarios), ['enc-med-ana', 'enc-surg-matias', 'enc-shared', 'enc-closed-ana', 'enc-closed-matias']);
 });

@@ -1,5 +1,6 @@
 package io.carerrecord.carer_record_app
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// local_auth necesita una FragmentActivity para el diálogo biométrico.
+class MainActivity : FlutterFragmentActivity()

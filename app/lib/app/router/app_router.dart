@@ -8,6 +8,7 @@ import '../../domains/on_device_ai/presentation/model_setup_screen.dart';
 import '../../domains/on_device_ai/presentation/model_management_screen.dart';
 import '../../domains/on_device_ai/presentation/model_setup_providers.dart';
 import '../../domains/patient/presentation/patient_screens.dart';
+import '../../domains/handoff/presentation/handoff_screen.dart';
 import '../presentation/settings_screen.dart';
 import '../presentation/protected_shell.dart';
 import '../../domains/institutional/presentation/organization_selection_screen.dart';
@@ -158,6 +159,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/hospitalizations/:hospitalizationId/details',
         builder: (_, state) => ClinicalEntryRefresh(
           child: PatientInformationScreen(
+            hospitalizationId: state.pathParameters['hospitalizationId']!,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/hospitalizations/:hospitalizationId/handoff',
+        builder: (_, state) => ClinicalEntryRefresh(
+          child: HandoffScreen(
             hospitalizationId: state.pathParameters['hospitalizationId']!,
           ),
         ),

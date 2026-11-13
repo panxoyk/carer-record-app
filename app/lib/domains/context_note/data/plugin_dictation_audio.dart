@@ -8,7 +8,7 @@ import '../domain/dictation_audio.dart';
 import 'draft_vault.dart';
 import '../../on_device_ai/data/wav_container.dart';
 
-class PluginDictationAudio implements DictationAudio {
+class PluginDictationAudio implements DictationAudio, PausableDictationAudio {
   PluginDictationAudio({AudioPlayer Function()? playerFactory})
     : _playerFactory = playerFactory ?? AudioPlayer.new;
 
@@ -46,6 +46,22 @@ class PluginDictationAudio implements DictationAudio {
     final recorder = _recorder;
     if (recorder == null) return null;
     return recorder.stop();
+  }
+
+  @override
+  Future<void> pause() async => _recorder?.pause();
+
+  @override
+  Future<void> resume() async => _recorder?.resume();
+
+  /// Input level in 0..1 from the recorder amplitude (dBFS, about -60..0).
+  @override
+  Stream<double> levels() {
+    final recorder = _recorder;
+    if (recorder == null) return const Stream.empty();
+    return recorder
+        .onAmplitudeChanged(const Duration(milliseconds: 120))
+        .map((amplitude) => ((amplitude.current + 60) / 60).clamp(0.0, 1.0));
   }
 
   @override

@@ -55,6 +55,7 @@ class MilestoneEditorController extends ChangeNotifier {
     required String content,
     required MilestoneInputMethod inputMethod,
     TranscriptionMetadata? transcription,
+    String category = 'nota_clinica',
   }) async {
     if (_closed || _busy || _published) return false;
     final trimmed = content.trim();
@@ -75,6 +76,7 @@ class MilestoneEditorController extends ChangeNotifier {
         content: trimmed,
         transcription: transcription,
         clientEventId: newEventId(),
+        category: category,
       ),
     );
     _pendingAccountId ??= accountId;
@@ -138,6 +140,7 @@ ContextNoteMilestone _freezeMilestone(ContextNoteMilestone source) {
     content: source.content,
     transcription: frozenMetadata,
     clientEventId: source.clientEventId,
+    category: source.category,
   );
 }
 

@@ -29,110 +29,125 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
   @override
   Widget build(BuildContext context) => _AuthScaffold(
-    title: 'Carer Record',
-    subtitle: 'Contexto para el cuidado clínico',
-    footer: const Column(
-      children: [
-        SizedBox(height: ClinicalSpacing.section),
-        Text('¿No tienes acceso?'),
-        SizedBox(height: ClinicalSpacing.compact),
-        Text('Contacta al administrador de tu institución.'),
-      ],
-    ),
-    child: ClinicalCard(
-      padding: const EdgeInsets.all(ClinicalSpacing.section),
+    title: 'Carer-Record',
+    subtitle: 'Sistema de trazabilidad clínica',
+    footer: const Padding(
+      padding: EdgeInsets.fromLTRB(24, ClinicalSpacing.section, 24, 0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Iniciar sesión', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: ClinicalSpacing.compact),
           Text(
-            'Ingresa con tu cuenta institucional.',
-            style: Theme.of(context).textTheme.bodyMedium,
+            '¿No tienes acceso? Contacta al administrador de tu institución.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: ClinicalColors.secondary),
           ),
-          const SizedBox(height: ClinicalSpacing.section),
-          const ExcludeSemantics(child: _AuthFieldLabel('Correo electrónico')),
-          Semantics(
-            label: 'Correo electrónico',
-            child: TextField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              autofillHints: const [AutofillHints.username],
-              decoration: clinicalInputDecoration(),
+          SizedBox(height: ClinicalSpacing.section),
+          Text(
+            'Uso exclusivo personal clínico autorizado',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: ClinicalColors.tertiary),
+          ),
+        ],
+      ),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('Iniciar sesión', style: ClinicalTextStyles.pageTitle),
+        const SizedBox(height: ClinicalSpacing.compact),
+        const Text(
+          'Accede con tus credenciales institucionales',
+          style: TextStyle(fontSize: 15, color: ClinicalColors.secondary),
+        ),
+        const SizedBox(height: 20),
+        const ExcludeSemantics(child: _AuthFieldLabel('Correo institucional')),
+        Semantics(
+          label: 'Correo electrónico',
+          child: TextField(
+            controller: _email,
+            keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.username],
+            decoration: clinicalInputDecoration(
+              prefixIcon: const Icon(
+                Icons.person_outline_rounded,
+                color: ClinicalColors.tertiary,
+              ),
             ),
           ),
-          const SizedBox(height: ClinicalSpacing.item),
-          const ExcludeSemantics(child: _AuthFieldLabel('Contraseña')),
-          Semantics(
-            label: 'Contraseña',
-            child: TextField(
-              controller: _password,
-              obscureText: !_passwordVisible,
-              autofillHints: const [AutofillHints.password],
-              decoration: clinicalInputDecoration(
-                suffixIcon: IconButton(
-                  tooltip: _passwordVisible
-                      ? 'Ocultar contraseña'
-                      : 'Mostrar contraseña',
-                  onPressed: () =>
-                      setState(() => _passwordVisible = !_passwordVisible),
-                  icon: Icon(
-                    _passwordVisible
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                  ),
+        ),
+        const SizedBox(height: ClinicalSpacing.card),
+        const ExcludeSemantics(child: _AuthFieldLabel('Contraseña')),
+        Semantics(
+          label: 'Contraseña',
+          child: TextField(
+            controller: _password,
+            obscureText: !_passwordVisible,
+            autofillHints: const [AutofillHints.password],
+            decoration: clinicalInputDecoration(
+              prefixIcon: const Icon(
+                Icons.lock_outline_rounded,
+                color: ClinicalColors.tertiary,
+              ),
+              suffixIcon: IconButton(
+                tooltip: _passwordVisible
+                    ? 'Ocultar contraseña'
+                    : 'Mostrar contraseña',
+                onPressed: () =>
+                    setState(() => _passwordVisible = !_passwordVisible),
+                icon: Icon(
+                  _passwordVisible
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  color: ClinicalColors.tertiary,
                 ),
               ),
             ),
           ),
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: TextButton(
-              onPressed: () => context.go('/recover'),
-              child: const Text('¿Olvidaste tu contraseña?'),
+        ),
+        Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: TextButton(
+            onPressed: () => context.go('/recover'),
+            child: const Text('¿Olvidaste tu contraseña?'),
+          ),
+        ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: ClinicalSpacing.item),
+            child: Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: ClinicalSpacing.item),
-              child: Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-              onPressed: _busy
-                  ? null
-                  : () async {
-                      setState(() {
-                        _busy = true;
-                        _error = null;
-                      });
-                      try {
-                        await ref
-                            .read(authRepositoryProvider)
-                            .signIn(
-                              email: _email.text,
-                              password: _password.text,
-                            );
-                      } catch (_) {
-                        if (mounted) {
-                          setState(
-                            () => _error = 'No fue posible acceder. Revisa tus credenciales.',
-                          );
-                        }
-                      } finally {
-                        if (mounted) setState(() => _busy = false);
+        const SizedBox(height: ClinicalSpacing.compact),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
+            onPressed: _busy
+                ? null
+                : () async {
+                    setState(() {
+                      _busy = true;
+                      _error = null;
+                    });
+                    try {
+                      await ref
+                          .read(authRepositoryProvider)
+                          .signIn(email: _email.text, password: _password.text);
+                    } catch (_) {
+                      if (mounted) {
+                        setState(
+                          () => _error = 'No fue posible acceder. Revisa tus credenciales.',
+                        );
                       }
-                    },
-              child: Text(_busy ? 'Accediendo…' : 'Iniciar sesión'),
-            ),
+                    } finally {
+                      if (mounted) setState(() => _busy = false);
+                    }
+                  },
+            child: Text(_busy ? 'Accediendo…' : 'Iniciar sesión'),
           ),
-        ],
-      ),
+        ),
+      ],
     ),
   );
 }
@@ -145,7 +160,15 @@ class _AuthFieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: ClinicalSpacing.compact),
-    child: Text(label, style: Theme.of(context).textTheme.labelLarge),
+    child: Text(
+      label.toUpperCase(),
+      style: const TextStyle(
+        fontSize: 12,
+        letterSpacing: .6,
+        fontWeight: FontWeight.w600,
+        color: ClinicalColors.secondary,
+      ),
+    ),
   );
 }
 
@@ -326,6 +349,7 @@ class _AuthScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.white,
     body: SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(
@@ -335,27 +359,56 @@ class _AuthScaffold extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Padding(
-                  padding: const EdgeInsets.all(ClinicalSpacing.page),
+                  padding: const EdgeInsets.fromLTRB(0, 16, 0, 24),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      const Center(child: ClinicalBrandMark(size: 64)),
+                      const SizedBox(height: ClinicalSpacing.card),
                       Text(
-                        title,
-                        style: Theme.of(context).textTheme.headlineMedium,
-                        textAlign: subtitle == null ? null : TextAlign.center,
+                        subtitle == null ? 'Carer-Record' : title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                          color: ClinicalColors.ink,
+                        ),
                       ),
                       if (subtitle != null) ...[
-                        const SizedBox(height: ClinicalSpacing.compact),
+                        const SizedBox(height: 4),
                         Text(
                           subtitle!,
-                          style: Theme.of(context).textTheme.bodyLarge,
                           textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: ClinicalColors.secondary,
+                          ),
                         ),
                       ],
-                      const SizedBox(height: ClinicalSpacing.section),
-                      child,
-                      if (footer != null) footer!,
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(24, 20, 24, 20),
+                        child: Divider(height: 1),
+                      ),
+                      if (subtitle == null) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            title,
+                            style: ClinicalTextStyles.pageTitle,
+                          ),
+                        ),
+                        const SizedBox(height: ClinicalSpacing.section),
+                      ],
+                      ClinicalCard(
+                        elevated: false,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: ClinicalSpacing.section,
+                        ),
+                        child: child,
+                      ),
+                      ?footer,
                     ],
                   ),
                 ),
@@ -363,6 +416,29 @@ class _AuthScaffold extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    ),
+  );
+}
+
+/// Símbolo de Carer-Record: cuadrado mint redondeado con un check.
+class ClinicalBrandMark extends StatelessWidget {
+  const ClinicalBrandMark({this.size = 72, super.key});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: ClinicalColors.mint,
+        borderRadius: BorderRadius.circular(size * 0.3),
+      ),
+      child: Icon(
+        Icons.check_rounded,
+        size: size * 0.55,
+        color: ClinicalColors.ink.withValues(alpha: .9),
       ),
     ),
   );

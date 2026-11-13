@@ -11,6 +11,7 @@ import 'core/session/authorization_refresh.dart';
 import 'app/session/authorization_refresh_coordinator.dart';
 import 'core/time/clinical_time.dart';
 import 'domains/context_note/data/draft_vault.dart';
+import 'core/security/biometric_lock.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,8 +39,9 @@ class CarerRecordApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) =>
       AuthorizationLifecycleBoundary(
         child: MaterialApp.router(
-          builder: (context, child) => ClinicalToastHost(child: child!),
-          title: 'Carer Record',
+          builder: (context, child) =>
+              BiometricLockGate(child: ClinicalToastHost(child: child!)),
+          title: 'Carer-Record',
           theme: ClinicalTheme.build(),
           routerConfig: ref.watch(appRouterProvider),
         ),

@@ -180,6 +180,10 @@ Widget testApp({
   );
 }
 
+Finder _infoRow(String label) => find.byWidgetPredicate(
+  (widget) => widget is Semantics && widget.properties.label == label,
+);
+
 void main() {
   testWidgets(
     'header links to authorized FCE and renders sections and values',
@@ -188,8 +192,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Ana Prueba'), findsOneWidget);
       expect(find.text('Ver ficha clínica'), findsOneWidget);
-      expect(find.text('Ingreso: 19-10-2026'), findsOneWidget);
-      expect(find.text('Ubicación: Cama 12'), findsOneWidget);
+      expect(_infoRow('Ingreso: 19-10-2026'), findsOneWidget);
+      expect(_infoRow('Ubicación: Cama 12'), findsOneWidget);
       expect(find.textContaining('Cama Cama'), findsNothing);
       expect(find.textContaining('RUT'), findsNothing);
       final headerCard = tester.getRect(find.byType(ClinicalCard).first);
@@ -197,10 +201,12 @@ void main() {
         headerCard.width,
         closeTo(
           tester.view.physicalSize.width / tester.view.devicePixelRatio -
-              2 * ClinicalSpacing.page,
+              2 * 16,
           1,
         ),
       );
+      await tester.ensureVisible(find.text('Ver ficha clínica'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Ver ficha clínica'));
       await tester.pumpAndSettle();
       expect(find.text('Ana FHIR Prueba'), findsOneWidget);
@@ -234,9 +240,9 @@ void main() {
       testApp(patient: patient, timeline: fixture(birthDate: null)),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Nacimiento: 15-09-1978'), findsOneWidget);
+    expect(_infoRow('Nacimiento: 15-09-1978'), findsOneWidget);
     expect(find.textContaining('00:00'), findsNothing);
-    expect(find.text('Ubicación: Cama 12'), findsOneWidget);
+    expect(_infoRow('Ubicación: Cama 12'), findsOneWidget);
   });
 
   testWidgets('location retains one bed prefix when label already has one', (
@@ -285,8 +291,15 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Cerrada · Solo lectura'), findsOneWidget);
-      expect(find.textContaining('Egreso:'), findsOneWidget);
-      expect(find.byIcon(Icons.add_task_outlined), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w is Semantics &&
+              (w.properties.label?.startsWith('Egreso: ') ?? false),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.add_rounded), findsNothing);
     },
   );
 
@@ -299,7 +312,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Ana Prueba'), findsNothing);
     expect(find.text('Nota confirmada'), findsNothing);
-    expect(find.byIcon(Icons.add_task_outlined), findsNothing);
+    expect(find.byIcon(Icons.add_rounded), findsNothing);
   });
 
   testWidgets(
@@ -316,7 +329,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Nota confirmada'), findsOneWidget);
-      expect(find.textContaining('Nota de contexto'), findsOneWidget);
+      expect(find.text('Nota clínica'), findsOneWidget);
       expect(find.textContaining('FHIR'), findsNothing);
       expect(find.textContaining('Dictado local'), findsNothing);
     },
@@ -340,7 +353,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('EVENTOS CON FECHA SIN HORA'), findsOneWidget);
       expect(find.textContaining('Solo fecha'), findsOneWidget);
-      expect(find.textContaining('00:00'), findsNothing);
+      // The shift line may read 00:00–08:00; no entry shows a midnight time.
+      expect(find.text('00:00'), findsNothing);
     },
   );
 
@@ -350,7 +364,7 @@ void main() {
       await tester.pumpWidget(testApp());
       await tester.pumpAndSettle();
       expect(find.text('Hospitalización activa'), findsOneWidget);
-      expect(find.byIcon(Icons.add_task_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.add_rounded), findsOneWidget);
     },
   );
 
@@ -376,7 +390,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Cerrada · Solo lectura'), findsOneWidget);
     expect(find.text('Hospitalización activa'), findsNothing);
-    expect(find.byIcon(Icons.add_task_outlined), findsNothing);
+    expect(find.byIcon(Icons.add_rounded), findsNothing);
   });
 
   testWidgets(
@@ -460,7 +474,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -1500));
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -4000),
+    );
     await tester.pumpAndSettle();
     expect(find.textContaining('Contenido sintético largo'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -509,6 +526,8 @@ void main() {
     );
     await tester.pumpWidget(testApp(record: fullRecord));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Ver ficha clínica'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Ver ficha clínica'));
     await tester.pumpAndSettle();
     expect(find.text('La ficha puede estar incompleta.'), findsOneWidget);
@@ -530,6 +549,8 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(testApp(recordDenied: true));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Ver ficha clínica'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ver ficha clínica'));
     await tester.pumpAndSettle();
@@ -584,6 +605,8 @@ void main() {
         child: testApp(record: longRecord),
       ),
     );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Ver ficha clínica'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ver ficha clínica'));
     await tester.pumpAndSettle();

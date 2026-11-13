@@ -1,5 +1,6 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const target = new URL('../../docker/hapi-fhir/seed/demo-patients.json', import.meta.url);
 const base = 'http://hapi.fhir.org/baseR4';
@@ -98,11 +99,32 @@ const lab = (e, day, hour, prefix, hemoglobin, crp, creatinine) => {
   add({ resourceType: 'DiagnosticReport', id: `report-${prefix}`, status: 'final', code: { text: 'Panel de laboratorio: hemograma y bioquímica' }, subject: { reference: patientRef(e) }, encounter: { reference: encounterRef(e) }, effectiveDateTime: effective, result: results.map(({ id }) => ({ reference: `Observation/${id}` })), conclusion: 'Datos sintéticos demostrativos; no constituyen interpretación clínica ni recomendación.' });
 };
 
+const ATTENDING = ['Dra. Ana Torres', 'Dr. Ricardo Erazo', 'Dra. Camila Vera'];
+const attending = (e) => ATTENDING[episodes.indexOf(e) % ATTENDING.length];
+const lastDay = (e) => (e.end ? Number(e.end.slice(8, 10)) : 23);
+const doseTimes = (e) => [[lastDay(e), 8], [lastDay(e), 14], [lastDay(e), 20]].map(([day, hour]) => dtime(day, hour));
+const shift = (time, minutes) => time.replace(/T(d{2}):(d{2})/, (_, h, m) => { const total = Number(h) * 60 + Number(m) + minutes; return `T${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`; });
+const BALANCE = 'http://carer-record.local/fhir/CodeSystem/observation-category';
+const fluid = (e, id, time, category, label, value) => ({ resourceType: 'Observation', id, status: 'final', category: [{ coding: [{ system: BALANCE, code: category }] }], code: { text: label }, subject: { reference: patientRef(e) }, encounter: { reference: encounterRef(e) }, effectiveDateTime: time, valueQuantity: { value, unit: 'mL', system: 'http://unitsofmeasure.org', code: 'mL' } });
+function fluids(e) {
+  const day = lastDay(e);
+  add(fluid(e, `fluid-${e.id}-oral`, dtime(day, 11), 'fluid-intake', 'Ingesta oral', 400));
+  add(fluid(e, `fluid-${e.id}-iv`, dtime(day, 11), 'fluid-intake', 'Volumen intravenoso', 250));
+  add(fluid(e, `fluid-${e.id}-urine`, dtime(day, 11), 'fluid-output', 'Diuresis', 350));
+  // Nursing controls classified as vital signs: urine output and, for the
+  // diabetic scenario, capillary glucose (HGT).
+  add(obs(e, `obs-${e.id}-diuresis`, dtime(day, 11), '9187-6', 'Diuresis', 350, 'mL', 'vital-signs'));
+  if (e.id === 'enc-med-ana') {
+    add(obs(e, 'obs-enc-med-ana-hgt-1', dtime(22, 12), '41653-7', 'Hemoglucotest (HGT)', 142, 'mg/dL', 'vital-signs', [70, 180]));
+    add(obs(e, 'obs-enc-med-ana-hgt-2', dtime(23, 8), '41653-7', 'Hemoglucotest (HGT)', 196, 'mg/dL', 'vital-signs', [70, 180]));
+  }
+}
+
 for (const e of episodes) {
   const locationPeriods = e.id === 'enc-shared'
     ? [{ location: { reference: 'Location/bed-intermed-03' }, period: { start: e.start, end: '2026-10-21T08:00:00-03:00' } }, { location: { reference: 'Location/bed-shared-04' }, period: { start: '2026-10-21T08:00:00-03:00' } }]
     : [{ location: { reference: `Location/${e.bed}` }, period: { start: e.start, ...(e.end ? { end: e.end } : {}) } }];
-  add({ resourceType: 'Encounter', id: e.id, status: e.end ? 'finished' : 'in-progress', class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'IMP' }, subject: { reference: patientRef(e) }, period: { start: e.start, ...(e.end ? { end: e.end } : {}) }, location: locationPeriods });
+  add({ resourceType: 'Encounter', id: e.id, status: e.end ? 'finished' : 'in-progress', class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'IMP' }, subject: { reference: patientRef(e) }, participant: [{ type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }] }], individual: { display: attending(e) } }], reasonCode: [{ text: e.diagnosis }], period: { start: e.start, ...(e.end ? { end: e.end } : {}) }, location: locationPeriods });
   add({ resourceType: 'Condition', id: `condition-${e.id}`, clinicalStatus: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/condition-clinical', code: e.end ? 'resolved' : 'active' }] }, code: { text: e.diagnosis }, subject: { reference: patientRef(e) }, encounter: { reference: encounterRef(e) }, onsetDateTime: e.start });
   if (e.end) {
     const isSurgery = e.patient === people[4];
@@ -116,7 +138,12 @@ for (const e of episodes) {
   lab(e, initialDay, 12, `panel-${e.id}-initial`, e.id === 'enc-surg-matias' ? 13.2 : 12.1, e.id === 'enc-med-ana' ? 86 : 42, e.id === 'enc-shared' ? 1.4 : 0.9);
   lab(e, followDay, 8, `panel-${e.id}-followup`, 12.4, 24, 0.9);
   add({ resourceType: 'AllergyIntolerance', id: `allergy-${e.id}`, clinicalStatus: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical', code: 'active' }] }, code: { text: e.allergy }, patient: { reference: patientRef(e) }, encounter: { reference: encounterRef(e) }, recordedDate: e.start.slice(0, 10), reaction: [{ manifestation: [{ text: e.reaction }] }] });
-  add({ resourceType: 'MedicationRequest', id: `medreq-${e.id}`, status: closed ? 'completed' : 'active', intent: 'order', medicationCodeableConcept: { text: e.medication }, subject: { reference: patientRef(e) }, encounter: { reference: encounterRef(e) }, authoredOn: e.start, dosageInstruction: [{ text: `${e.medication}. Dato exclusivamente sintético, no es indicación clínica.` }] });
+  add({ resourceType: 'MedicationRequest', id: `medreq-${e.id}`, status: closed ? 'completed' : 'active', intent: 'order', medicationCodeableConcept: { text: e.medication }, subject: { reference: patientRef(e) }, encounter: { reference: encounterRef(e) }, authoredOn: e.start, dosageInstruction: [{ text: `${e.medication}. Dato exclusivamente sintético, no es indicación clínica.`, route: { text: /IV/.test(e.medication) ? 'intravenosa' : /inhalado/.test(e.medication) ? 'inhalatoria' : 'oral' }, timing: { event: doseTimes(e) } }] });
+  if (!closed) {
+    // The first doses are recorded as administered; the last stays pending.
+    doseTimes(e).slice(0, -1).forEach((time, index) => add({ resourceType: 'MedicationAdministration', id: `medadmin-${e.id}-${index + 1}`, status: 'completed', medicationCodeableConcept: { text: e.medication }, subject: { reference: patientRef(e) }, context: { reference: encounterRef(e) }, request: { reference: `MedicationRequest/medreq-${e.id}` }, effectiveDateTime: shift(time, index === 1 ? 15 : 0), dosage: { text: e.medication, route: { text: /IV/.test(e.medication) ? 'intravenosa' : 'oral' } } }));
+    fluids(e);
+  }
   add({ resourceType: 'Procedure', id: `procedure-${e.id}`, status: 'completed', code: { text: e.procedure }, subject: { reference: patientRef(e) }, encounter: { reference: encounterRef(e) }, performedDateTime: e.start });
 }
 
@@ -126,8 +153,13 @@ for (const e of episodes) {
   add({ resourceType: 'DiagnosticReport', id: `report-${e.id}-summary`, status: 'final', code: { text: `Informe de seguimiento: ${e.diagnosis}` }, subject: { reference: patientRef(e) }, encounter: { reference: encounterRef(e) }, effectiveDateTime: e.end ?? e.start, conclusion: e.report });
 }
 
+const photo = await readFile(new URL('../../docker/hapi-fhir/seed/demo-curacion.jpg', import.meta.url));
+add({ resourceType: 'Procedure', id: 'procedure-enc-med-ana-wound-care', status: 'completed', code: { text: 'Curación de herida' }, subject: { reference: patientRef(episodes[0]) }, encounter: { reference: 'Encounter/enc-med-ana' }, performedDateTime: dtime(23, 9), note: [{ text: 'Curación realizada y apósito renovado. Foto adjunta de demostración (maniquí).' }] });
+add({ resourceType: 'Binary', id: 'binary-enc-med-ana-wound-photo', contentType: 'image/jpeg', data: photo.toString('base64') });
+add({ resourceType: 'DocumentReference', id: 'docref-enc-med-ana-wound-photo', status: 'current', type: { text: 'Foto de curación' }, category: [{ coding: [{ system: 'urn:carer-record:document-category', code: 'clinical-photo', display: 'Foto clínica' }] }], subject: { reference: patientRef(episodes[0]) }, date: dtime(23, 9), description: 'Foto de curación', content: [{ attachment: { contentType: 'image/jpeg', url: 'Binary/binary-enc-med-ana-wound-photo', title: 'Foto de curación (maniquí de demostración)', creation: dtime(23, 9) } }], context: { encounter: [{ reference: 'Encounter/enc-med-ana' }], related: [{ reference: 'Procedure/procedure-enc-med-ana-wound-care' }] } });
+
 await writeFile(target, `${JSON.stringify({ resourceType: 'Bundle', type: 'transaction', entry: entries }, null, 2)}\n`);
-const formatting = spawnSync('pnpm', ['exec', 'prettier', '--write', target.pathname], { stdio: 'inherit' });
+const formatting = spawnSync('pnpm exec prettier --write docker/hapi-fhir/seed/demo-patients.json', { cwd: fileURLToPath(new URL('../../', import.meta.url)), stdio: 'inherit', shell: true });
 if (formatting.error) throw formatting.error;
 if (formatting.status !== 0) process.exit(formatting.status ?? 1);
 console.log(`Wrote ${entries.length} synthetic FHIR resources for ${people.length} patients.`);

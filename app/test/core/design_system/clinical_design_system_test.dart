@@ -70,17 +70,17 @@ void main() {
       Theme.of(context).textTheme.headlineMedium?.fontSize,
       ClinicalTextStyles.pageTitle.fontSize,
     );
-    expect(Theme.of(context).dividerTheme.color, ClinicalColors.divider);
+    expect(Theme.of(context).dividerTheme.color, ClinicalColors.separator);
     final buttonStyle = Theme.of(context).filledButtonTheme.style!;
-    expect(buttonStyle.foregroundColor!.resolve(const {}), ClinicalColors.ink);
     expect(
-      buttonStyle.backgroundColor!.resolve(const {}),
-      ClinicalColors.mintDark,
+      buttonStyle.foregroundColor!.resolve(const {}),
+      ClinicalColors.onMint,
     );
+    expect(buttonStyle.backgroundColor!.resolve(const {}), ClinicalColors.mint);
     expect(
       Theme.of(context).textButtonTheme.style!.foregroundColor!
           .resolve(const {}),
-      ClinicalColors.mintText,
+      ClinicalColors.blue,
     );
   });
 }

@@ -26,6 +26,7 @@ class ContextNoteMilestone {
     required this.clientEventId,
     this.content,
     this.transcription,
+    this.category = 'nota_clinica',
   });
 
   final String organizationId;
@@ -45,6 +46,9 @@ class ContextNoteMilestone {
   /// Client-generated UUID so a retried save never duplicates the milestone.
   final String clientEventId;
 
+  /// Category chosen by the professional (`EventCategory.wire`, ADR-022).
+  final String category;
+
   ContextNoteMilestone copyWith({
     MilestoneInputMethod? inputMethod,
     String? content,
@@ -58,6 +62,7 @@ class ContextNoteMilestone {
       clientEventId: clientEventId,
       content: content ?? this.content,
       transcription: transcription ?? this.transcription,
+      category: category,
     );
   }
 }

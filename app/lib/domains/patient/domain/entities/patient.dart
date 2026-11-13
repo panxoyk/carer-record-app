@@ -12,6 +12,7 @@ class Patient {
     required this.givenName,
     required this.familyName,
     required this.birthDate,
+    this.unitDisplayName,
   });
 
   final String organizationId;
@@ -25,6 +26,9 @@ class Patient {
   final String givenName;
   final String familyName;
   final DateTime? birthDate;
+
+  /// Service (unit) name, resolved only for readable episodes (ADR-022).
+  final String? unitDisplayName;
 
   String get fullName => '$givenName $familyName';
   String get locationLabel => bedLabel?.trim().isNotEmpty == true

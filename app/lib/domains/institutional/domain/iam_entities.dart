@@ -8,6 +8,8 @@ class IamContext {
     required this.membershipId,
     required this.membershipStatus,
     required this.permissions,
+    this.profession,
+    this.localIdentifier,
   });
   final String organizationId;
   final String organizationName;
@@ -17,6 +19,12 @@ class IamContext {
   final String membershipId;
   final String membershipStatus;
   final Set<String> permissions;
+
+  /// Clinical profession wire value (ADR-022), if assigned.
+  final String? profession;
+
+  /// Institutional identifier of the membership, if any.
+  final String? localIdentifier;
   bool allows(String permission) => permissions.contains(permission);
 
   static IamContext? select(List<IamContext> contexts, String? organizationId) {

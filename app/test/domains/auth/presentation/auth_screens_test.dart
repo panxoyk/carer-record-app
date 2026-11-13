@@ -16,12 +16,15 @@ void main() {
     testWidgets('shows institutional brand, card, and copy', (tester) async {
       await _pumpAuth(tester, const SignInScreen());
 
-      expect(find.text('Carer Record'), findsOneWidget);
-      expect(find.text('Contexto para el cuidado clínico'), findsOneWidget);
+      expect(find.text('Carer-Record'), findsOneWidget);
+      expect(find.text('Sistema de trazabilidad clínica'), findsOneWidget);
       expect(find.text('Iniciar sesión'), findsNWidgets(2));
-      expect(find.text('Ingresa con tu cuenta institucional.'), findsOneWidget);
       expect(
-        find.text('Contacta al administrador de tu institución.'),
+        find.text('Accede con tus credenciales institucionales'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Contacta al administrador de tu institución.'),
         findsOneWidget,
       );
       expect(find.byType(ClinicalCard), findsOneWidget);
@@ -50,10 +53,7 @@ void main() {
         final buttonTheme = Theme.of(
           tester.element(find.byType(FilledButton).first),
         ).filledButtonTheme.style!;
-        expect(
-          buttonTheme.backgroundColor!.resolve({}),
-          ClinicalColors.mintDark,
-        );
+        expect(buttonTheme.backgroundColor!.resolve({}), ClinicalColors.mint);
       },
     );
 
@@ -133,6 +133,7 @@ void main() {
       final repository = _FakeAuthRepository()
         ..signInCompleter = Completer<void>();
       await _pumpAuth(tester, const SignInScreen(), repository: repository);
+      await tester.ensureVisible(find.byType(FilledButton).first);
       await tester.tap(find.byType(FilledButton).first);
       await tester.pump();
 
@@ -143,6 +144,7 @@ void main() {
       expect(find.text('Accediendo…'), findsOneWidget);
       expect(repository.signInCalls, 1);
 
+      await tester.ensureVisible(find.byType(FilledButton).first);
       await tester.tap(find.byType(FilledButton).first);
       await tester.pump();
       expect(repository.signInCalls, 1);
@@ -156,6 +158,7 @@ void main() {
       await _pumpAuth(tester, const SignInScreen(), repository: repository);
       await tester.enterText(find.byType(TextField).first, 'care@example.test');
       await tester.enterText(find.byType(TextField).last, 'synthetic-password');
+      await tester.ensureVisible(find.byType(FilledButton).first);
       await tester.tap(find.byType(FilledButton).first);
       await tester.pumpAndSettle();
 
@@ -174,6 +177,7 @@ void main() {
       );
 
       repository.failSignIn = false;
+      await tester.ensureVisible(find.byType(FilledButton).first);
       await tester.tap(find.byType(FilledButton).first);
       await tester.pumpAndSettle();
       expect(repository.signInCalls, 2);
@@ -282,6 +286,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'synthetic-password');
+      await tester.ensureVisible(find.byType(FilledButton));
       await tester.tap(find.byType(FilledButton));
       await tester.pump();
 
@@ -335,6 +340,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'synthetic-password');
+      await tester.ensureVisible(find.byType(FilledButton));
       await tester.tap(find.byType(FilledButton));
       await tester.pumpAndSettle();
 

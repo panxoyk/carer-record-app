@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/design_system/clinical_design_system.dart';
 import '../../../../core/time/clinical_time.dart';
 
+/// Event card of the bitácora (Figma "Timeline Item"): a colored dot on a
+/// vertical rail and a white card with time, category, title and detail.
 class TimelineEntryCard extends StatelessWidget {
   const TimelineEntryCard({
     required this.title,
@@ -12,6 +14,9 @@ class TimelineEntryCard extends StatelessWidget {
     this.detail,
     this.author,
     this.isNote = false,
+    this.tint,
+    this.role,
+    this.attachment,
     super.key,
   });
 
@@ -23,15 +28,24 @@ class TimelineEntryCard extends StatelessWidget {
   final bool dateOnly;
   final bool isNote;
 
+  /// Category color chosen by the author (overrides the type color).
+  final ClinicalTint? tint;
+
+  /// Author role shown after the time, e.g. "Enfermería".
+  final String? role;
+
+  /// Optional clinical photo shown inside the card.
+  final Widget? attachment;
+
   @override
   Widget build(BuildContext context) {
-    final badgeColors = _categoryBadgeColors(category, isNote: isNote);
+    final tint = this.tint ?? timelineCategoryTint(category, isNote: isNote);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: ClinicalSpacing.page),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Positioned.fill(
+          const Positioned.fill(
             child: CustomPaint(
               painter: _TimelineRailPainter(color: ClinicalColors.separator),
             ),
@@ -39,40 +53,78 @@ class TimelineEntryCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(
               left: ClinicalSpacing.section,
-              bottom: ClinicalSpacing.compact,
+              bottom: ClinicalSpacing.item,
             ),
             child: ClinicalCard(
-              backgroundColor: isNote ? ClinicalColors.softMint : Colors.white,
-              padding: const EdgeInsets.all(ClinicalSpacing.card),
+              radius: ClinicalRadii.event,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: SizedBox(
                 width: double.infinity,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Wrap(
-                      spacing: ClinicalSpacing.compact,
-                      runSpacing: ClinicalSpacing.compact,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        if (date != null)
-                          Text(
-                            dateOnly
-                                ? 'Solo fecha · ${date!.split('-').reversed.join('-')}'
-                                : formatClinicalTime(DateTime.parse(date!)),
-                            style: Theme.of(context).textTheme.labelMedium,
+                        Expanded(
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                if (date != null)
+                                  TextSpan(
+                                    text: dateOnly
+                                        ? 'Solo fecha · ${date!.split('-').reversed.join('-')}'
+                                        : formatClinicalTime(
+                                            DateTime.parse(date!),
+                                          ),
+                                    style: ClinicalTextStyles.mono,
+                                  ),
+                                if (role != null)
+                                  TextSpan(
+                                    text: date == null ? role : ' · $role',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: ClinicalColors.secondary,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ClinicalBadge(
-                          label: category,
-                          color: badgeColors.$1,
-                          textColor: badgeColors.$2,
+                        ),
+                        const SizedBox(width: ClinicalSpacing.compact),
+                        Flexible(
+                          child: ClinicalBadge(
+                            label: category,
+                            color: tint.background,
+                            textColor: tint.color,
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: ClinicalSpacing.compact),
-                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 6),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        height: 1.3,
+                        fontWeight: FontWeight.w600,
+                        color: ClinicalColors.ink,
+                      ),
+                    ),
                     if (detail?.isNotEmpty == true) ...[
-                      const SizedBox(height: ClinicalSpacing.compact),
-                      Text(detail!),
+                      const SizedBox(height: 4),
+                      Text(
+                        detail!,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.5,
+                          color: ClinicalColors.secondary,
+                        ),
+                      ),
+                    ],
+                    if (attachment != null) ...[
+                      const SizedBox(height: 4),
+                      attachment!,
                     ],
                     if (isNote) ...[
                       const SizedBox(height: ClinicalSpacing.compact),
@@ -80,7 +132,10 @@ class TimelineEntryCard extends StatelessWidget {
                         author == null || author!.trim().isEmpty
                             ? 'Autor no disponible'
                             : 'Registrada por $author',
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: ClinicalColors.secondary,
+                        ),
                       ),
                     ],
                   ],
@@ -97,11 +152,20 @@ class TimelineEntryCard extends StatelessWidget {
               child: Align(
                 alignment: Alignment.topCenter,
                 child: Padding(
-                  padding: const EdgeInsets.only(top: ClinicalSpacing.card),
-                  child: Icon(
-                    isNote ? Icons.sticky_note_2_outlined : Icons.circle,
-                    size: isNote ? 20 : ClinicalSpacing.compact,
-                    color: ClinicalColors.mintText,
+                  padding: const EdgeInsets.only(top: 18),
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: tint.color,
+                      shape: BoxShape.circle,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: ClinicalColors.canvas,
+                          spreadRadius: 3,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -113,27 +177,20 @@ class TimelineEntryCard extends StatelessWidget {
   }
 }
 
-(Color, Color) _categoryBadgeColors(String category, {required bool isNote}) {
+/// Color de cada categoría de la bitácora, alineado con las categorías del
+/// diseño (nota → comunicación, observación → signos vitales, etc.).
+ClinicalTint timelineCategoryTint(String category, {bool isNote = false}) {
   if (isNote || category == 'Nota de contexto') {
-    return (ClinicalColors.softMint, ClinicalColors.mintBadgeText);
+    return ClinicalCategoryColors.communication;
   }
   return switch (category) {
-    'Observación' => (
-      ClinicalColors.softObservation,
-      ClinicalColors.observationText,
-    ),
-    'Informe' => (ClinicalColors.softReport, ClinicalColors.reportText),
-    'Medicación' => (
-      ClinicalColors.softMedication,
-      ClinicalColors.medicationText,
-    ),
-    'Condición' => (ClinicalColors.softCondition, ClinicalColors.conditionText),
-    'Procedimiento' => (
-      ClinicalColors.softProcedure,
-      ClinicalColors.procedureText,
-    ),
-    'Alergia' => (ClinicalColors.softAttention, ClinicalColors.ink),
-    _ => (ClinicalColors.canvas, ClinicalColors.ink),
+    'Observación' => ClinicalCategoryColors.vitals,
+    'Informe' => ClinicalCategoryColors.clinicalNote,
+    'Medicación' => ClinicalCategoryColors.pharmacology,
+    'Condición' => ClinicalCategoryColors.tens,
+    'Procedimiento' => ClinicalCategoryColors.mobility,
+    'Alergia' => ClinicalCategoryColors.procedure,
+    _ => ClinicalCategoryColors.routine,
   };
 }
 
@@ -146,8 +203,8 @@ class _TimelineRailPainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..strokeWidth = 1;
-    final x = ClinicalSpacing.section / 2;
-    canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    const x = ClinicalSpacing.section / 2;
+    canvas.drawLine(const Offset(x, 0), Offset(x, size.height), paint);
   }
 
   @override

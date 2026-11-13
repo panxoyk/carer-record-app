@@ -24,7 +24,7 @@
     "functions:lint": "deno lint --config supabase/functions/deno.json supabase/functions",
     "functions:test": "cd supabase/functions && deno test --config deno.json --lock deno.lock --frozen",
     "functions:types:generate": "pnpm exec supabase gen types typescript --local --schema public > supabase/functions/database.types.ts",
-    "functions:typecheck": "deno check --config supabase/functions/deno.json --lock=supabase/functions/deno.lock --frozen supabase/functions/create-practitioner/index.ts supabase/functions/create-practitioner/handler_test.ts supabase/functions/clinical-record/index.ts supabase/functions/clinical-record/handler_test.ts supabase/functions/clinical-record/fhir.ts supabase/functions/clinical-record/fhir_test.ts",
+    "functions:typecheck": "deno check --config supabase/functions/deno.json --lock=supabase/functions/deno.lock --frozen supabase/functions/create-practitioner/index.ts supabase/functions/create-practitioner/handler_test.ts supabase/functions/clinical-record/index.ts supabase/functions/clinical-record/handler_test.ts supabase/functions/clinical-record/fhir.ts supabase/functions/clinical-record/fhir_test.ts supabase/functions/clinical-record/attachment.ts supabase/functions/clinical-attachment/index.ts supabase/functions/clinical-attachment/handler_test.ts",
     "docs:format": "prettier --write \"**/*.{md,json,jsonc}\"",
     "docs:format:check": "prettier --check \"**/*.{md,json,jsonc}\"",
     "docs:lint": "markdownlint-cli2 \"**/*.md\"",

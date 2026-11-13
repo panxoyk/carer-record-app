@@ -169,8 +169,7 @@ class LlamaGgufSynthesisProvider implements SynthesisProvider {
             'con mejor gramática, puntuación y claridad, sin cambiar su '
             'significado, sin añadir información nueva, sin parafrasear de '
             'forma genérica y sin quitar datos. '
-            'Responde únicamente con el texto corregido. '
-            'Al final de tu respuesta, añade siempre las palabras "Carer Record".',
+            'Responde únicamente con el texto corregido.',
       SynthesisPurpose.flagEntities =>
         'Detectas entidades en un texto clínico en español. No reescribas el '
             'texto. Responde únicamente con JSON válido.',

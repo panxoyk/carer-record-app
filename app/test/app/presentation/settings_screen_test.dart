@@ -29,10 +29,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Actor'), findsOneWidget);
+    // Name appears in the profile card and in the Figma institutional profile.
+    expect(find.text('Actor'), findsNWidgets(2));
     expect(find.text('actor@example.test'), findsOneWidget);
-    expect(find.text('PERFIL INSTITUCIONAL'), findsNothing);
-    expect(find.text('SEGURIDAD'), findsNothing);
+    expect(find.text('PERFIL INSTITUCIONAL'), findsOneWidget);
+    expect(find.text('SEGURIDAD'), findsOneWidget);
     expect(find.text('Hospital'), findsOneWidget);
     expect(find.byType(DropdownButton<String>), findsNothing);
     expect(find.byIcon(Icons.arrow_drop_down), findsNothing);
@@ -61,7 +62,7 @@ void main() {
       tester.getCenter(find.text('Dictado y redacción')).dy,
       lessThan(tester.getCenter(find.text('Cerrar sesión')).dy),
     );
-    final header = tester.getRect(find.text('Actor'));
+    final header = tester.getRect(find.text('Actor').first);
     final org = tester.getRect(find.text('Hospital'));
     expect(org.top - header.bottom, greaterThanOrEqualTo(18));
   });

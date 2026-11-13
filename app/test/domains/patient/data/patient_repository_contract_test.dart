@@ -39,7 +39,7 @@ void main() {
       expect(query.viewName, 'fhir_clinical_census_by_hospitalization');
       expect(
         query.columns,
-        'organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date',
+        'organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date,unit_display_name',
       );
       expect(query.organizationId, org);
       expect(query.filterColumns, ['organization_id']);
@@ -128,7 +128,7 @@ void main() {
     expect(query.viewName, 'clinical_timeline_by_hospitalization');
     expect(
       query.columns,
-      'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,author_display_name',
+      'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,author_display_name,category,author_profession,client_event_id',
     );
     expect(query.organizationId, org);
     expect(query.hospitalizationId, episode);

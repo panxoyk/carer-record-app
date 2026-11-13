@@ -1,4 +1,5 @@
 import { loadClinicalRecord, type Purpose } from "./fhir.ts";
+import { loadAttachment } from "./attachment.ts";
 
 export type Context = {
   source_id: string;
@@ -18,6 +19,7 @@ const ALLOWED = new Set([
   "hospitalizationId",
   "purpose",
   "range",
+  "documentId",
 ]);
 function sameContext(a: Context, b: Context): boolean {
   return a.source_id === b.source_id &&
@@ -146,11 +148,23 @@ export function createHandler(deps: {
     if (
       typeof org !== "string" || !UUID.test(org) ||
       typeof hospitalization !== "string" || !UUID.test(hospitalization) ||
-      typeof purpose !== "string" || !["record", "timeline"].includes(purpose)
+      typeof purpose !== "string" ||
+      !["record", "timeline", "attachment"].includes(purpose)
     ) return json(400, { error: "invalid_request" });
+    // A photo download is an exact read of one document of the encounter; it
+    // is authorized like the clinical record (ADR-022).
+    const documentId = input.documentId;
+    if (
+      (purpose === "attachment") !== (documentId !== undefined) ||
+      (documentId !== undefined &&
+        (typeof documentId !== "string" ||
+          !/^[A-Za-z0-9.-]{1,64}$/.test(documentId))) ||
+      (purpose === "attachment" && range !== undefined)
+    ) return json(400, { error: "invalid_request" });
+    const contextPurpose = purpose === "attachment" ? "record" : purpose;
     let ctx: Context | null;
     try {
-      ctx = await deps.context(org, hospitalization, purpose, auth);
+      ctx = await deps.context(org, hospitalization, contextPurpose, auth);
     } catch {
       return json(404, { error: "not_found" });
     }
@@ -175,17 +189,29 @@ export function createHandler(deps: {
       return json(503, { error: "source_unavailable" });
     }
     try {
-      const result = await loadClinicalRecord(
-        ctx,
-        purpose as Purpose,
-        deps.fetcher ?? fetch,
-        baseUrl,
-        range,
-        range ? DEMO_TIMEZONE : undefined,
-      );
+      const result = purpose === "attachment"
+        ? await loadAttachment(
+          ctx,
+          documentId as string,
+          deps.fetcher ?? fetch,
+          baseUrl,
+        )
+        : await loadClinicalRecord(
+          ctx,
+          purpose as Purpose,
+          deps.fetcher ?? fetch,
+          baseUrl,
+          range,
+          range ? DEMO_TIMEZONE : undefined,
+        );
       let again: Context | null;
       try {
-        again = await deps.context(org, hospitalization, purpose, auth);
+        again = await deps.context(
+          org,
+          hospitalization,
+          contextPurpose,
+          auth,
+        );
       } catch {
         again = null;
       }

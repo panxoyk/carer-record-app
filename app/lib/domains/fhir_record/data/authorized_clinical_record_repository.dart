@@ -2,14 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/authorized_clinical_record.dart';
 
-const _sectionTypes = {
-  'conditions',
-  'observations',
-  'medications',
-  'procedures',
-  'reports',
-  'allergies',
-};
+const _sectionTypes = ClinicalSectionType.all;
 const _dateOnly = r'^\d{4}(?:-\d{2}(?:-\d{2})?)?$';
 const _instant =
     r'^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?(Z|([+-])(\d{2}):(\d{2}))$';
@@ -125,6 +118,8 @@ class AuthorizedClinicalRecordRepositoryImpl
         dischargedAt: _optionalDate(episode, 'dischargedAt', instantOnly: true),
         unit: _optionalString(episode, 'unit'),
         bed: _optionalString(episode, 'bed'),
+        attendingPhysician: _optionalString(episode, 'attendingPhysician'),
+        reason: _optionalString(episode, 'reason'),
       ),
       sections: sections,
       timeline: timelineRaw.map(_timeline).toList(growable: false),
@@ -224,8 +219,22 @@ ClinicalRecordEntry _entry(Object? raw) {
     detail: _optionalString(m, 'detail'),
     date: date,
     isDateOnly: dateOnly,
+    value: _optionalString(m, 'value'),
+    flag: _flag(m['flag']),
+    code: _optionalString(m, 'code'),
+    category: _optionalString(m, 'category'),
+    administeredAt: _optionalDate(m, 'administeredAt', instantOnly: true),
+    noteRef: _optionalString(m, 'noteRef'),
   );
 }
+
+ClinicalValueFlag? _flag(Object? raw) => switch (raw) {
+  null => null,
+  'high' => ClinicalValueFlag.high,
+  'low' => ClinicalValueFlag.low,
+  'abnormal' => ClinicalValueFlag.abnormal,
+  _ => throw const FormatException('Invalid value flag'),
+};
 
 ClinicalTimelineItem _timeline(Object? raw) {
   final m = _map(raw, 'timeline item');

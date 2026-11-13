@@ -122,6 +122,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Resúmenes'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Resúmenes'));
       await tester.pumpAndSettle();
       expect(find.text('Historial $hospitalizationId'), findsOneWidget);
@@ -198,6 +200,8 @@ void main() {
         find.text('El dictado no está disponible. Puedes escribir la nota.'),
         findsOneWidget,
       );
+      await tester.ensureVisible(find.text('Texto'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Texto'));
       await tester.pumpAndSettle();
       expect(find.byType(TextField), findsOneWidget);
@@ -212,17 +216,18 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Borrador accesible');
       tester.view.viewInsets = const FakeViewPadding(bottom: 280);
       await tester.pumpAndSettle();
-      final fieldContext = tester.element(find.byType(TextField));
-      expect(MediaQuery.viewInsetsOf(fieldContext).bottom, 280);
-      await tester.ensureVisible(find.text('Guardar nota'));
+      await tester.ensureVisible(find.text('Continuar'));
       expect(
-        tester.getRect(find.text('Guardar nota')).bottom,
+        tester.getRect(find.text('Continuar')).bottom,
         lessThanOrEqualTo(size.height - 280),
       );
       expect(tester.takeException(), isNull);
-      await tester.tap(find.text('Guardar nota'));
+      tester.view.resetViewInsets();
       await tester.pumpAndSettle();
+      await _toReview(tester);
+      await _publish(tester);
       expect(repository.saved, hasLength(1));
+      expect(repository.saved.single.category, 'nota_clinica');
       expect(repository.saved.single.content, 'Borrador accesible');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -264,30 +269,30 @@ void main() {
     await tester.tap(find.text('Open milestone'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Texto'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Texto'));
     await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<FilledButton>(
-            find.ancestor(
-              of: find.text('Guardar nota'),
-              matching: find.byType(FilledButton),
-            ),
-          )
-          .onPressed,
-      isNull,
+    FilledButton action(String label) => tester.widget<FilledButton>(
+      find.ancestor(
+        of: find.text(label),
+        matching: find.byWidgetPredicate((widget) => widget is FilledButton),
+      ),
     );
+    expect(action('Continuar').onPressed, isNull);
     await tester.enterText(find.byType(TextField), '  Hito sintético  ');
     await tester.pump();
-    expect(
-      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-      isNotNull,
-    );
-    await tester.ensureVisible(find.text('Guardar nota'));
-    await tester.tap(find.text('Guardar nota'));
-    await tester.pumpAndSettle();
+    expect(action('Continuar').onPressed, isNotNull);
+    await _toReview(tester);
+    expect(find.text('Revisar y publicar'), findsOneWidget);
+    expect(action('Confirmar y publicar').onPressed, isNull);
+    await _publish(tester, category: 'Procedimiento');
     expect(repository.saved.single.content, 'Hito sintético');
+    expect(repository.saved.single.category, 'procedimiento');
+    expect(find.text('Evento publicado'), findsOneWidget);
+    expect(savedCalls, 0);
+    await _backToTimeline(tester);
     expect(savedCalls, 1);
+    expect(find.text('Evento publicado'), findsNothing);
     expect(find.text('Nueva nota de contexto'), findsNothing);
   });
 
@@ -324,16 +329,21 @@ void main() {
     );
     await tester.tap(find.text('Open context note'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Texto'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Texto'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Borrador que permanece');
-    await tester.ensureVisible(find.text('Dictado'));
-    await tester.tap(find.text('Dictado'));
+    await tester.ensureVisible(find.text('Audio'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Audio'));
     await tester.pumpAndSettle();
     expect(
       find.text('El dictado no está disponible. Puedes escribir la nota.'),
       findsOneWidget,
     );
+    await tester.ensureVisible(find.text('Texto'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Texto'));
     await tester.pumpAndSettle();
     expect(
@@ -379,9 +389,13 @@ void main() {
     );
     await tester.tap(find.text('Open context note'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Texto'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Texto'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Dictado'));
+    await tester.ensureVisible(find.text('Audio'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Audio'));
     await tester.pumpAndSettle();
     expect(
       find.textContaining('No se pudo comprobar el dictado'),
@@ -391,18 +405,15 @@ void main() {
       find.text('El dictado no está disponible. Puedes escribir la nota.'),
       findsOneWidget,
     );
-    expect(find.text('Ayuda de redacción no disponible.'), findsOneWidget);
+    await tester.ensureVisible(find.text('Texto'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Texto'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Nota sin modelos locales');
     await tester.pump();
-    await tester.ensureVisible(find.text('Guardar nota'));
-    expect(
-      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-      isNotNull,
-    );
-    await tester.tap(find.text('Guardar nota'));
-    await tester.pumpAndSettle();
+    await _toReview(tester);
+    expect(find.text('Sugerido por IA'), findsNothing);
+    await _publish(tester);
     expect(repository.saved.single.content, 'Nota sin modelos locales');
     expect(tester.takeException(), isNull);
   });
@@ -448,11 +459,13 @@ void main() {
     assistance.complete(null);
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Texto'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Texto'));
     await tester.pumpAndSettle();
     expect(find.byType(TextField), findsOneWidget);
-    await tester.ensureVisible(find.text('Dictado'));
-    await tester.tap(find.text('Dictado'));
+    await tester.ensureVisible(find.text('Audio'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Audio'));
     await tester.pumpAndSettle();
     expect(
       find.text('El dictado no está disponible. Puedes escribir la nota.'),
@@ -510,19 +523,20 @@ void main() {
     );
     await tester.tap(find.text('Open context note'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Dictado'));
-    await tester.tap(find.text('Dictado'));
+    await tester.ensureVisible(find.text('Audio'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Audio'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Iniciar dictado'));
     expect(audio.startCalls, 0);
     await tester.tap(find.text('Iniciar dictado'));
     await tester.pumpAndSettle();
     expect(audio.startCalls, 1);
-    expect(find.text('Grabando…'), findsOneWidget);
+    expect(find.text('Grabando'), findsOneWidget);
     await tester.ensureVisible(find.text('Detener dictado'));
     await tester.tap(find.text('Detener dictado'));
     await tester.pump();
-    expect(find.text('Transcribiendo…'), findsOneWidget);
+    expect(find.text('Transcribiendo audio'), findsOneWidget);
     transcription.complete(
       const AsrTranscript(
         text: 'Transcripción de prueba',
@@ -555,12 +569,10 @@ void main() {
       find.text('Algunas palabras pueden ser incorrectas. Revisa el texto.'),
       findsOneWidget,
     );
-    expect(find.textContaining('0:00'), findsNothing);
+    expect(find.text('00:00'), findsNothing);
     expect(find.text('Revisa el texto antes de guardar.'), findsNothing);
-    expect(find.text('Escuchar'), findsOneWidget);
-    await tester.ensureVisible(find.text('Escuchar'));
-    await tester.tap(find.text('Escuchar'));
-    await tester.pumpAndSettle();
+    // The recording is never played back: it only feeds local transcription.
+    expect(find.text('Escuchar'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -610,18 +622,16 @@ void main() {
       );
       await tester.tap(find.text('Open context note'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Texto'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Texto'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Texto inicial de prueba');
       await tester.pump();
-      await tester.ensureVisible(find.text('Mejorar redacción'));
-      await tester.tap(find.text('Mejorar redacción'));
-      await tester.pumpAndSettle();
+      await _toReview(tester);
       expect(find.text('Texto sugerido revisable'), findsOneWidget);
-      expect(
-        find.text('Revisa la sugerencia antes de guardarla.'),
-        findsOneWidget,
-      );
+      expect(find.text('Sugerido por IA'), findsOneWidget);
+      expect(find.text('Toque para editar'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -660,14 +670,15 @@ void main() {
       );
       await tester.tap(find.text('Open milestone'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Texto'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Texto'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Borrador conservado');
       await tester.pump();
-      await tester.ensureVisible(find.text('Guardar nota'));
-      await tester.tap(find.text('Guardar nota'));
-      await tester.pumpAndSettle();
-      expect(find.text('Nueva nota de contexto'), findsOneWidget);
+      await _toReview(tester);
+      await _publish(tester);
+      expect(find.text('Revisar y publicar'), findsOneWidget);
       expect(repository.attempted, hasLength(1));
       expect(
         find.byKey(const Key('milestone-operation-error')),
@@ -681,12 +692,10 @@ void main() {
       );
       expect(find.text('No se pudo confirmar el guardado.'), findsOneWidget);
       expect(find.text('Reintentar guardado'), findsOneWidget);
-      expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
-      expect(find.byType(TextField), findsOneWidget);
-      expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
-        'Borrador conservado',
-      );
+      // The locked draft is shown read-only until the retry.
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('Borrador conservado'), findsOneWidget);
+      expect(find.text('Toque para editar'), findsNothing);
       expect(repository.saved, isEmpty);
       expect(savedCalls, 0);
 
@@ -700,6 +709,8 @@ void main() {
       );
       repository.failure = null;
       await tester.ensureVisible(find.text('Reintentar guardado'));
+      await tester.ensureVisible(find.text('Reintentar guardado'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Reintentar guardado'));
       await tester.pumpAndSettle();
       expect(repository.attempted, hasLength(2));
@@ -708,6 +719,7 @@ void main() {
         repository.attempted[0].clientEventId,
       );
       expect(repository.saved.single.content, 'Borrador conservado');
+      await _backToTimeline(tester);
       expect(savedCalls, 1);
     },
   );
@@ -746,14 +758,16 @@ void main() {
       );
       await tester.tap(find.text('Open milestone'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Texto'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Texto'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Guardado confirmado');
       await tester.pump();
-      await tester.ensureVisible(find.text('Guardar nota'));
-      await tester.tap(find.text('Guardar nota'));
-      await tester.pumpAndSettle();
+      await _toReview(tester);
+      await _publish(tester);
       expect(repository.saved, hasLength(1));
+      await _backToTimeline(tester);
       expect(savedResult, [false]);
       expect(find.text('Nueva nota de contexto'), findsNothing);
       expect(vault.purgeCalls, 0);
@@ -804,23 +818,20 @@ void main() {
     );
     await tester.tap(find.text('Open milestone'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Dictado'));
+    await tester.ensureVisible(find.text('Audio'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Audio'));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.mic_none));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.stop));
     await tester.pumpAndSettle();
-    expect(find.byType(TextField), findsOneWidget);
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
-      'Audio transcrito',
-    );
+    expect(find.text('Revisar y publicar'), findsOneWidget);
+    expect(find.text('Audio transcrito'), findsOneWidget);
     expect(find.textContaining('fake'), findsNothing);
     expect(find.textContaining('Modelo local sintético'), findsNothing);
-    expect(find.text('Escuchar'), findsOneWidget);
-    await tester.ensureVisible(find.text('Guardar nota'));
-    await tester.tap(find.text('Guardar nota'));
-    await tester.pumpAndSettle();
+    expect(find.text('Escuchar'), findsNothing);
+    await _publish(tester, category: 'Signos vitales');
     expect(repository.saved, hasLength(1));
     expect(repository.saved.single.inputMethod, MilestoneInputMethod.audio);
     expect(repository.saved.single.transcription?.engine, 'fake');
@@ -828,8 +839,10 @@ void main() {
       repository.saved.single.transcription?.model,
       'Modelo local sintético extenso',
     );
-    expect(savedResults, [true]);
+    expect(repository.saved.single.category, 'signos_vitales');
     expect(vault.purgeCalls, 1);
+    await _backToTimeline(tester);
+    expect(savedResults, [true]);
     expect(find.text('Nueva nota de contexto'), findsNothing);
     await tester.pump(const Duration(seconds: 2));
     expect(savedResults, [true]);
@@ -876,7 +889,7 @@ void main() {
           .isInUse(LocalCapability.textAssistance),
       isTrue,
     );
-    await tester.tap(find.text('Descartar'));
+    await tester.tap(find.byTooltip('Cerrar'));
     await tester.pumpAndSettle();
     expect(
       container
@@ -903,14 +916,16 @@ void main() {
       ]),
     );
     await tester.pumpAndSettle();
-    final censusBar = tester.widget<AppBar>(find.byType(AppBar));
-    final censusTitle = find.descendant(
-      of: find.byType(AppBar),
-      matching: find.text('Hospitalizaciones'),
-    );
+    // Root screens follow the Figma large-title layout instead of an AppBar.
+    expect(find.byType(AppBar), findsNothing);
+    final censusTitle = find.text('Casos activos');
     expect(censusTitle, findsOneWidget);
-    expect(censusBar.backgroundColor, ClinicalColors.canvas);
     expect(tester.widget<Text>(censusTitle).style?.color, ClinicalColors.ink);
+    expect(
+      tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor ??
+          Theme.of(tester.element(censusTitle)).scaffoldBackgroundColor,
+      ClinicalColors.canvas,
+    );
 
     await tester.pumpWidget(
       screen(const SettingsScreen(), [
@@ -919,13 +934,12 @@ void main() {
       ]),
     );
     await tester.pumpAndSettle();
-    final settingsBar = tester.widget<AppBar>(find.byType(AppBar));
+    expect(find.byType(AppBar), findsNothing);
     final settingsTitle = find.descendant(
-      of: find.byType(AppBar),
+      of: find.byType(SingleChildScrollView).first,
       matching: find.text('Ajustes'),
     );
     expect(settingsTitle, findsOneWidget);
-    expect(settingsBar.backgroundColor, ClinicalColors.canvas);
     expect(tester.widget<Text>(settingsTitle).style?.color, ClinicalColors.ink);
   });
 
@@ -948,7 +962,6 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.byType(DecoratedBox), findsOneWidget);
     expect(find.text('Abierta'), findsNothing);
     expect(find.text('Cerrada'), findsNothing);
     expect(find.textContaining('Cama 12'), findsOneWidget);
@@ -1014,11 +1027,29 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Solo lectura'),
+        120,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       expect(find.text('Solo lectura'), findsOneWidget);
       expect(find.byIcon(Icons.lock_outline), findsOneWidget);
       expect(find.text('Cerrada'), findsNothing);
-      await tester.drag(find.byType(ListView).last, const Offset(0, -300));
-      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Estado no confirmado'),
+        120,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       expect(find.text('Estado no confirmado'), findsOneWidget);
       expect(find.text('Cama Cama 12'), findsNothing);
       expect(find.text('Cama 12'), findsOneWidget);
@@ -1175,7 +1206,7 @@ void main() {
     await tester.pumpAndSettle();
     final appBar = tester.widget<AppBar>(find.byType(AppBar));
     final title = find.descendant(
-      of: find.byType(AppBar),
+      of: find.byType(SingleChildScrollView).first,
       matching: find.text('Bitácora'),
     );
     expect(title, findsOneWidget);
@@ -1187,8 +1218,8 @@ void main() {
       findsOneWidget,
     );
     expect(
-      tester.getCenter(find.text('Bitácora')).dy,
-      closeTo(tester.getCenter(find.byType(IconButton).first).dy, 1),
+      tester.getCenter(title).dy,
+      greaterThan(tester.getCenter(find.byType(IconButton).first).dy),
     );
     expect(appBar.backgroundColor, ClinicalColors.canvas);
     expect(find.text('Texto resumido'), findsOneWidget);
@@ -1335,7 +1366,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Contenido revocado'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, 350));
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, 350),
+    );
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(calls, 2);
@@ -1361,7 +1395,7 @@ void main() {
       ]),
     );
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.add_task_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.add_rounded), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
 
     await tester.pumpWidget(
@@ -1375,7 +1409,7 @@ void main() {
       ]),
     );
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.add_task_outlined), findsNothing);
+    expect(find.byIcon(Icons.add_rounded), findsNothing);
   });
 
   testWidgets('milestone sheet offers text and dictation forms', (
@@ -1393,12 +1427,13 @@ void main() {
       ]),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.add_task_outlined));
+    await tester.tap(find.byIcon(Icons.add_rounded));
     await tester.pumpAndSettle();
     expect(find.text('Nueva nota de contexto'), findsOneWidget);
     expect(find.text('Texto'), findsOneWidget);
-    expect(find.text('Dictado'), findsOneWidget);
-    expect(find.text('Guardar nota'), findsOneWidget);
+    expect(find.text('Audio'), findsOneWidget);
+    expect(find.text('Registrar evento'), findsOneWidget);
+    expect(find.text('Registro por voz'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -1433,7 +1468,7 @@ void main() {
     expect(find.textContaining('Dictado local'), findsNothing);
     expect(find.text('Registrada por Profesional sintético'), findsOneWidget);
     expect(find.byIcon(Icons.play_arrow), findsNothing);
-    expect(find.textContaining('Nota de contexto'), findsOneWidget);
+    expect(find.text('Nota clínica'), findsOneWidget);
   });
 
   testWidgets('settings renders IAM context without practitioner role', (
@@ -1448,7 +1483,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Synthetic user'), findsWidgets);
     expect(find.text('Synthetic hospital'), findsWidgets);
-    expect(find.text('Rol'), findsNothing);
+    expect(find.text('Rol'), findsOneWidget);
+    expect(find.text('Sin profesión registrada'), findsOneWidget);
   });
 
   testWidgets(
@@ -1618,4 +1654,40 @@ class _FakeSynthesisProvider implements SynthesisProvider {
 
   @override
   Future<void> dispose() async {}
+}
+
+/// Text flow: "Continuar" runs the processing step and opens the review.
+Future<void> _toReview(WidgetTester tester) async {
+  await tester.ensureVisible(find.text('Continuar'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Continuar'));
+  await tester.pumpAndSettle();
+}
+
+/// Chooses the category in the review step and confirms the publication.
+Future<void> _publish(
+  WidgetTester tester, {
+  String category = 'Nota clínica',
+}) async {
+  final chip = find.text(category);
+  if (chip.evaluate().isNotEmpty) {
+    await tester.ensureVisible(chip.first);
+    await tester.pumpAndSettle();
+    await tester.tap(chip.first);
+    await tester.pumpAndSettle();
+  }
+  final action = find.text('Confirmar y publicar').evaluate().isNotEmpty
+      ? find.text('Confirmar y publicar')
+      : find.text('Reintentar guardado');
+  await tester.ensureVisible(action);
+  await tester.pumpAndSettle();
+  await tester.tap(action);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _backToTimeline(WidgetTester tester) async {
+  await tester.ensureVisible(find.text('Volver a la bitácora'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Volver a la bitácora'));
+  await tester.pumpAndSettle();
 }

@@ -32,12 +32,12 @@ class ClinicalReadQuery {
     ClinicalReadView.timeline => 'clinical_timeline_by_hospitalization',
   };
   String get columns => switch (view) {
-    ClinicalReadView.census => 'organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date',
-    ClinicalReadView.fhirCensus => 'organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date',
+    ClinicalReadView.census => 'organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date,unit_display_name',
+    ClinicalReadView.fhirCensus => 'organization_id,hospitalization_id,patient_id,hospitalization_status,admitted_at,discharged_at,unit_id,bed_label,given_name,family_name,birth_date,unit_display_name',
     ClinicalReadView.demographics => 'organization_id,hospitalization_id,patient_id,given_name,family_name,birth_date',
     // ADR-016 withdrew the audio columns: a milestone is the text its author
     // confirmed, and its provenance stays in `context_notes`.
-    ClinicalReadView.timeline => 'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,author_display_name',
+    ClinicalReadView.timeline => 'organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,author_display_name,category,author_profession,client_event_id',
   };
   List<String> get filterColumns => [
     'organization_id',

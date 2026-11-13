@@ -12,6 +12,9 @@ class ClinicalEventModel extends ClinicalEvent {
     required super.summary,
     super.sourceKind,
     super.authorDisplayName,
+    super.category,
+    super.authorProfession,
+    super.clientEventId,
   });
 
   factory ClinicalEventModel.fromJson(Map<String, dynamic> json) {
@@ -40,6 +43,9 @@ class ClinicalEventModel extends ClinicalEvent {
       createdAt: DateTime.parse(json['created_at'] as String).toUtc(),
       sourceKind: (json['source_kind'] as String?) ?? 'clinical_event',
       authorDisplayName: json['author_display_name'] as String?,
+      category: json['category'] as String?,
+      authorProfession: json['author_profession'] as String?,
+      clientEventId: json['client_event_id'] as String?,
     );
   }
 }

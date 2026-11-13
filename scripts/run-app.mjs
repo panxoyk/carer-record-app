@@ -619,7 +619,7 @@ export async function runApp({
         "supabase",
         "functions",
         "serve",
-        "clinical-record",
+        // Serves every function: clinical-record and clinical-attachment (ADR-022).
         "--env-file",
         await pickGatewayEnv(),
       ],

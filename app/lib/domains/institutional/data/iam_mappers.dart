@@ -54,6 +54,8 @@ IamContext _iamContextFromMembershipRows(List<Map<String, dynamic>> rows) {
         .map((row) => row['permission_code'] as String?)
         .whereType<String>()
         .toSet(),
+    profession: first['profession'] as String?,
+    localIdentifier: first['local_identifier'] as String?,
   );
 }
 

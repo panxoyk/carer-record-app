@@ -18,3 +18,11 @@ abstract interface class DictationArtifacts {
   });
   Future<void> purge(String operationId, {String? recordingPath});
 }
+
+/// Optional capabilities of a recorder used by the Figma recording screen:
+/// pause/resume and a normalized input level (0..1) for the waveform.
+abstract interface class PausableDictationAudio {
+  Future<void> pause();
+  Future<void> resume();
+  Stream<double> levels();
+}
