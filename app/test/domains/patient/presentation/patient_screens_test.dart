@@ -953,6 +953,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Ana Prueba'), findsOneWidget);
+    expect(find.text('Hospitalización en curso'), findsNothing);
     expect(find.text('Activa'), findsNothing);
     expect(
       find.byWidgetPredicate(

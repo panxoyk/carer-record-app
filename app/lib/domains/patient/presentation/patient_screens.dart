@@ -321,11 +321,6 @@ Widget _hospitalizationStatusBadge(String status) => switch (status) {
               ),
             ),
           ),
-          SizedBox(width: 6),
-          Text(
-            'Hospitalización en curso',
-            style: TextStyle(fontSize: 13, color: ClinicalColors.secondary),
-          ),
         ],
       ),
     ),

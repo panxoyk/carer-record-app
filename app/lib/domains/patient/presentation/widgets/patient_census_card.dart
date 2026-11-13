@@ -108,26 +108,43 @@ class PatientCensusCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: status,
-                    ),
-                  ),
-                  if (service != null) ...[
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: ClinicalBadge(
-                        label: service!,
-                        color: tint.background,
-                        textColor: tint.color,
+              if (patient.hospitalizationStatus == 'admitted')
+                Row(
+                  children: [
+                    status,
+                    if (service != null) ...[
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: ClinicalBadge(
+                          label: service!,
+                          color: tint.background,
+                          textColor: tint.color,
+                        ),
+                      ),
+                    ],
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: status,
                       ),
                     ),
+                    if (service != null) ...[
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: ClinicalBadge(
+                          label: service!,
+                          color: tint.background,
+                          textColor: tint.color,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-              ),
+                ),
             ],
           ),
         ),
