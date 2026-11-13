@@ -50,6 +50,7 @@ Map<String, dynamic> _dto({String episode = 'episode-1'}) => {
       'resourceType': 'Observation',
       'title': 'Observation',
       'detail': null,
+      'summaryDetail': null,
     },
   ],
 };
@@ -117,6 +118,7 @@ void main() {
       expect(record.sections.single.entries.single.date, '2025');
       expect(record.sections.single.entries.single.isDateOnly, isTrue);
       expect(record.timeline.single.precision, 'date');
+      expect(record.timeline.single.summaryDetail, isNull);
       expect(record.truncated, isTrue);
     },
   );
@@ -266,6 +268,66 @@ void main() {
   test('record purpose rejects nonempty timeline', () async {
     await rejectsDto(_dto(), purpose: ClinicalRecordPurpose.record);
   });
+
+  test(
+    'parses optional summaryDetail strictly while allowing legacy payloads',
+    () async {
+      final dto = _dto();
+      final item = Map<String, dynamic>.from(
+        (dto['timeline']! as List<Map<String, dynamic>>).single,
+      );
+      dto['timeline'] = <dynamic>[item];
+      item['detail'] = 'original detail';
+      item['summaryDetail'] = 'clinical summary';
+      final client = SupabaseClient(
+        'http://synthetic.test',
+        'synthetic-key',
+        authOptions: const AuthClientOptions(autoRefreshToken: false),
+        httpClient: MockClient(
+          (request) async => http.Response(
+            jsonEncode(dto),
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          ),
+        ),
+      );
+      addTearDown(client.dispose);
+      final result = await AuthorizedClinicalRecordRepositoryImpl(client).load(
+        organizationId: 'org',
+        hospitalizationId: 'episode-1',
+        purpose: ClinicalRecordPurpose.timeline,
+      );
+      expect(result.timeline.single.detail, 'original detail');
+      expect(result.timeline.single.summaryDetail, 'clinical summary');
+
+      item.remove('summaryDetail');
+      final legacyClient = SupabaseClient(
+        'http://synthetic.test',
+        'synthetic-key',
+        authOptions: const AuthClientOptions(autoRefreshToken: false),
+        httpClient: MockClient(
+          (request) async => http.Response(
+            jsonEncode(dto),
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          ),
+        ),
+      );
+      addTearDown(legacyClient.dispose);
+      final legacy = await AuthorizedClinicalRecordRepositoryImpl(legacyClient)
+          .load(
+            organizationId: 'org',
+            hospitalizationId: 'episode-1',
+            purpose: ClinicalRecordPurpose.timeline,
+          );
+      expect(legacy.timeline.single.summaryDetail, isNull);
+
+      item['summaryDetail'] = 42;
+      await rejectsDto(dto);
+    },
+  );
 
   test('record purpose accepts empty timeline', () async {
     final dto = _dto()..['timeline'] = <dynamic>[];

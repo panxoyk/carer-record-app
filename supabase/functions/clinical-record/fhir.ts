@@ -17,6 +17,7 @@ export type TimelineItem = {
   resourceType: string;
   title: string;
   detail: string | null;
+  summaryDetail?: string | null;
 };
 export type ClinicalRecord = {
   status: "complete" | "partial";
@@ -94,9 +95,11 @@ const codings = (cc: Resource): string[] =>
   ): x is string => typeof x === "string" && !!x.trim());
 const codeText = (cc: Resource): string =>
   cc?.text?.trim() || codings(cc).join(" / ") || "Sin descripción";
-function formatQuantity(q: Resource): string | null {
+function formatQuantity(q: Resource, includeComparator = false): string | null {
   if (!q || q.value == null) return null;
-  return `${q.value}${q.unit ? ` ${q.unit}` : q.code ? ` ${q.code}` : ""}`;
+  return `${includeComparator ? q.comparator ?? "" : ""}${q.value}${
+    q.unit ? ` ${q.unit}` : q.code ? ` ${q.code}` : ""
+  }`;
 }
 function dateInfo(value: unknown): { value: string | null; dateOnly: boolean } {
   if (typeof value !== "string") return { value: null, dateOnly: false };
@@ -244,21 +247,25 @@ function detailFor(
   type: string,
   r: Resource,
   observations: Map<string, Resource>,
+  includeComparator = false,
 ): string | null {
   const parts: string[] = [];
   if (type === "Observation") {
-    if (r.valueQuantity) parts.push(formatQuantity(r.valueQuantity)!);
-    else if (r.valueString != null) parts.push(String(r.valueString));
+    if (r.valueQuantity) {
+      parts.push(formatQuantity(r.valueQuantity, includeComparator)!);
+    } else if (r.valueString != null) parts.push(String(r.valueString));
     else if (r.valueCodeableConcept) {
       parts.push(codeText(r.valueCodeableConcept));
     }
     for (const c of r.component ?? []) {
-      const val = formatQuantity(c.valueQuantity) ?? c.valueString ??
+      const val = formatQuantity(c.valueQuantity, includeComparator) ??
+        c.valueString ??
         codeText(c.valueCodeableConcept);
       if (val) parts.push(`${codeText(c.code)}: ${val}`);
     }
     for (const range of r.referenceRange ?? []) {
-      const low = formatQuantity(range.low), high = formatQuantity(range.high);
+      const low = formatQuantity(range.low, includeComparator),
+        high = formatQuantity(range.high, includeComparator);
       parts.push(
         `Referencia: ${low ?? ""}${low && high ? "–" : ""}${high ?? ""}${
           range.text ? ` (${range.text})` : ""
@@ -305,6 +312,132 @@ function detailFor(
     );
   }
   return parts.filter(Boolean).join(" · ") || null;
+}
+function summaryDetailFor(
+  type: string,
+  r: Resource,
+  observations: Map<string, Resource>,
+): string | null {
+  const parts: string[] = [];
+  if (type === "Observation") {
+    if (r.status) parts.push(`Estado: ${r.status}`);
+    const value = detailFor(type, r, observations, true);
+    if (value) parts.push(value);
+  } else if (type === "Condition") {
+    if (r.clinicalStatus) {
+      parts.push(`Estado clínico: ${codeText(r.clinicalStatus)}`);
+    }
+    if (r.verificationStatus) {
+      parts.push(`Verificación: ${codeText(r.verificationStatus)}`);
+    }
+  } else if (type === "MedicationRequest") {
+    if (r.status) parts.push(`Estado: ${r.status}`);
+    if (r.intent) parts.push(`Intención: ${r.intent}`);
+    const medication = codeText(r.medicationCodeableConcept);
+    if (medication !== "Sin descripción") {
+      parts.push(`Medicamento: ${medication}`);
+    }
+    for (const d of r.dosageInstruction ?? []) {
+      const dosage: string[] = [];
+      if (d.text) dosage.push(d.text);
+      if (d.route) dosage.push(`Vía: ${codeText(d.route)}`);
+      for (const x of d.doseAndRate ?? []) {
+        const dose = formatQuantity(x.doseQuantity, true);
+        if (dose) dosage.push(`Dosis: ${dose}`);
+        if (x.doseRange) {
+          const low = formatQuantity(x.doseRange.low, true);
+          const high = formatQuantity(x.doseRange.high, true);
+          if (low || high) {
+            dosage.push(
+              `Rango de dosis: ${low ?? ""}${low && high ? "–" : ""}${
+                high ?? ""
+              }`,
+            );
+          }
+        }
+        const rateQuantity = formatQuantity(x.rateQuantity, true);
+        if (rateQuantity) dosage.push(`Tasa: ${rateQuantity}`);
+        if (x.rateRange) {
+          const low = formatQuantity(x.rateRange.low, true);
+          const high = formatQuantity(x.rateRange.high, true);
+          if (low || high) {
+            dosage.push(
+              `Rango de tasa: ${low ?? ""}${low && high ? "–" : ""}${
+                high ?? ""
+              }`,
+            );
+          }
+        }
+        if (x.rateRatio) {
+          const numerator = formatQuantity(x.rateRatio.numerator, true);
+          const denominator = formatQuantity(x.rateRatio.denominator, true);
+          if (numerator || denominator) {
+            dosage.push(
+              `Tasa — numerador: ${numerator ?? "no indicado"}; denominador: ${
+                denominator ?? "no indicado"
+              }`,
+            );
+          }
+        }
+      }
+      if (d.timing?.repeat) {
+        const repeat = d.timing.repeat;
+        for (
+          const [label, value] of [
+            ["Frecuencia", repeat.frequency],
+            ["Periodo", repeat.period],
+            ["Unidad de periodo", repeat.periodUnit],
+            ["Frecuencia máxima", repeat.frequencyMax],
+            ["Periodo máximo", repeat.periodMax],
+          ] as [string, unknown][]
+        ) {
+          if (value != null) dosage.push(`${label}: ${value}`);
+        }
+      }
+      if (d.timing?.repeat?.duration != null) {
+        dosage.push(
+          `Duración de administración: ${d.timing.repeat.duration}${
+            d.timing.repeat.durationUnit
+              ? ` ${d.timing.repeat.durationUnit}`
+              : ""
+          }`,
+        );
+      }
+      if (d.asNeededBoolean != null) {
+        dosage.push(`Según necesidad: ${d.asNeededBoolean}`);
+      }
+      if (d.asNeededCodeableConcept) {
+        dosage.push(`Según necesidad: ${codeText(d.asNeededCodeableConcept)}`);
+      }
+      if (dosage.length) parts.push(dosage.join("; "));
+    }
+  } else if (type === "Procedure") {
+    if (r.status) parts.push(`Estado: ${r.status}`);
+    if (r.outcome) parts.push(`Resultado: ${codeText(r.outcome)}`);
+  } else if (type === "DiagnosticReport") {
+    if (r.status) parts.push(`Estado: ${r.status}`);
+    if (r.conclusion) parts.push(`Conclusión: ${r.conclusion}`);
+    for (const item of r.result ?? []) {
+      const id = ref(item.reference, "Observation");
+      if (!id) throw new Error("invalid DiagnosticReport result reference");
+      const obs = observations.get(id);
+      if (!obs) {
+        throw new Error(
+          "DiagnosticReport references an unauthorized observation",
+        );
+      }
+      const date = dateInfo(dateFor(obs));
+      const details = detailFor("Observation", obs, observations, true);
+      parts.push(
+        `Resultado ${id} · ${date.value ?? "Fecha no disponible"}${
+          date.dateOnly ? " (fecha)" : date.value ? " (instante)" : ""
+        }: ${codeText(obs.code)}${
+          obs.status ? ` · Estado: ${obs.status}` : ""
+        }${details ? ` · ${details}` : ""}`,
+      );
+    }
+  }
+  return parts.join(" · ") || null;
 }
 function sectionName(t: string): string {
   return ({
@@ -689,6 +822,7 @@ export async function loadClinicalRecord(
           resourceType: type,
           title: titleFor(type, r),
           detail: detailFor(type, r, observationMap),
+          summaryDetail: summaryDetailFor(type, r, observationMap),
         });
       }
     }
