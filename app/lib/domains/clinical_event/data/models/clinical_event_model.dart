@@ -15,6 +15,7 @@ class ClinicalEventModel extends ClinicalEvent {
     super.category,
     super.authorProfession,
     super.clientEventId,
+    super.photoPath,
   });
 
   factory ClinicalEventModel.fromJson(Map<String, dynamic> json) {
@@ -46,6 +47,7 @@ class ClinicalEventModel extends ClinicalEvent {
       category: json['category'] as String?,
       authorProfession: json['author_profession'] as String?,
       clientEventId: json['client_event_id'] as String?,
+      photoPath: json['photo_path'] as String?,
     );
   }
 }

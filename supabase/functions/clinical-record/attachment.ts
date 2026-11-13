@@ -1,5 +1,5 @@
 import type { Context } from "./handler.ts";
-import { NOTE_IDENTIFIER_SYSTEM, PHOTO_CATEGORY } from "./fhir.ts";
+import { PHOTO_CATEGORY } from "./fhir.ts";
 
 /** Base64 of at most 5 MB of image bytes (ADR-024). */
 export const MAX_PHOTO_BYTES = 5_000_000;
@@ -47,23 +47,6 @@ export function base64Size(data: string): number | null {
   }
   const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
   return data.length / 4 * 3 - padding;
-}
-
-/** Checks the image magic bytes against the declared content type. */
-export function matchesImageSignature(
-  contentType: string,
-  data: string,
-): boolean {
-  const head = atob(data.slice(0, 16));
-  const bytes = [...head].map((c) => c.charCodeAt(0));
-  if (contentType === "image/jpeg") {
-    return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-  }
-  if (contentType === "image/png") {
-    return [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
-      .every((b, i) => bytes[i] === b);
-  }
-  return false;
 }
 
 export function isPhotoDocumentFor(r: Resource, ctx: Context): boolean {
@@ -124,69 +107,4 @@ export async function loadAttachment(
   const size = base64Size(data);
   if (size === null || size > MAX_PHOTO_BYTES) throw new Error("invalid photo");
   return { contentType, dataBase64: data };
-}
-
-/** Bundle that stores the photo as Binary plus its DocumentReference. */
-export function photoTransaction(input: {
-  ctx: Context;
-  clientEventId: string;
-  contentType: string;
-  dataBase64: string;
-  takenAt: string;
-}): Resource {
-  const binaryUrl = `urn:uuid:${crypto.randomUUID()}`;
-  return {
-    resourceType: "Bundle",
-    type: "transaction",
-    entry: [
-      {
-        fullUrl: binaryUrl,
-        resource: {
-          resourceType: "Binary",
-          meta: { tag: [{ code: "HTEST" }] },
-          contentType: input.contentType,
-          data: input.dataBase64,
-        },
-        request: { method: "POST", url: "Binary" },
-      },
-      {
-        resource: {
-          resourceType: "DocumentReference",
-          meta: { tag: [{ code: "HTEST" }] },
-          status: "current",
-          type: { text: "Foto de curación" },
-          category: [{
-            coding: [{
-              system: "urn:carer-record:document-category",
-              code: PHOTO_CATEGORY,
-              display: "Foto clínica",
-            }],
-          }],
-          subject: { reference: `Patient/${input.ctx.patient_fhir_id}` },
-          date: input.takenAt,
-          description: "Foto de curación",
-          content: [{
-            attachment: {
-              contentType: input.contentType,
-              url: binaryUrl,
-              title: "Foto de curación",
-              creation: input.takenAt,
-            },
-          }],
-          context: {
-            encounter: [{
-              reference: `Encounter/${input.ctx.encounter_fhir_id}`,
-            }],
-            related: [{
-              identifier: {
-                system: NOTE_IDENTIFIER_SYSTEM,
-                value: input.clientEventId,
-              },
-            }],
-          },
-        },
-        request: { method: "POST", url: "DocumentReference" },
-      },
-    ],
-  };
 }

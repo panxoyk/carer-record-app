@@ -13,6 +13,7 @@ class ClinicalEvent {
     this.category,
     this.authorProfession,
     this.clientEventId,
+    this.photoPath,
   });
 
   final String organizationId;
@@ -39,6 +40,9 @@ class ClinicalEvent {
 
   /// Client event id of a context note; clinical photos link to it.
   final String? clientEventId;
+
+  /// Private Storage path of the photo attached to a context note, if any.
+  final String? photoPath;
 
   /// Milestone authored by dictation. The published row is the text its author
   /// confirmed after local transcription; the audio itself is never stored

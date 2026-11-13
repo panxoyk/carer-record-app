@@ -1562,6 +1562,7 @@ export type Database = {
           "author_display_name": string | null;
           "author_profession": string | null;
           "category": string | null;
+          "client_event_id": string | null;
           "created_at": string | null;
           "event_id": string | null;
           "hospitalization_id": string | null;
@@ -1569,6 +1570,7 @@ export type Database = {
           "occurred_at": string | null;
           "organization_id": string | null;
           "patient_id": string | null;
+          "photo_path": string | null;
           "source_kind": string | null;
           "summary": string | null;
         };
@@ -1865,17 +1867,6 @@ export type Database = {
           "p_organization_id": string;
           "p_purpose"?: string;
         };
-        Returns: {
-          "encounter_fhir_id": string;
-          "hospitalization_id": string;
-          "organization_id": string;
-          "patient_fhir_id": string;
-          "patient_id": string;
-          "source_id": string;
-        }[];
-      };
-      "fhir_authorized_encounter_write_context": {
-        Args: { "p_hospitalization_id": string; "p_organization_id": string };
         Returns: {
           "encounter_fhir_id": string;
           "hospitalization_id": string;

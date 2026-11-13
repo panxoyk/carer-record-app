@@ -7,6 +7,7 @@ import '../../../../core/clinical/clinical_vocabulary.dart';
 import '../../../../core/design_system/clinical_design_system.dart';
 import '../../../../core/time/clinical_time.dart';
 import '../../../fhir_record/domain/authorized_clinical_record.dart';
+import '../../../fhir_record/data/clinical_attachment_repository.dart';
 import '../../../fhir_record/presentation/fhir_record_providers.dart';
 
 /// LOINC codes of nursing controls shown apart from the vital signs line.
@@ -533,13 +534,8 @@ class RelevantObservations extends StatelessWidget {
 
 /// "Ver foto adjunta": downloads the photo through the gateway on demand.
 class ClinicalPhotoAttachment extends ConsumerStatefulWidget {
-  const ClinicalPhotoAttachment({
-    required this.hospitalizationId,
-    required this.documentId,
-    super.key,
-  });
-  final String hospitalizationId;
-  final String documentId;
+  const ClinicalPhotoAttachment({required this.photo, super.key});
+  final ClinicalPhotoRef photo;
 
   @override
   ConsumerState<ClinicalPhotoAttachment> createState() =>
@@ -552,10 +548,7 @@ class _ClinicalPhotoAttachmentState
 
   @override
   Widget build(BuildContext context) {
-    final key = (
-      hospitalizationId: widget.hospitalizationId,
-      documentId: widget.documentId,
-    );
+    final key = widget.photo;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

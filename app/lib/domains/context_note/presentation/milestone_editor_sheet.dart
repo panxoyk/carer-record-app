@@ -14,6 +14,7 @@ import '../../../core/time/clinical_time.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../fhir_record/data/clinical_attachment_repository.dart';
 import '../../fhir_record/presentation/fhir_record_providers.dart';
+import '../../clinical_event/presentation/clinical_event_providers.dart';
 import '../../institutional/presentation/iam_providers.dart';
 import '../../on_device_ai/domain/asr_engine.dart';
 import '../../on_device_ai/domain/local_capability_repository.dart';
@@ -441,10 +442,9 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
             clientEventId: clientEventId,
             contentType: type,
             bytes: photo,
-            takenAt: _publishedAt ?? DateTime.now(),
           );
       ref.invalidate(
-        authorizedClinicalTimelineProvider(widget.patient.hospitalizationId),
+        hospitalizationClinicalEventsProvider(widget.patient.hospitalizationId),
       );
     } catch (_) {
       if (mounted) setState(() => _photoFailed = true);

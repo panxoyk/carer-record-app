@@ -67,22 +67,25 @@ final clinicalAttachmentRepositoryProvider =
     );
 
 /// One clinical photo, downloaded on demand and cached while it is shown.
+/// Photos taken in the app come from Supabase Storage; photos of the clinical
+/// system come from FHIR through the gateway (ADR-024).
 final clinicalPhotoProvider = FutureProvider.autoDispose
-    .family<ClinicalPhoto?, ({String hospitalizationId, String documentId})>((
-      ref,
-      key,
-    ) async {
+    .family<ClinicalPhoto?, ClinicalPhotoRef>((ref, key) async {
       if (ref.watch(sessionProvider) == null) return null;
       final context = await ref.watch(iamContextProvider.future);
       if (context == null) return null;
+      final repository = ref.watch(clinicalAttachmentRepositoryProvider);
       try {
-        return await ref
-            .watch(clinicalAttachmentRepositoryProvider)
-            .download(
-              organizationId: context.organizationId,
-              hospitalizationId: key.hospitalizationId,
-              documentId: key.documentId,
-            );
+        return switch (key.origin) {
+          ClinicalPhotoOrigin.storage => await repository.downloadStored(
+            key.reference,
+          ),
+          ClinicalPhotoOrigin.fhir => await repository.downloadFhir(
+            organizationId: context.organizationId,
+            hospitalizationId: key.hospitalizationId,
+            documentId: key.reference,
+          ),
+        };
       } on ClinicalAuthorizationLost {
         return null;
       }

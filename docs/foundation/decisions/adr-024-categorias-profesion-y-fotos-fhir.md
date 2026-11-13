@@ -1,8 +1,8 @@
-# ADR-024: Categoría de eventos, profesión del autor y fotos clínicas en FHIR
+# ADR-024: Categoría de eventos, profesión del autor y fotos clínicas
 
 - Estado: Aceptada
 - Fecha: 2026-11-14
-- Alcance: diseño definitivo de la app (prototipo Figma v2). Categoría y profesión de las notas de bitácora, servicio en el censo, lectura de administración de medicamentos y balance hídrico, y escritura acotada de fotos de curación en el servidor FHIR.
+- Alcance: diseño definitivo de la app (prototipo Figma v2). Categoría y profesión de las notas de bitácora, servicio en el censo, lectura de administración de medicamentos y balance hídrico, y fotos de curación (tomadas en la app en Supabase Storage; las del sistema clínico, leídas desde FHIR).
 - Relación: complementa ADR-020 (contrato de la pasarela) y ADR-016 (dictado local); sustituye para fotos clínicas la clasificación `D`/`F` de `Media`, `DocumentReference` y `Binary` en `docs/foundation/appendices/fhir-resource-selection.md`.
 
 ## Contexto
@@ -17,15 +17,16 @@ El diseño definitivo clasifica cada evento de la bitácora (Nota clínica, Sign
 4. **Servicio en el censo.** `private.census_unit_display_name` resuelve `units.display_name` solo si el llamador puede leer el episodio; no se concede `org.unit.read` al personal clínico. Las vistas de censo agregan `unit_display_name`.
 5. **Contexto IAM.** `iam_current_context` agrega `profession` y `local_identifier` para Ajustes.
 6. **Lectura FHIR ampliada (ADR-020).** La pasarela lee `MedicationAdministration` (búsqueda por `context`) y `DocumentReference` de categoría `clinical-photo`. Cada entrada agrega `value`, `flag` (de `interpretation` o `referenceRange`, sin umbrales propios), `code`, `category`, `administeredAt` y `noteRef`. Secciones nuevas: `administrations` (dosis programadas en `MedicationRequest.dosageInstruction.timing.event`, emparejadas con la administración de la misma orden más cercana dentro de ±3 h) y `photos` (solo metadatos). El episodio agrega `attendingPhysician` (`Encounter.participant` ATND) y `reason` (`reasonCode` o diagnóstico principal). El balance hídrico usa Observations con categoría local `fluid-intake`/`fluid-output`.
-7. **Fotos clínicas en FHIR, nunca acceso móvil directo.**
-   - Escritura: Edge Function `clinical-attachment`, invocada con el JWT del usuario. Autoriza con `fhir_authorized_encounter_write_context`, que exige el permiso nuevo `clinical.document.create`, `can_write_context_note` y un episodio abierto. Valida JPEG/PNG por firma, máximo 5 MB, instante de captura no futuro y claves cerradas. Escribe una transacción `Binary` + `DocumentReference` (etiqueta `HTEST`, `context.encounter`, `context.related` con `urn:carer-record:context-note|<client_event_id>`) y responde solo el id.
-   - Lectura: `clinical-record` con `purpose: "attachment"` y `documentId`; autoriza como `record`, verifica que el documento sea una foto del mismo paciente y encuentro, revalida y devuelve `{contentType, dataBase64}`.
-   - No hay URLs públicas ni Storage de Supabase. Una foto que falla al subir no revierte la nota publicada: la app ofrece reintentar.
+7. **Fotos clínicas: las de la app en Supabase Storage, las del sistema clínico en FHIR.**
+   - Fotos tomadas en la app (revisión de esta ADR, decisión del equipo): se guardan en el bucket privado `clinical-photos` de Supabase Storage (JPEG/PNG, máximo 5 MB, sin URL pública), junto a la nota a la que pertenecen. La ruta es fija, `<organization_id>/<hospitalization_id>/<client_event_id>.jpg|png`. RLS sobre `storage.objects` solo permite **subir** si el usuario tiene `clinical.document.create`, puede escribir notas en el episodio, el episodio está abierto y existe una nota confirmada **suya** con ese `client_event_id`; **leer** exige el mismo alcance que leer las notas del episodio. No hay políticas de actualización ni borrado: la foto es inmutable como la nota. La bitácora expone `photo_path` por nota.
+   - Fotos del sistema clínico: se leen desde FHIR (`DocumentReference` de categoría `clinical-photo` + `Binary`) con `clinical-record`, `purpose: "attachment"` y `documentId`; la pasarela autoriza como `record`, verifica que el documento sea una foto del mismo paciente y encuentro y devuelve `{contentType, dataBase64}`. La app nunca escribe en FHIR.
+   - Una foto que falla al subir no revierte la nota publicada: la app ofrece reintentar, y reintentar después de una respuesta perdida es seguro (la ruta ya existe).
+   - Motivo de la revisión: nota y foto quedan en el mismo sistema, con las mismas reglas de acceso y sin depender de la pasarela para escribir. Consecuencia: un `db:reset` borra ambas juntas.
 8. **Biometría.** El bloqueo con Face ID/huella es una preferencia local del dispositivo (keystore) sobre una sesión ya iniciada; no se guardan contraseñas ni tokens adicionales.
 
 ## Consecuencias
 
 - Las notas antiguas sin categoría se muestran como `nota_clinica`.
 - El fixture sintético agrega médico tratante, motivo, dosis programadas/administradas, HGT, diuresis, ingresos/egresos y una foto demo (maniquí).
-- Pruebas: `supabase/tests/event_category_profession.test.sql`, `supabase/functions/clinical-attachment/handler_test.ts`, `fhir_test.ts` (ADR-024) y `app/test/domains/figma_v2_flows_test.dart`.
-- Riesgo abierto: HAPI local sigue sin autenticación; la escritura de fotos solo ocurre desde la pasarela del servidor.
+- Pruebas: `supabase/tests/event_category_profession.test.sql` (incluye las políticas de Storage), `fhir_test.ts` (ADR-024), `app/test/domains/fhir_record/data/clinical_attachment_repository_test.dart` y `app/test/domains/figma_v2_flows_test.dart`.
+- Riesgo abierto: HAPI local sigue sin autenticación; la app solo lo lee a través de la pasarela.

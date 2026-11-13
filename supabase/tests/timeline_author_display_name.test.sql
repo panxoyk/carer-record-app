@@ -71,7 +71,7 @@ select ok(not has_column_privilege('authenticated','public.profiles','auth_user_
 select is((select array_agg(column_name order by ordinal_position)::text
   from information_schema.columns where table_schema='public'
     and table_name='clinical_timeline_by_hospitalization'),
-  '{organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,author_display_name,category,author_profession,client_event_id}',
+  '{organization_id,hospitalization_id,event_id,kind,occurred_at,summary,patient_id,created_at,source_kind,author_display_name,category,author_profession,client_event_id,photo_path}',
   'timeline exposes the contracted author name but no UUID/email column');
 select ok((select reloptions @> array['security_invoker=true','security_barrier=true']
   from pg_class where oid='public.clinical_timeline_by_hospitalization'::regclass),

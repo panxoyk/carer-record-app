@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap;
-select plan(14);
+select plan(23);
 
 -- ADR-024 fixture: one author with a profession, one reader, one outsider.
 insert into auth.users (
@@ -84,9 +84,22 @@ select is((select unit_display_name from public.clinical_census_by_hospitalizati
   'Cirugía', 'assigned reader sees the service name in the census');
 select is((select profession from public.iam_current_context limit 1),
   'enfermeria', 'current context exposes the member profession');
-select is((select count(*)::int from public.fhir_authorized_encounter_write_context(
-    'e2100000-0000-0000-0000-000000000001','e2800000-0000-0000-0000-000000000001')),
-  0, 'write context stays empty for an episode without FHIR links');
+-- Clinical photos in Supabase Storage (ADR-024 revision).
+select ok(private.can_store_clinical_photo('e2100000-0000-0000-0000-000000000001/e2800000-0000-0000-0000-000000000001/e2910000-0000-0000-0000-000000000001.jpg'),
+  'author may attach a photo to an own confirmed note');
+select ok(not private.can_store_clinical_photo('e2100000-0000-0000-0000-000000000001/e2800000-0000-0000-0000-000000000001/e2910000-0000-0000-0000-00000000ffff.jpg'),
+  'a photo needs an existing note of the author');
+select ok(not private.can_store_clinical_photo('e2100000-0000-0000-0000-000000000001/e2800000-0000-0000-0000-000000000001/e2910000-0000-0000-0000-000000000001.gif'),
+  'only jpg and png paths are accepted');
+select lives_ok($$ insert into storage.objects (bucket_id, name)
+  values ('clinical-photos', 'e2100000-0000-0000-0000-000000000001/e2800000-0000-0000-0000-000000000001/e2910000-0000-0000-0000-000000000001.jpg') $$,
+  'storage RLS accepts the photo of an own note');
+select throws_ok($$ insert into storage.objects (bucket_id, name)
+  values ('clinical-photos', 'e2100000-0000-0000-0000-000000000001/e2800000-0000-0000-0000-000000000001/e2910000-0000-0000-0000-00000000ffff.jpg') $$,
+  '42501', null, 'storage RLS rejects a photo without its note');
+select is((select photo_path from public.clinical_timeline_by_hospitalization
+  where hospitalization_id='e2800000-0000-0000-0000-000000000001' and source_kind='context_note'),
+  'e2100000-0000-0000-0000-000000000001/e2800000-0000-0000-0000-000000000001/e2910000-0000-0000-0000-000000000001.jpg', 'timeline exposes the private photo path');
 reset role;
 
 set local role authenticated;
@@ -97,11 +110,23 @@ select is(private.census_unit_display_name('e2100000-0000-0000-0000-000000000001
 select is((select count(*)::int from public.clinical_timeline_by_hospitalization
   where hospitalization_id='e2800000-0000-0000-0000-000000000001'),
   0, 'outsider cannot read categories or professions');
+select ok(not private.can_read_clinical_photo('e2100000-0000-0000-0000-000000000001/e2800000-0000-0000-0000-000000000001/e2910000-0000-0000-0000-000000000001.jpg'),
+  'outsider cannot read the photo');
+select is((select count(*)::int from storage.objects where bucket_id='clinical-photos'),
+  0, 'outsider sees no clinical photo objects');
+select throws_ok($$ insert into storage.objects (bucket_id, name)
+  values ('clinical-photos', 'e2100000-0000-0000-0000-000000000001/e2800000-0000-0000-0000-000000000001/e2910000-0000-0000-0000-000000000001.png') $$,
+  '42501', null, 'outsider cannot attach photos');
 reset role;
 
 select ok(not has_function_privilege('anon',
-  'public.fhir_authorized_encounter_write_context(uuid,uuid)','execute'),
-  'anonymous callers cannot request a FHIR write context');
+  'private.can_store_clinical_photo(text)','execute'),
+  'anonymous callers cannot evaluate photo storage');
+select is((select count(*)::int from pg_policies
+  where schemaname='storage' and tablename='objects'
+    and cmd in ('UPDATE','DELETE','ALL')
+    and coalesce(qual,'') || coalesce(with_check,'') like '%clinical-photos%'),
+  0, 'clinical photos cannot be replaced or deleted');
 
 select * from finish();
 rollback;
