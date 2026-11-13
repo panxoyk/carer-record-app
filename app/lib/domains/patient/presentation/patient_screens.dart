@@ -13,6 +13,7 @@ import '../../period_summary/presentation/period_summary_providers.dart';
 import '../../institutional/presentation/iam_providers.dart';
 import '../../fhir_record/presentation/fhir_record_providers.dart';
 import '../../fhir_record/domain/authorized_clinical_record.dart';
+import '../../fhir_record/data/clinical_attachment_repository.dart';
 import '../../../core/session/authorization_refresh.dart';
 import '../domain/entities/patient.dart';
 import 'patient_providers.dart';
@@ -1077,14 +1078,31 @@ class _TimelineGroupsState extends State<_TimelineGroups> {
       if (photo.noteRef != null) photo.noteRef!: photo.resourceId,
   };
 
+  /// Photo of the clinical system (FHIR) linked to [reference].
   Widget? _photo(String? reference, Map<String, String> photos) {
     final documentId = reference == null ? null : photos[reference];
     return documentId == null
         ? null
         : ClinicalPhotoAttachment(
-            hospitalizationId: widget.hospitalizationId,
-            documentId: documentId,
+            photo: (
+              hospitalizationId: widget.hospitalizationId,
+              reference: documentId,
+              origin: ClinicalPhotoOrigin.fhir,
+            ),
           );
+  }
+
+  /// Photo taken in the app and stored with its note in Supabase Storage.
+  Widget? _notePhoto(ClinicalEvent event, Map<String, String> photos) {
+    final path = event.photoPath;
+    if (path == null) return _photo(event.clientEventId, photos);
+    return ClinicalPhotoAttachment(
+      photo: (
+        hospitalizationId: widget.hospitalizationId,
+        reference: path,
+        origin: ClinicalPhotoOrigin.storage,
+      ),
+    );
   }
 
   @override
@@ -1140,7 +1158,7 @@ class _TimelineGroupsState extends State<_TimelineGroups> {
             author: event.isMilestone ? event.authorDisplayName : null,
             role: profession?.roleLabel,
             isNote: event.isMilestone,
-            attachment: _photo(event.clientEventId, photos),
+            attachment: _notePhoto(event, photos),
           ),
         ),
       );

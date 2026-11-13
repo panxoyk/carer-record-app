@@ -22,6 +22,7 @@ void main() {
         'category',
         'author_profession',
         'client_event_id',
+        'photo_path',
       ]);
       expect(query.viewName, 'clinical_timeline_by_hospitalization');
     });

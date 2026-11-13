@@ -42,8 +42,5 @@ verify_jwt = true
 [functions.clinical-record]
 verify_jwt = false
 
-[functions.clinical-attachment]
-verify_jwt = false
-
 [analytics]
 enabled = false
