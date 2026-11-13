@@ -15,6 +15,7 @@ import '../../auth/presentation/auth_providers.dart';
 import '../../fhir_record/data/clinical_attachment_repository.dart';
 import '../../fhir_record/presentation/fhir_record_providers.dart';
 import '../../institutional/presentation/iam_providers.dart';
+import '../../on_device_ai/domain/asr_engine.dart';
 import '../../on_device_ai/domain/local_capability_repository.dart';
 import '../../on_device_ai/domain/local_capability_usage.dart';
 import '../../on_device_ai/presentation/local_ai_providers.dart';
@@ -80,6 +81,12 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
   bool get _isBusy => _busy || _dictation.busy;
   late final NoteAssistanceController _assistance;
   LocalCapabilityUsageLease? _usageLease;
+
+  /// Keeps the on-device ASR engine alive for the whole flow. The provider is
+  /// auto-dispose and frees the native model when nobody watches it; the
+  /// recording and processing steps do not watch it, so without this the
+  /// engine could be disposed while it transcribes.
+  late final ProviderSubscription<AsyncValue<AsrEngine?>> _asrKeepAlive;
   late final MilestoneEditorController _publication;
   Timer? _ticker;
 
@@ -117,6 +124,7 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
       loadEngine: () => ref.read(asrEngineProvider.future),
       newId: _uuid.v4,
     )..addListener(_onDictationChanged);
+    _asrKeepAlive = ref.listenManual(asrEngineProvider, (_, __) {});
     _usageLease = ref
         .read(localCapabilityUsageProvider)
         .acquire(LocalCapability.values);
@@ -157,6 +165,7 @@ class _MilestoneEditorSheetState extends ConsumerState<_MilestoneEditorSheet> {
   void dispose() {
     _ticker?.cancel();
     _usageLease?.release();
+    _asrKeepAlive.close();
     _dictation.removeListener(_onDictationChanged);
     _dictation.dispose();
     _textController.removeListener(_onTextChanged);

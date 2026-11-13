@@ -52,7 +52,7 @@ for each row execute function private.snapshot_context_note_author_profession();
 revoke all on public.context_notes from public, anon, authenticated, service_role;
 grant select (id, organization_id, hospitalization_id, patient_id, input_method,
   content, transcription_metadata, status, occurred_at, created_at, category,
-  author_profession)
+  author_profession, client_event_id)
   on public.context_notes to authenticated;
 grant insert (organization_id, hospitalization_id, patient_id, input_method,
   content, transcription_metadata, client_event_id, category)
