@@ -121,6 +121,75 @@ void main() {
     },
   );
 
+  test(
+    'serializes an optional range as UTC and omits it when absent',
+    () async {
+      final requests = <http.Request>[];
+      final client = SupabaseClient(
+        'http://synthetic.test',
+        'synthetic-key',
+        authOptions: const AuthClientOptions(autoRefreshToken: false),
+        httpClient: MockClient((request) async {
+          requests.add(request);
+          return http.Response(
+            jsonEncode(_dto()),
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          );
+        }),
+      );
+      addTearDown(client.dispose);
+      final repository = AuthorizedClinicalRecordRepositoryImpl(client);
+      await repository.load(
+        organizationId: 'org',
+        hospitalizationId: 'episode-1',
+        purpose: ClinicalRecordPurpose.timeline,
+      );
+      expect(jsonDecode(requests.single.body), isNot(contains('range')));
+      await repository.load(
+        organizationId: 'org',
+        hospitalizationId: 'episode-1',
+        purpose: ClinicalRecordPurpose.timeline,
+        range: ClinicalRecordRange(
+          fromUtc: DateTime.parse('2026-01-01T03:00:00+03:00'),
+          toUtc: DateTime.parse('2026-01-02T03:00:00+03:00'),
+        ),
+      );
+      expect(jsonDecode(requests.last.body), {
+        'organizationId': 'org',
+        'hospitalizationId': 'episode-1',
+        'purpose': 'timeline',
+        'range': {
+          'fromUtc': '2026-01-01T00:00:00.000Z',
+          'toUtc': '2026-01-02T00:00:00.000Z',
+        },
+      });
+    },
+  );
+
+  test('rejects an empty or reversed optional range before invoking', () async {
+    final client = SupabaseClient(
+      'http://synthetic.test',
+      'synthetic-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+      httpClient: MockClient((request) async => http.Response('{}', 200)),
+    );
+    addTearDown(client.dispose);
+    expect(
+      () => AuthorizedClinicalRecordRepositoryImpl(client).load(
+        organizationId: 'org',
+        hospitalizationId: 'episode-1',
+        purpose: ClinicalRecordPurpose.timeline,
+        range: ClinicalRecordRange(
+          fromUtc: DateTime.utc(2026),
+          toUtc: DateTime.utc(2026),
+        ),
+      ),
+      throwsFormatException,
+    );
+  });
+
   test('rejects episode and expected internal patient mismatches', () async {
     final client = SupabaseClient(
       'http://synthetic.test',

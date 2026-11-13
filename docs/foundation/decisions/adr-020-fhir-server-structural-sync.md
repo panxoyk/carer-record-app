@@ -16,8 +16,18 @@ La pasarela implementada es Edge Function `clinical-record`, invocada con JWT de
 Contrato implementado `POST /clinical-record`. `purpose` es opcional y por defecto `record`; los propósitos válidos son `record` y `timeline`:
 
 ```json
-{ "organizationId": "uuid", "hospitalizationId": "uuid", "purpose": "record" }
+{
+  "organizationId": "uuid",
+  "hospitalizationId": "uuid",
+  "purpose": "record",
+  "range": {
+    "fromUtc": "2026-10-20T00:00:00Z",
+    "toUtc": "2026-10-21T00:00:00Z"
+  }
+}
 ```
+
+`range` es opcional. Si se omite, la consulta mantiene el comportamiento previo de ficha/timeline completos del paciente/episodio. Si se incluye, contiene exactamente instantes UTC `fromUtc` y `toUtc`, con inicio menor que término y término no futuro. La Edge no recibe una zona horaria en el request. Para este MVP local y sintético, `clinical-record` interpreta fechas FHIR date-only en la zona fija `America/Santiago`; nunca usa un offset fijo como UTC-3. El contexto RPC sigue validando tenant y episodio autorizado, pero no provee la zona usada por el filtro. Los recursos sin fecha soportada quedan fuera del rango. `dateFor` admite `effectiveDateTime`, `effectiveDate`, `issued`, `authoredOn`, `performedDateTime`, `performedPeriod.start`, `onsetDateTime`, `recordedDate` y `date`; una variante de perfil no soportada cae en la regla de fecha ausente, no se adivina. El límite existente de 500 recursos y el estado parcial/truncado se mantienen sin cambios.
 
 Respuesta tipada: `{status: "complete"|"partial", truncated: boolean, freshness: {retrievedAt: string, sourceUpdatedAt: string|null}, patient: {id: string, name: string, identifier: string|null, birthDate: string|null, gender: string|null}, hospitalization: {id: string, status: string, admittedAt: string, dischargedAt: string|null, unit: string|null, bed: string|null}, sections: [{type: string, entries: [{id: string, title: string, detail: string|null, date: string|null, isDateOnly: boolean, sourceKind: string}]}], timeline: [{id: string, occurredAt: string|null, precision: string|null, resourceType: string, title: string, detail: string|null}]}`. `patient.id` es el ID interno; cada `sourceKind`/ID de entrada identifica la fuente como `demo-hapi/<type>/<id>`. Los IDs de entradas/timeline son estables por fuente y recurso. No se retorna JSON FHIR crudo. La pasarela obtiene URL y credenciales exclusivamente de configuración servidor.
 
@@ -26,3 +36,5 @@ La consulta de censo/lista usa la vista `fhir_clinical_census_by_hospitalization
 ## Estado
 
 Implementado en el corte mínimo: migraciones estructurales y guardas, generador de fixture reproducible, sincronización, pasarela `clinical-record`, contratos Dart tipados y vistas autorizadas de censo/ficha. La consulta móvil directa heredada se retiró. El fixture actual contiene 20 pacientes; el arranque `pnpm app:run` reutiliza/inicia Supabase y HAPI, re-aplica el transaction bundle con PUT sin borrar otros recursos, sincroniza vínculos y asignaciones y espera la función `clinical-record` antes de Flutter. En una base limpia se esperan 20 episodios: 14 abiertos (8 asignados y 6 sin asignar) y 6 cerrados históricos con `validUntil`. El arranque no purga recursos ni reemplaza asignaciones existentes: inserta una asignación solo si el par episodio/membresía no existe, por lo que tampoco renueva asignaciones históricas de pares existentes. Una asignación cerrada con `validUntil` vencido no concede por sí sola lectura clínica; el Administrador de demo puede leer episodios cerrados mediante sus permisos reservados y guardas RLS. No es ingesta clínica completa. HAPI aún opera sin autenticación: el compose local lo limita a loopback, pero el runtime de servidor legado escucha `0.0.0.0`; no declarar el riesgo de exposición cerrado fuera de esa configuración.
+
+La lectura acotada por rango UTC conserva las mismas reglas de autorización y solo filtra la respuesta; no concede acceso adicional. Los resúmenes históricos guardan su zona de generación y nunca se reescriben; el contrato actual de resumen exige `America/Santiago` y falla explícitamente ante discrepancia, sin modificar seed ni migraciones. El contexto de resumen puede devolver la zona organizacional mediante su RPC autorizada para comprobar ese contrato, sin una llamada de red adicional; la organización de demo está sembrada con `America/Santiago`. La zona organizacional dinámica sigue siendo la dirección objetivo para un futuro alcance multiinstitución, no el contrato de este MVP local/sintético.

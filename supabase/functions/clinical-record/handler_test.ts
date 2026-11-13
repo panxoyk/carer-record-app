@@ -22,6 +22,13 @@ const body = (purpose?: unknown) =>
     hospitalizationId: ctx.hospitalization_id,
     ...(purpose === undefined ? {} : { purpose }),
   });
+const rangedBody = (range: unknown) =>
+  JSON.stringify({
+    organizationId: ctx.organization_id,
+    hospitalizationId: ctx.hospitalization_id,
+    purpose: "timeline",
+    range,
+  });
 const request = (value: BodyInit, extra: Record<string, string> = {}) =>
   new Request("http://local/clinical-record", {
     method: "POST",
@@ -70,12 +77,14 @@ const handler = (
   fetcher = upstream(),
   authenticate = (_auth: string) => Promise.resolve(true),
   baseUrl: string | undefined = "http://hapi/fhir",
+  now?: () => Date,
 ) => {
   let calls = 0;
   return {
     run: createHandler({
       authenticate,
       baseUrl,
+      now,
       fetcher,
       context: async (_o, _h, p) => await context(++calls, p),
     }),
@@ -167,6 +176,12 @@ Deno.test("unknown and malformed inputs rejected; body cap streams", async () =>
     )).status,
     400,
   );
+  assertEquals(
+    (await h.run(
+      request(JSON.stringify({ ...JSON.parse(body()), timezone: "UTC" })),
+    )).status,
+    400,
+  );
   assertEquals((await h.run(request("{"))).status, 400);
   const tooLarge = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -175,4 +190,50 @@ Deno.test("unknown and malformed inputs rejected; body cap streams", async () =>
   });
   assertEquals((await h.run(request(tooLarge))).status, 413);
   assertEquals((await h.run(request(body(12)))).status, 400);
+});
+Deno.test("range requires strict valid UTC instants and uses fixed demo timezone", async () => {
+  const now = new Date().toISOString();
+  const from = new Date(Date.parse(now) - 60_000).toISOString();
+  const invalid = [
+    { fromUtc: from, toUtc: now, extra: true },
+    { fromUtc: "2026-02-30T00:00:00Z", toUtc: now },
+    { fromUtc: now, toUtc: from },
+    { fromUtc: from, toUtc: new Date(Date.now() + 60_000).toISOString() },
+    { fromUtc: "2026-01-01T00:00:00", toUtc: now },
+  ];
+  for (const range of invalid) {
+    assertEquals(
+      (await handler(() => ctx).run(request(rangedBody(range)))).status,
+      400,
+    );
+  }
+  const h = handler(() => ctx);
+  assertEquals(
+    (await h.run(request(rangedBody({ fromUtc: from, toUtc: now })))).status,
+    200,
+  );
+});
+Deno.test("range future validation uses the injected handler clock", async () => {
+  const fixedNow = new Date("2026-01-03T00:00:00Z");
+  const h = handler(
+    () => ctx,
+    upstream(),
+    undefined,
+    undefined,
+    () => fixedNow,
+  );
+  assertEquals(
+    (await h.run(request(rangedBody({
+      fromUtc: "2026-01-02T00:00:00Z",
+      toUtc: "2026-01-03T00:00:00Z",
+    })))).status,
+    200,
+  );
+  assertEquals(
+    (await h.run(request(rangedBody({
+      fromUtc: "2026-01-02T00:00:00Z",
+      toUtc: "2026-01-03T00:00:00.001Z",
+    })))).status,
+    400,
+  );
 });

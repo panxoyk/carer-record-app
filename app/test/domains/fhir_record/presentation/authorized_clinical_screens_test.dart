@@ -9,6 +9,7 @@ import 'package:carer_record_app/domains/institutional/presentation/iam_provider
 import 'package:carer_record_app/domains/patient/domain/entities/patient.dart';
 import 'package:carer_record_app/domains/patient/presentation/patient_providers.dart';
 import 'package:carer_record_app/domains/patient/presentation/patient_screens.dart';
+import 'package:carer_record_app/domains/period_summary/presentation/period_summary_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -157,6 +158,7 @@ Widget testApp({
   );
   return ProviderScope(
     overrides: [
+      periodSummaryAllowedProvider.overrideWith((ref) => false),
       iamContextProvider.overrideWith((ref) async => allowedIam),
       patientProvider(episodeId)
           .overrideWith((ref) async => patient ?? censusPatient),

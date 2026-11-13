@@ -103,6 +103,247 @@ Deno.test("preserves date precision, renders components, and omits timeline for 
     "record purpose must not expose timeline",
   );
 });
+Deno.test("range searches use conservative date bounds and final local-date overlap", async () => {
+  const { fetcher, calls } = client();
+  const result = await loadClinicalRecord(
+    ctx,
+    "timeline",
+    fetcher,
+    "http://hapi/fhir",
+    { fromUtc: "2026-01-02T00:00:00Z", toUtc: "2026-01-03T00:00:00Z" },
+    "America/Santiago",
+  );
+  assert(
+    result.sections.find((s) => s.type === "conditions")!.entries.length === 1,
+    "date-only event overlapping the UTC window was excluded",
+  );
+  assert(
+    result.timeline.length === 2,
+    "bounded timeline omitted supported dated sources",
+  );
+  assert(
+    calls.some((url) => url.includes("onset-date=ge2026-01-01")),
+    "Condition onset search did not use a conservative lower bound",
+  );
+  assert(
+    calls.some((url) => url.includes("recorded-date=ge2026-01-01")),
+    "Condition recorded-date fallback was not queried",
+  );
+  assert(
+    calls.some((url) => url.includes("date%3Amissing=true")),
+    "fallback-missing date union was not queried",
+  );
+});
+Deno.test("Condition unions reject conflicting duplicate resource identities", async () => {
+  const { fetcher: baseFetcher } = client();
+  const fetcher: typeof fetch = (input, init) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/Condition")) {
+      const recorded = url.searchParams.has("recorded-date");
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            resourceType: "Bundle",
+            type: "searchset",
+            entry: [{
+              resource: {
+                resourceType: "Condition",
+                id: "duplicate",
+                subject: { reference: "Patient/p1" },
+                encounter: { reference: "Encounter/e1" },
+                code: { text: recorded ? "changed" : "original" },
+                onsetDateTime: "2026-01-02",
+              },
+            }],
+          }),
+          { headers: { "content-type": "application/fhir+json" } },
+        ),
+      );
+    }
+    return baseFetcher(input, init);
+  };
+  let failed = false;
+  try {
+    await loadClinicalRecord(ctx, "timeline", fetcher, "http://hapi/fhir", {
+      fromUtc: "2026-01-02T00:00:00Z",
+      toUtc: "2026-01-03T00:00:00Z",
+    }, "UTC");
+  } catch {
+    failed = true;
+  }
+  assert(
+    failed,
+    "conflicting Condition resources from search union were accepted",
+  );
+});
+Deno.test("range fetches report details after filtering without emitting linked old observations", async () => {
+  const { fetcher: baseFetcher, calls } = client({
+    Condition: { resourceType: "Bundle", type: "searchset", entry: [] },
+    DiagnosticReport: {
+      resourceType: "Bundle",
+      type: "searchset",
+      entry: [{
+        resource: {
+          resourceType: "DiagnosticReport",
+          id: "report-in-range",
+          subject: { reference: "Patient/p1" },
+          encounter: { reference: "Encounter/e1" },
+          code: { text: "Report" },
+          effectiveDateTime: "2026-01-02T12:00:00Z",
+          result: [{ reference: "Observation/old-observation" }],
+        },
+      }, {
+        resource: {
+          resourceType: "DiagnosticReport",
+          id: "report-out-of-range",
+          subject: { reference: "Patient/p1" },
+          encounter: { reference: "Encounter/e1" },
+          code: { text: "Old report" },
+          effectiveDateTime: "2025-01-01T12:00:00Z",
+          result: [{ reference: "Observation/discarded-observation" }],
+        },
+      }],
+    },
+    Observation: { resourceType: "Bundle", type: "searchset", entry: [] },
+  });
+  let linkedFetches = 0;
+  const fetcher: typeof fetch = (input, init) => {
+    const url = new URL(String(input));
+    if (
+      url.pathname.includes("/Observation/old-observation") ||
+      url.pathname.includes("/Observation/discarded-observation")
+    ) {
+      linkedFetches++;
+      const id = url.pathname.split("/").at(-1)!;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            resourceType: "Observation",
+            id,
+            subject: { reference: "Patient/p1" },
+            encounter: { reference: "Encounter/e1" },
+            code: { text: "Historical lab" },
+            effectiveDateTime: "2025-01-01T00:00:00Z",
+            valueString: "detail",
+          }),
+          { headers: { "content-type": "application/fhir+json" } },
+        ),
+      );
+    }
+    return baseFetcher(input, init);
+  };
+  const result = await loadClinicalRecord(
+    ctx,
+    "timeline",
+    fetcher,
+    "http://hapi/fhir",
+    {
+      fromUtc: "2026-01-02T00:00:00Z",
+      toUtc: "2026-01-03T00:00:00Z",
+    },
+    "UTC",
+  );
+  assert(linkedFetches === 1, "linked detail Observation was not fetched");
+  assert(
+    result.timeline.length === 1 &&
+      result.timeline[0].resourceType === "DiagnosticReport",
+    "out-of-range linked Observation was emitted as an event",
+  );
+  assert(
+    result.timeline[0].detail?.includes("Historical lab: detail"),
+    "linked Observation was not used in report details",
+  );
+  assert(calls.length > 0, "expected source fixture calls");
+});
+Deno.test("range includes its start and excludes its end instant", async () => {
+  const { fetcher } = client({
+    Observation: {
+      resourceType: "Bundle",
+      type: "searchset",
+      entry: [
+        ...["2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"].map((date, i) => ({
+          resource: {
+            resourceType: "Observation",
+            id: `boundary${i}`,
+            subject: { reference: "Patient/p1" },
+            encounter: { reference: "Encounter/e1" },
+            code: { text: `Boundary ${i}` },
+            effectiveDateTime: date,
+          },
+        })),
+      ],
+    },
+  });
+  const result = await loadClinicalRecord(
+    ctx,
+    "timeline",
+    fetcher,
+    "http://hapi/fhir",
+    { fromUtc: "2026-01-02T00:00:00Z", toUtc: "2026-01-03T00:00:00Z" },
+    "UTC",
+  );
+  const observations = result.timeline.filter((item) =>
+    item.resourceType === "Observation"
+  );
+  assert(
+    observations.length === 1 && observations[0].id.endsWith("/boundary0"),
+    "range must include fromUtc and exclude toUtc",
+  );
+});
+Deno.test("date-only overlap handles skipped midnight and years below 0100", async () => {
+  const loadConditionDate = async (
+    date: string,
+    range: { fromUtc: string; toUtc: string },
+    timezone: string,
+  ) => {
+    const { fetcher } = client({
+      Condition: {
+        resourceType: "Bundle",
+        type: "searchset",
+        entry: [{
+          resource: {
+            resourceType: "Condition",
+            id: "date-only",
+            subject: { reference: "Patient/p1" },
+            encounter: { reference: "Encounter/e1" },
+            code: { text: "Date only" },
+            onsetDateTime: date,
+          },
+        }],
+      },
+    });
+    const result = await loadClinicalRecord(
+      ctx,
+      "timeline",
+      fetcher,
+      "http://hapi/fhir",
+      range,
+      timezone,
+    );
+    return result.timeline.some((item) => item.id.endsWith("/date-only"));
+  };
+  assert(
+    !(await loadConditionDate("2026-09-06", {
+      fromUtc: "2026-09-06T03:59:00Z",
+      toUtc: "2026-09-06T04:00:00Z",
+    }, "America/Santiago")),
+    "date should not begin before Santiago's skipped midnight transition",
+  );
+  assert(
+    await loadConditionDate("2026-09-06", {
+      fromUtc: "2026-09-06T04:00:00Z",
+      toUtc: "2026-09-06T05:00:00Z",
+    }, "America/Santiago"),
+    "date should begin at the first instant of Santiago's skipped-midnight day",
+  );
+  assert(
+    await loadConditionDate("0099-01-01", {
+      fromUtc: "0099-01-01T00:00:00Z",
+      toUtc: "0099-01-02T00:00:00Z",
+    }, "UTC"),
+    "calendar conversion must preserve years below 0100",
+  );
+});
 Deno.test("rejects a foreign patient resource even when search filters are ignored", async () => {
   const { fetcher } = client({
     Observation: {

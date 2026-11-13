@@ -1,4 +1,5 @@
 import type { Context } from "./handler.ts";
+import type { UtcRange } from "./handler.ts";
 
 export type Purpose = "record" | "timeline";
 export type Entry = {
@@ -61,6 +62,32 @@ const ref = (value: unknown, type: string): string | null => {
   const m = new RegExp(`^${type}/([A-Za-z0-9.-]{1,64})$`).exec(value);
   return m?.[1] ?? null;
 };
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value && typeof value === "object") {
+    const object = value as Resource;
+    return `{${
+      Object.keys(object).sort().map((key) =>
+        `${JSON.stringify(key)}:${canonical(object[key])}`
+      ).join(",")
+    }}`;
+  }
+  return JSON.stringify(value);
+}
+function mergeUnique(resources: Resource[]): Resource[] {
+  const found = new Map<string, Resource>();
+  for (const resource of resources) {
+    const previous = found.get(resource.id);
+    if (
+      previous && (previous.meta?.versionId !== resource.meta?.versionId ||
+        canonical(previous) !== canonical(resource))
+    ) {
+      throw new Error("conflicting duplicate FHIR resource");
+    }
+    if (!previous) found.set(resource.id, resource);
+  }
+  return [...found.values()];
+}
 const codings = (cc: Resource): string[] =>
   (cc?.coding ?? []).map((x: Resource) => x.display || x.code).filter((
     x: unknown,
@@ -137,6 +164,81 @@ function dateFor(r: Resource): string | null {
     r.authoredOn ?? r.performedDateTime ?? r.performedPeriod?.start ??
     r.onsetDateTime ?? r.recordedDate ?? r.date;
   return dateInfo(v).value;
+}
+function utcDate(year: number, month: number, day: number): Date {
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  date.setUTCHours(0, 0, 0, 0);
+  return date;
+}
+function localDateKey(time: number, timezone: string): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(time).map((part) => [part.type, part.value]),
+  );
+  return `${parts.year.padStart(4, "0")}-${parts.month}-${parts.day}`;
+}
+function firstInstantOnOrAfterLocalDate(key: string, timezone: string): number {
+  const [year, month, day] = key.split("-").map(Number);
+  const approximate = utcDate(year, month, day).getTime();
+  let low = approximate - 48 * 60 * 60 * 1000;
+  let high = approximate + 48 * 60 * 60 * 1000;
+  if (
+    localDateKey(low, timezone) >= key || localDateKey(high, timezone) < key
+  ) {
+    throw new Error("cannot resolve institutional calendar date");
+  }
+  while (low + 1 < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (localDateKey(middle, timezone) >= key) high = middle;
+    else low = middle;
+  }
+  return high;
+}
+function localMidnightUtc(
+  year: number,
+  month: number,
+  day: number,
+  timezone: string,
+): number {
+  const key = `${String(year).padStart(4, "0")}-${
+    String(month).padStart(2, "0")
+  }-${String(day).padStart(2, "0")}`;
+  return firstInstantOnOrAfterLocalDate(key, timezone);
+}
+function dateWithinRange(
+  value: string,
+  range: { fromUtc: string; toUtc: string },
+  timezone: string,
+): boolean {
+  if (/^\d{4}(?:-\d{2}(?:-\d{2})?)?$/.test(value)) {
+    const [year, month = "01", day = "01"] = value.split("-");
+    const start = localMidnightUtc(
+      Number(year),
+      Number(month),
+      Number(day),
+      timezone,
+    );
+    const nextParts = value.length === 4
+      ? utcDate(Number(year) + 1, 1, 1)
+      : value.length === 7
+      ? utcDate(Number(year), Number(month) + 1, 1)
+      : utcDate(Number(year), Number(month), Number(day) + 1);
+    const end = localMidnightUtc(
+      nextParts.getUTCFullYear(),
+      nextParts.getUTCMonth() + 1,
+      nextParts.getUTCDate(),
+      timezone,
+    );
+    return start < Date.parse(range.toUtc) && end > Date.parse(range.fromUtc);
+  }
+  const time = Date.parse(value);
+  return Number.isFinite(time) && time >= Date.parse(range.fromUtc) &&
+    time < Date.parse(range.toUtc);
 }
 function detailFor(
   type: string,
@@ -232,7 +334,10 @@ export async function loadClinicalRecord(
   purpose: Purpose,
   fetcher: Fetcher,
   baseURL: string,
+  range?: UtcRange,
+  timezone?: string,
 ): Promise<ClinicalRecord> {
+  if (range && !timezone) throw new Error("institution timezone required");
   if (!ID.test(ctx.patient_fhir_id) || !ID.test(ctx.encounter_fhir_id)) {
     throw new Error("invalid authorized context");
   }
@@ -297,6 +402,9 @@ export async function loadClinicalRecord(
   const search = async (
     type: typeof TYPES[number],
     patientOnly = false,
+    dateParam?: string,
+    missingDate = false,
+    missingDateParam = "date",
   ): Promise<Resource[]> => {
     const params = new URLSearchParams({
       patient: `Patient/${ctx.patient_fhir_id}`,
@@ -304,6 +412,20 @@ export async function loadClinicalRecord(
     });
     if (!patientOnly) {
       params.set("encounter", `Encounter/${ctx.encounter_fhir_id}`);
+    }
+    if (range && dateParam) {
+      const lower = new Date(Math.max(
+        utcDate(1, 1, 1).getTime(),
+        Date.parse(range.fromUtc) - 86_400_000,
+      ))
+        .toISOString().slice(0, 10);
+      const upper = new Date(Date.parse(range.toUtc) + 86_400_000)
+        .toISOString().slice(0, 10);
+      params.append(dateParam, `ge${lower}`);
+      params.append(dateParam, `lt${upper}`);
+    }
+    if (range && missingDate) {
+      params.append(`${missingDateParam}:missing`, "true");
     }
     let next: URL | null = new URL(`${type}?${params}`, root), pages = 0;
     const seen = new Set<string>(), found = new Map<string, Resource>();
@@ -325,23 +447,13 @@ export async function loadClinicalRecord(
         ensureResource(e.resource, type, ctx);
         const previous = found.get(e.resource.id);
         if (previous) {
-          const canonical = (v: unknown): string =>
-            Array.isArray(v)
-              ? `[${v.map(canonical).join(",")}]`
-              : v && typeof v === "object"
-              ? `{${
-                Object.keys(v).sort().map((k) =>
-                  `${JSON.stringify(k)}:${canonical((v as Resource)[k])}`
-                ).join(",")
-              }}`
-              : JSON.stringify(v);
           if (
             previous.meta?.versionId !== e.resource.meta?.versionId ||
             canonical(previous) !== canonical(e.resource)
           ) throw new Error("conflicting duplicate FHIR resource");
           continue;
         }
-        if (found.size >= MAX_RESOURCES) {
+        if (found.size >= (range ? MAX_PAGES * 100 : MAX_RESOURCES)) {
           truncated = true;
           limitReached = true;
           break;
@@ -429,9 +541,35 @@ export async function loadClinicalRecord(
     procedures,
     reports,
     allergies,
-  ] = await Promise.all(
-    TYPES.map((t) => search(t, t === "AllergyIntolerance")),
-  );
+  ] = await Promise.all([
+    range
+      ? Promise.all([
+        search("Condition", false, "onset-date"),
+        search("Condition", false, "recorded-date"),
+        search("Condition", false, undefined, true, "onset-date"),
+      ]).then((rows) => mergeUnique(rows.flat()))
+      : search("Condition", false),
+    range
+      ? Promise.all([
+        search("Observation", false, "date"),
+        search("Observation", false, undefined, true),
+      ]).then((rows) => mergeUnique(rows.flat()))
+      : search("Observation", false),
+    range
+      ? Promise.all([
+        search("MedicationRequest", false, "authoredon"),
+        search("MedicationRequest", false, undefined, true, "authoredon"),
+      ]).then((rows) => mergeUnique(rows.flat()))
+      : search("MedicationRequest", false),
+    search("Procedure", false, range ? "date" : undefined),
+    range
+      ? Promise.all([
+        search("DiagnosticReport", false, "date"),
+        search("DiagnosticReport", false, undefined, true),
+      ]).then((rows) => mergeUnique(rows.flat()))
+      : search("DiagnosticReport", false),
+    search("AllergyIntolerance", true),
+  ]);
   const byType = new Map<string, Resource[]>(
     TYPES.map((
       t,
@@ -448,6 +586,18 @@ export async function loadClinicalRecord(
       ][i],
     ]),
   );
+  if (range && timezone) {
+    for (const type of TYPES) {
+      const rows = byType.get(type) ?? [];
+      byType.set(
+        type,
+        rows.filter((r) => {
+          const value = dateFor(r);
+          return value !== null && dateWithinRange(value, range, timezone);
+        }),
+      );
+    }
+  }
   let remaining = MAX_RESOURCES;
   for (const type of TYPES) {
     const rows = byType.get(type) ?? [];
@@ -456,7 +606,32 @@ export async function loadClinicalRecord(
       truncated = true;
     } else remaining -= rows.length;
   }
-  const observationMap = new Map(observations.map((o) => [o.id, o]));
+  const observationsInRange = byType.get("Observation") ?? [];
+  const observationMap = new Map(observationsInRange.map((o) => [o.id, o]));
+  if (range) {
+    const referencedIds = [
+      ...new Set(
+        (byType.get("DiagnosticReport") ?? []).flatMap((report) =>
+          (report.result ?? []).map((item: Resource) =>
+            ref(item.reference, "Observation")
+          )
+            .filter((id: string | null): id is string => id !== null)
+        ),
+      ),
+    ].filter((id) => !observationMap.has(id));
+    if (referencedIds.length + observations.length > MAX_RESOURCES) {
+      truncated = true;
+      throw new Error("FHIR resource limit exceeded");
+    }
+    const linked = await Promise.all(referencedIds.map(async (id) => {
+      const observation = await resource("Observation", id);
+      ensureResource(observation, "Observation", ctx);
+      return observation;
+    }));
+    for (const observation of linked) {
+      observationMap.set(observation.id, observation);
+    }
+  }
   const locRefs: string[] = [];
   for (const l of encounter.location ?? []) {
     const id = ref(l.location?.reference, "Location");

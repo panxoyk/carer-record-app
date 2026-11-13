@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/time/clinical_time.dart';
 import '../../fhir_record/domain/authorized_clinical_record.dart';
 import '../domain/period_summary.dart';
 
@@ -48,13 +49,15 @@ class SupabasePeriodSummaryRepository implements PeriodSummaryRepository {
       _assertSameActor(actor);
       final row = Map<String, dynamic>.from(rows.single as Map);
       final patient = _string(row['patient_id']);
-      final timezone = _string(row['timezone']);
-      if (!_uuid.hasMatch(patient) ||
-          timezone.isEmpty ||
-          timezone.length > 128) {
-        _fail('authorization_lost');
+      if (!_uuid.hasMatch(patient)) _fail('authorization_lost');
+      final organizationTimezone = _string(row['timezone']);
+      if (organizationTimezone != demoInstitutionTimeZone) {
+        _fail('timezone_mismatch');
       }
-      return PeriodSummaryContext(patientId: patient, timezone: timezone);
+      return PeriodSummaryContext(
+        patientId: patient,
+        timezone: demoInstitutionTimeZone,
+      );
     } catch (error) {
       _translate(error);
     }
@@ -165,6 +168,10 @@ class SupabasePeriodSummaryRepository implements PeriodSummaryRepository {
           hospitalizationId: hospitalizationId,
           purpose: ClinicalRecordPurpose.timeline,
           expectedPatientId: context.patientId,
+          range: ClinicalRecordRange(
+            fromUtc: window.fromUtc.toUtc(),
+            toUtc: window.toUtc.toUtc(),
+          ),
         );
         _assertSameActor(actor);
         if (record.hospitalization.id != hospitalizationId ||

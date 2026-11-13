@@ -8,10 +8,17 @@ export type Context = {
   hospitalization_id: string;
   patient_id: string;
 };
+export const DEMO_TIMEZONE = "America/Santiago";
+export type UtcRange = { fromUtc: string; toUtc: string };
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SOURCE = "685e5726-68ba-54c9-a528-bc7b7f6c20f8";
-const ALLOWED = new Set(["organizationId", "hospitalizationId", "purpose"]);
+const ALLOWED = new Set([
+  "organizationId",
+  "hospitalizationId",
+  "purpose",
+  "range",
+]);
 function sameContext(a: Context, b: Context): boolean {
   return a.source_id === b.source_id &&
     a.patient_fhir_id === b.patient_fhir_id &&
@@ -19,6 +26,26 @@ function sameContext(a: Context, b: Context): boolean {
     a.organization_id === b.organization_id &&
     a.hospitalization_id === b.hospitalization_id &&
     a.patient_id === b.patient_id;
+}
+const RFC3339 =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+function validInstant(value: unknown): value is string {
+  if (typeof value !== "string" || !RFC3339.test(value)) return false;
+  const time = Date.parse(value);
+  if (!Number.isFinite(time)) return false;
+  const [, year, month, day, hour, minute, second] =
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(value)!;
+  const days = new Date(Date.UTC(Number(year), Number(month), 0)).getUTCDate();
+  if (
+    !(Number(year) >= 1 && Number(month) >= 1 && Number(month) <= 12 &&
+      Number(day) <= days &&
+      Number(day) >= 1 && Number(hour) <= 23 && Number(minute) <= 59 &&
+      Number(second) <= 59)
+  ) return false;
+  const offset = /[+-](\d{2}):(\d{2})$/.exec(value);
+  return !value.endsWith("-00:00") &&
+    (!offset || (Number(offset[1]) <= 14 && Number(offset[2]) <= 59 &&
+      (Number(offset[1]) !== 14 || Number(offset[2]) === 0)));
 }
 export function createHandler(deps: {
   authenticate(auth: string): Promise<boolean>;
@@ -30,6 +57,7 @@ export function createHandler(deps: {
   ): Promise<Context | null>;
   fetcher?: typeof fetch;
   baseUrl?: string;
+  now?: () => Date;
 }) {
   return async (req: Request): Promise<Response> => {
     const json = (status: number, body: unknown) =>
@@ -93,6 +121,25 @@ export function createHandler(deps: {
       !input || typeof input !== "object" || Array.isArray(input) ||
       Object.keys(input).some((k) => !ALLOWED.has(k))
     ) return json(400, { error: "invalid_request" });
+    const rangeInput = input.range;
+    let range: UtcRange | undefined;
+    if (rangeInput !== undefined) {
+      if (
+        !rangeInput || typeof rangeInput !== "object" ||
+        Array.isArray(rangeInput)
+      ) {
+        return json(400, { error: "invalid_request" });
+      }
+      const rangeFields = rangeInput as Record<string, unknown>;
+      if (
+        Object.keys(rangeFields).sort().join(",") !== "fromUtc,toUtc" ||
+        !validInstant(rangeFields.fromUtc) ||
+        !validInstant(rangeFields.toUtc) ||
+        Date.parse(rangeFields.fromUtc) >= Date.parse(rangeFields.toUtc) ||
+        Date.parse(rangeFields.toUtc) > (deps.now?.() ?? new Date()).getTime()
+      ) return json(400, { error: "invalid_request" });
+      range = { fromUtc: rangeFields.fromUtc, toUtc: rangeFields.toUtc };
+    }
     const org = input.organizationId,
       hospitalization = input.hospitalizationId,
       purpose = input.purpose ?? "record";
@@ -133,6 +180,8 @@ export function createHandler(deps: {
         purpose as Purpose,
         deps.fetcher ?? fetch,
         baseUrl,
+        range,
+        range ? DEMO_TIMEZONE : undefined,
       );
       let again: Context | null;
       try {

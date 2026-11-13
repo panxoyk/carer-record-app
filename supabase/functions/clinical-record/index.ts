@@ -27,7 +27,8 @@ const handler = createHandler({
         p_purpose: purpose,
       },
     );
-    return error ? null : data?.[0] ?? null;
+    if (error || !data?.[0]) return null;
+    return data[0];
   },
 });
 Deno.serve(handler);

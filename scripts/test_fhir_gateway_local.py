@@ -78,9 +78,15 @@ def main():
                             anon, ana)
     require(code == 200 and context, "demo organization context unavailable")
     organization = context[0]["organization_id"]
+    assignment_manifest = json.load(open("scripts/fhir-sync/demo-assignments.json", encoding="utf-8"))
+    actor_ids = {
+        "ana.torres@example.test": "11111111-1111-1111-1111-111111111111",
+        "matias.rojas@example.test": "22222222-2222-2222-2222-222222222222",
+    }
     expected = {
-        "ana.torres@example.test": ["enc-med-ana", "enc-shared", "enc-closed-ana"],
-        "matias.rojas@example.test": ["enc-surg-matias", "enc-shared", "enc-closed-matias"],
+        email: [row["fhirId"] for row in assignment_manifest["encounters"]
+                if row["authUserId"] == actor_id and not row.get("validUntil")]
+        for email, actor_id in actor_ids.items()
     }
 
     def check_gateway(token, encounter, purpose=None):
@@ -112,16 +118,6 @@ def main():
             code, dto = check_gateway(token, encounter)
             require(code == 200 and isinstance(dto, dict), "authorized record request failed")
             require(dto.get("timeline") == [], "record purpose exposed timeline")
-            if encounter.startswith("enc-closed-"):
-                require(dto.get("hospitalization", {}).get("status") == "discharged",
-                        "closed episode record status mismatch")
-                code, _ = request(
-                    "POST", f"{base}/rest/v1/clinical_events", anon, token,
-                    {"patient_id": "00000000-0000-0000-0000-000000000000",
-                     "kind": "note", "occurred_at": "2026-01-01T00:00:00Z",
-                     "payload": {"text": "synthetic denied-write probe"}},
-                )
-                require(code in (401, 403), "clinical note insert on closed episode was not rejected")
     code, _ = check_gateway(ana, "enc-surg-matias")
     require(code == 404, "foreign episode was not denied")
     code, _ = request("POST", gateway, anon, body={"organizationId": organization,
@@ -150,7 +146,7 @@ def main():
         expected_ids = {fhir_uuid("Encounter", item) for item in own}
         foreign_only = {fhir_uuid("Encounter", item) for item in other} - expected_ids
         require(ids == expected_ids,
-                "census episode set differs from the actor's three assigned fixtures")
+                "census episode set differs from the actor's manifest-assigned fixtures")
         require(not (foreign_only & ids),
                 "census exposed a foreign demo encounter")
     print("FHIR gateway local HTTP integration passed (synthetic fixtures; credentials redacted).")

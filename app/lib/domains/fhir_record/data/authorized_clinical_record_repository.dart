@@ -25,7 +25,11 @@ class AuthorizedClinicalRecordRepositoryImpl
     required String hospitalizationId,
     required ClinicalRecordPurpose purpose,
     String? expectedPatientId,
+    ClinicalRecordRange? range,
   }) async {
+    if (range != null && !range.toUtc.isAfter(range.fromUtc)) {
+      throw const FormatException('Invalid clinical record range');
+    }
     final FunctionResponse response;
     try {
       response = await _client.functions.invoke(
@@ -34,6 +38,11 @@ class AuthorizedClinicalRecordRepositoryImpl
           'organizationId': organizationId,
           'hospitalizationId': hospitalizationId,
           'purpose': purpose.name,
+          if (range != null)
+            'range': {
+              'fromUtc': range.fromUtc.toUtc().toIso8601String(),
+              'toUtc': range.toUtc.toUtc().toIso8601String(),
+            },
         },
       );
     } on FunctionException catch (e) {

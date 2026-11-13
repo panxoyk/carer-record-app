@@ -32,6 +32,7 @@ class Records implements AuthorizedClinicalRecordRepository {
   Records({this.record});
 
   final AuthorizedClinicalRecord? record;
+  ClinicalRecordRange? requestedRange;
 
   @override
   Future<AuthorizedClinicalRecord> load({
@@ -39,21 +40,26 @@ class Records implements AuthorizedClinicalRecordRepository {
     required String hospitalizationId,
     required ClinicalRecordPurpose purpose,
     String? expectedPatientId,
-  }) async =>
-      record ??
-      const AuthorizedClinicalRecord(
-        status: 'complete',
-        truncated: false,
-        freshness: ClinicalRecordFreshness(retrievedAt: '2026-01-01T00:00:00Z'),
-        patient: ClinicalRecordPatient(id: patient, name: 'Synthetic'),
-        hospitalization: ClinicalHospitalization(
-          id: episode,
-          status: 'active',
-          admittedAt: '2026-01-01T00:00:00Z',
-        ),
-        sections: [],
-        timeline: [],
-      );
+    ClinicalRecordRange? range,
+  }) async {
+    requestedRange = range;
+    return record ??
+        const AuthorizedClinicalRecord(
+          status: 'complete',
+          truncated: false,
+          freshness: ClinicalRecordFreshness(
+            retrievedAt: '2026-01-01T00:00:00Z',
+          ),
+          patient: ClinicalRecordPatient(id: patient, name: 'Synthetic'),
+          hospitalization: ClinicalHospitalization(
+            id: episode,
+            status: 'active',
+            admittedAt: '2026-01-01T00:00:00Z',
+          ),
+          sections: [],
+          timeline: [],
+        );
+  }
 }
 
 void main() {
@@ -71,7 +77,7 @@ void main() {
         if (request.url.path.endsWith('/rpc/period_summary_context')) {
           return http.Response(
             jsonEncode([
-              {'patient_id': patient, 'timezone': 'UTC'},
+              {'patient_id': patient, 'timezone': 'America/Santiago'},
             ]),
             200,
             headers: {'content-type': 'application/json'},
@@ -123,10 +129,42 @@ void main() {
         organizationId: org,
         hospitalizationId: episode,
       )).timezone,
-      'UTC',
+      'America/Santiago',
     );
     expect(requests.single.url.path, endsWith('/rpc/period_summary_context'));
   });
+  test(
+    'fails closed when the authorized organization is outside demo timezone',
+    () async {
+      final client = SupabaseClient(
+        'http://localhost:54321',
+        'test-key',
+        httpClient: MockClient(
+          (_) async => http.Response(
+            jsonEncode([
+              {'patient_id': patient, 'timezone': 'UTC'},
+            ]),
+            200,
+          ),
+        ),
+      );
+      final repo = SupabasePeriodSummaryRepository(
+        client: client,
+        clinicalRecords: Records(),
+        authenticatedUserId: () => actor,
+      );
+      await expectLater(
+        repo.loadContext(organizationId: org, hospitalizationId: episode),
+        throwsA(
+          isA<PeriodSummaryException>().having(
+            (error) => error.code,
+            'code',
+            'timezone_mismatch',
+          ),
+        ),
+      );
+    },
+  );
   test('rejects invalid identifiers before a request', () async {
     await expectLater(
       repository.loadContext(organizationId: 'x', hospitalizationId: episode),
@@ -143,7 +181,7 @@ void main() {
         currentActor = '99999999-9999-4999-8999-999999999999';
         return http.Response(
           jsonEncode([
-            {'patient_id': patient, 'timezone': 'UTC'},
+            {'patient_id': patient, 'timezone': 'America/Santiago'},
           ]),
           200,
         );
@@ -193,6 +231,41 @@ void main() {
     expect(batch.complete, isTrue);
     expect(batch.sources, isEmpty);
   });
+  test(
+    'requests authorized FHIR timeline with the exact summary window',
+    () async {
+      final records = Records();
+      final client = SupabaseClient(
+        'http://localhost:54321',
+        'test-key',
+        httpClient: MockClient(
+          (request) async => http.Response(
+            jsonEncode([
+              {'patient_id': patient, 'timezone': 'America/Santiago'},
+            ]),
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+      final repo = SupabasePeriodSummaryRepository(
+        client: client,
+        clinicalRecords: records,
+        authenticatedUserId: () => actor,
+      );
+      final from = DateTime.utc(2026, 1, 1, 4);
+      final to = DateTime.utc(2026, 1, 2, 5);
+      await repo.loadSources(
+        organizationId: org,
+        hospitalizationId: episode,
+        window: SummaryWindow(fromUtc: from, toUtc: to, timezone: 'UTC'),
+        selectedKinds: {SummarySourceKind.condition},
+      );
+      addTearDown(client.dispose);
+      expect(records.requestedRange?.fromUtc, from);
+      expect(records.requestedRange?.toUtc, to);
+    },
+  );
   test('loads all 201 confirmed notes across exact-count pages', () async {
     final rows = List.generate(
       201,
@@ -214,7 +287,7 @@ void main() {
         if (request.url.path.endsWith('/rpc/period_summary_context')) {
           return http.Response(
             jsonEncode([
-              {'patient_id': patient, 'timezone': 'UTC'},
+              {'patient_id': patient, 'timezone': 'America/Santiago'},
             ]),
             200,
           );
@@ -320,7 +393,7 @@ void main() {
         if (request.url.path.endsWith('/rpc/period_summary_context')) {
           return http.Response(
             jsonEncode([
-              {'patient_id': patient, 'timezone': 'UTC'},
+              {'patient_id': patient, 'timezone': 'America/Santiago'},
             ]),
             200,
           );

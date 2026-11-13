@@ -1,5 +1,12 @@
 enum ClinicalRecordPurpose { record, timeline }
 
+class ClinicalRecordRange {
+  const ClinicalRecordRange({required this.fromUtc, required this.toUtc});
+
+  final DateTime fromUtc;
+  final DateTime toUtc;
+}
+
 class ClinicalRecordPatient {
   const ClinicalRecordPatient({
     required this.id,
@@ -99,5 +106,6 @@ abstract interface class AuthorizedClinicalRecordRepository {
     required String hospitalizationId,
     required ClinicalRecordPurpose purpose,
     String? expectedPatientId,
+    ClinicalRecordRange? range,
   });
 }

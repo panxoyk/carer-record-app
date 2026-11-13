@@ -16,7 +16,7 @@ const id = '10000000-0000-0000-0000-000000000005';
 final window = SummaryWindow(
   fromUtc: DateTime.utc(2026, 1, 1),
   toUtc: DateTime.utc(2026, 1, 2),
-  timezone: 'UTC',
+  timezone: 'America/Santiago',
 );
 final attempt = SummarySaveAttempt(
   organizationId: org,
@@ -55,6 +55,7 @@ class _Records implements AuthorizedClinicalRecordRepository {
     required String hospitalizationId,
     required ClinicalRecordPurpose purpose,
     String? expectedPatientId,
+    ClinicalRecordRange? range,
   }) async => AuthorizedClinicalRecord(
     status: partial ? 'partial' : 'complete',
     truncated: partial,
@@ -83,7 +84,7 @@ SupabasePeriodSummaryRepository _repo(
       if (request.url.path.endsWith('/period_summary_context')) {
         return http.Response(
           jsonEncode([
-            {'patient_id': patient, 'timezone': 'UTC'},
+            {'patient_id': patient, 'timezone': 'America/Santiago'},
           ]),
           200,
           request: request,
@@ -143,6 +144,46 @@ void main() {
       expect(batch.sources.single.occurredAt, DateTime.utc(2026, 1, 1, 1, 30));
     },
   );
+  test('history preserves each stored snapshot timezone', () async {
+    final repo = _repo((request) {
+      expect(request.url.path, endsWith('/period_summaries'));
+      return [
+        {
+          'id': id,
+          'organization_id': org,
+          'hospitalization_id': episode,
+          'patient_id': patient,
+          'author_id': actor,
+          'from_utc': '2026-01-01T00:00:00Z',
+          'to_utc': '2026-01-02T00:00:00Z',
+          'timezone': 'UTC',
+          'generated_at': '2026-01-02T00:00:00Z',
+          'created_at': '2026-01-02T00:00:00Z',
+          'content': 'Historical snapshot',
+          'model_version': 'model',
+          'prompt_version': 'prompt',
+          'selected_kinds': ['context_note'],
+          'excluded_undated_count': 0,
+          'sources': [
+            {
+              'id': 'note',
+              'kind': 'context_note',
+              'occurred_at': '2026-01-01T01:00:00Z',
+              'precision': 'instant',
+            },
+          ],
+        },
+      ];
+    });
+    final history = await repo.listHistory(
+      organizationId: org,
+      hospitalizationId: episode,
+      limit: 10,
+      offset: 0,
+    );
+    expect(history.single.content, 'Historical snapshot');
+    expect(history.single.window.timezone, 'UTC');
+  });
   test('save serializes only generated text and typed references, retries identical UUID', () async {
     final payloads = <Map<String, dynamic>>[];
     final repo = _repo((request) {
