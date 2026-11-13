@@ -253,6 +253,7 @@ ClinicalTimelineItem _timeline(Object? raw) {
     resourceType: _requiredString(m, 'resourceType'),
     title: _requiredString(m, 'title'),
     detail: _optionalString(m, 'detail'),
+    summaryDetail: _optionalString(m, 'summaryDetail'),
     occurredAt: date,
     precision: precision as String?,
   );

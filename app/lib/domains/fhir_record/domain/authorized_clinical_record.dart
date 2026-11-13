@@ -129,9 +129,11 @@ class ClinicalTimelineItem {
     this.occurredAt,
     this.precision,
     this.detail,
+    this.summaryDetail,
   });
   final String id, resourceType, title;
   final String? occurredAt, detail;
+  final String? summaryDetail;
   final String? precision;
 }
 

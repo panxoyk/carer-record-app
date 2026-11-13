@@ -144,13 +144,13 @@ Este corte no incluye ingesta FHIR completa, escritura clínica, solicitudes de 
 
 ### Incremento E: resumen temporal
 
-- permitir seleccionar un intervalo explícito con zona horaria institucional;
-- resumir únicamente fuentes autorizadas y versionadas;
+- permitir seleccionar solo fechas: días pasados completos hasta hoy (capturado al generar) o un día único, sin selector de fuentes, filtros ni hora;
+- resumir todas las fuentes internas autorizadas disponibles en el intervalo;
 - ejecutar el resumen con el modelo local y su versión declarados, sin egreso;
 - conservar snapshots históricos inmutables, no una nota ni un evento clínico;
-- mostrar periodo, generación, fuentes y estado de vigencia.
+- presentar el resumen como narrativa médica continua en una tarjeta de solo lectura; no se muestra preview y existe una única acción para generar.
 
-**MVP implementado; validación nativa pendiente.** Gestión de turnos, scheduling, handoff y RRHH quedan fuera del prototipo. Los periodos de resumen no crean una entidad de turno ni permisos dependientes de horario, según [ADR-012](decisions/adr-012-turnos-fuera-de-alcance.md). El MVP usa `SynthesisProvider` local y snapshots inmutables bajo RLS conforme a [ADR-021](decisions/adr-021-resumen-periodo-persistido.md); no usa caché invalidable. Código, migraciones y pruebas automatizadas respaldan el corte; benchmark y revisión manual de privacidad/red en dispositivo siguen pendientes.
+**MVP implementado; validación nativa pendiente.** Gestión de turnos, scheduling, handoff y RRHH quedan fuera del prototipo. Los periodos de resumen no crean una entidad de turno ni permisos dependientes de horario, según [ADR-012](decisions/adr-012-turnos-fuera-de-alcance.md). El MVP usa `SynthesisProvider` local y snapshots inmutables bajo RLS conforme a [ADR-021](decisions/adr-021-resumen-periodo-persistido.md); las opciones temporales y la salida factual vigentes siguen [ADR-023](decisions/adr-023-resumen-factual-y-mejora-nota.md), que sustituye parcialmente ADR-022. No usa caché invalidable. Código, migraciones y pruebas automatizadas respaldan el corte; la calidad semántica, benchmark y revisión en dispositivo siguen pendientes.
 
 ## Fuera del alcance académico
 

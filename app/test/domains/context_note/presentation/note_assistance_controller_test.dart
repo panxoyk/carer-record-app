@@ -62,7 +62,7 @@ class _PendingProvider implements SynthesisProvider {
     SynthesisResult(
       text: text,
       modelVersion: 'fake',
-      promptVersion: 'note-improve.v1',
+      promptVersion: 'note-improve.v2',
     ),
   );
 

@@ -225,6 +225,7 @@ Deno.test("range fetches report details after filtering without emitting linked 
             code: { text: "Historical lab" },
             effectiveDateTime: "2025-01-01T00:00:00Z",
             valueString: "detail",
+            status: "final",
           }),
           { headers: { "content-type": "application/fhir+json" } },
         ),
@@ -253,7 +254,222 @@ Deno.test("range fetches report details after filtering without emitting linked 
     result.timeline[0].detail?.includes("Historical lab: detail"),
     "linked Observation was not used in report details",
   );
+  assert(
+    result.timeline[0].summaryDetail?.includes(
+      "Resultado old-observation · 2025-01-01T00:00:00Z",
+    ) &&
+      result.timeline[0].summaryDetail.includes("Estado: final"),
+    "summary did not retain the linked result source date and status",
+  );
   assert(calls.length > 0, "expected source fixture calls");
+});
+Deno.test("summary details add structured context without changing legacy details", async () => {
+  const bundle = (resources: unknown[]) => ({
+    resourceType: "Bundle",
+    type: "searchset",
+    entry: resources.map((resource) => ({ resource })),
+  });
+  const { fetcher } = client({
+    Condition: bundle([{
+      resourceType: "Condition",
+      id: "c-summary",
+      subject: { reference: "Patient/p1" },
+      encounter: { reference: "Encounter/e1" },
+      code: { text: "Condition" },
+      onsetDateTime: "2026-01-02T09:00:00Z",
+      clinicalStatus: { text: "Provisional", coding: [{ code: "active" }] },
+      verificationStatus: { text: "Refuted", coding: [{ code: "refuted" }] },
+    }]),
+    Observation: bundle([{
+      resourceType: "Observation",
+      id: "o-summary",
+      subject: { reference: "Patient/p1" },
+      encounter: { reference: "Encounter/e1" },
+      code: { text: "Threshold" },
+      status: "final",
+      effectiveDateTime: "2026-01-02T10:00:00Z",
+      valueQuantity: { comparator: "<", value: 5, unit: "mg" },
+      component: [{
+        code: { text: "Component" },
+        valueQuantity: { comparator: ">=", value: 2, unit: "mg" },
+      }],
+      referenceRange: [{ low: { comparator: ">", value: 1, unit: "mg" } }],
+    }, {
+      resourceType: "Observation",
+      id: "o-old",
+      subject: { reference: "Patient/p1" },
+      encounter: { reference: "Encounter/e1" },
+      code: { text: "Old comparison" },
+      effectiveDateTime: "2020-01-01T00:00:00Z",
+      valueQuantity: { comparator: "<", value: 0.2, unit: "mg" },
+    }]),
+    MedicationRequest: bundle([{
+      resourceType: "MedicationRequest",
+      id: "m-summary",
+      subject: { reference: "Patient/p1" },
+      encounter: { reference: "Encounter/e1" },
+      authoredOn: "2026-01-02T11:00:00Z",
+      status: "active",
+      intent: "order",
+      medicationCodeableConcept: { text: "Medicine" },
+      dosageInstruction: [{
+        text: "dose text",
+        doseAndRate: [{
+          rateQuantity: { comparator: ">", value: 5, unit: "mL/h" },
+          doseRange: {
+            low: { value: 1, unit: "tablet" },
+            high: { value: 2, unit: "tablet" },
+          },
+          rateRange: {
+            low: { value: 3, unit: "mL/h" },
+            high: { value: 5, unit: "mL/h" },
+          },
+          rateRatio: {
+            numerator: { value: 5, unit: "mL" },
+            denominator: { value: 1, unit: "h" },
+          },
+        }],
+        asNeededBoolean: false,
+        asNeededCodeableConcept: { text: "for pain" },
+        timing: {
+          repeat: {
+            frequency: 2,
+            period: 8,
+            periodUnit: "h",
+            frequencyMax: 3,
+            periodMax: 12,
+            duration: 5,
+            durationUnit: "d",
+          },
+        },
+      }],
+    }]),
+    Procedure: bundle([{
+      resourceType: "Procedure",
+      id: "p-summary",
+      subject: { reference: "Patient/p1" },
+      encounter: { reference: "Encounter/e1" },
+      performedDateTime: "2026-01-02T12:00:00Z",
+      status: "completed",
+      code: { text: "Procedure" },
+      outcome: { text: "Successful" },
+    }]),
+    DiagnosticReport: bundle([{
+      resourceType: "DiagnosticReport",
+      id: "r-summary",
+      subject: { reference: "Patient/p1" },
+      encounter: { reference: "Encounter/e1" },
+      code: { text: "Report" },
+      status: "final",
+      effectiveDateTime: "2026-01-02T13:00:00Z",
+      result: [{ reference: "Observation/o-old" }],
+    }]),
+  });
+  const baseFetcher = fetcher;
+  const resultFetcher: typeof fetch = (input, init) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/Observation/o-old")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            resourceType: "Observation",
+            id: "o-old",
+            subject: { reference: "Patient/p1" },
+            encounter: { reference: "Encounter/e1" },
+            code: { text: "Old comparison" },
+            effectiveDateTime: "2020-01-01T00:00:00Z",
+            valueQuantity: { comparator: "<", value: 0.2, unit: "mg" },
+          }),
+          { headers: { "content-type": "application/fhir+json" } },
+        ),
+      );
+    }
+    return baseFetcher(input, init);
+  };
+  const result = await loadClinicalRecord(
+    ctx,
+    "timeline",
+    resultFetcher,
+    "http://hapi/fhir",
+  );
+  const timelineItem = (type: string) =>
+    result.timeline.find((item) =>
+      item.resourceType === type &&
+      (type !== "Observation" || item.id === "demo-hapi/Observation/o-summary")
+    );
+  const legacy = (type: string) =>
+    result.sections.find((section) => section.type === type)!.entries[0].detail;
+  assert(
+    timelineItem("Condition")?.summaryDetail?.includes(
+      "Estado clínico: Provisional",
+    ) &&
+      timelineItem("Condition")?.summaryDetail?.includes(
+        "Verificación: Refuted",
+      ),
+    "Condition status summary missing",
+  );
+  assert(
+    timelineItem("Observation")?.summaryDetail?.includes("<5 mg") &&
+      timelineItem("Observation")?.summaryDetail?.includes(">=2 mg"),
+    "summary quantity comparators missing",
+  );
+  const medication = timelineItem("MedicationRequest")?.summaryDetail ?? "";
+  for (
+    const text of [
+      "Estado: active",
+      "Intención: order",
+      "Tasa: >5 mL/h",
+      "Rango de dosis: 1 tablet–2 tablet",
+      "Rango de tasa: 3 mL/h–5 mL/h",
+      "Tasa — numerador: 5 mL; denominador: 1 h",
+      "Frecuencia: 2",
+      "Periodo: 8",
+      "Unidad de periodo: h",
+      "Frecuencia máxima: 3",
+      "Periodo máximo: 12",
+      "Duración de administración: 5 d",
+      "Según necesidad: false",
+      "Según necesidad: for pain",
+    ]
+  ) assert(medication.includes(text), `Medication summary missing ${text}`);
+  assert(
+    timelineItem("Procedure")?.summaryDetail?.includes("Resultado: Successful"),
+    "Procedure outcome missing",
+  );
+  assert(
+    timelineItem("DiagnosticReport")?.summaryDetail?.includes(
+      "2020-01-01T00:00:00Z",
+    ) && timelineItem("DiagnosticReport")?.summaryDetail?.includes("<0.2 mg"),
+    "DiagnosticReport linked result date/comparator missing",
+  );
+  assert(
+    legacy("conditions") === "active" &&
+      legacy("observations") === "5 mg · Component: 2 mg · Referencia: 1 mg" &&
+      legacy("medications") === "Prescripción: Medicine — dose text" &&
+      legacy("procedures") === "completed" &&
+      legacy("reports") === "Old comparison: 0.2 mg",
+    "legacy section details changed",
+  );
+  assert(
+    timelineItem("MedicationRequest")?.detail === legacy("medications"),
+    "legacy MedicationRequest detail changed",
+  );
+  for (const item of result.timeline) {
+    const sectionType = ({
+      Condition: "conditions",
+      Observation: "observations",
+      MedicationRequest: "medications",
+      Procedure: "procedures",
+      DiagnosticReport: "reports",
+    } as Record<string, string>)[item.resourceType];
+    assert(
+      item.detail ===
+        (item.id === "demo-hapi/Observation/o-old"
+          ? "0.2 mg"
+          : legacy(sectionType)),
+      `legacy timeline detail changed for ${item.id}: ${item.detail}`,
+    );
+  }
 });
 Deno.test("range includes its start and excludes its end instant", async () => {
   const { fetcher } = client({

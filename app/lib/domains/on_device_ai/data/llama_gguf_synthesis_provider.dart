@@ -7,6 +7,8 @@ import 'package:llamadart/llamadart.dart' as llama;
 import '../domain/synthesis_provider.dart';
 import 'llm_model_installer.dart';
 import 'llm_model_manifest.dart';
+import 'period_summary_generation_policy.dart';
+import 'synthesis_prompts.dart';
 
 /// Local text assistance backed by a GGUF model through `llamadart`.
 ///
@@ -105,30 +107,106 @@ class LlamaGgufSynthesisProvider implements SynthesisProvider {
     SynthesisRequest request, {
     bool Function()? isCancelled,
   }) async {
+    var deadlineExpired = false;
+    try {
+      return await _synthesize(
+        request,
+        isCancelled: isCancelled,
+        isDeadlineExpired: () => deadlineExpired,
+      ).timeout(
+        request.timeout,
+        onTimeout: () {
+          deadlineExpired = true;
+          throw TimeoutException('Synthesis deadline expired');
+        },
+      );
+    } on TimeoutException {
+      throw const SynthesisException(SynthesisErrorCode.timeout);
+    }
+  }
+
+  Future<SynthesisResult> _synthesize(
+    SynthesisRequest request, {
+    bool Function()? isCancelled,
+    required bool Function() isDeadlineExpired,
+  }) async {
     final engine = _engine;
     if (engine == null) {
       throw const SynthesisException(SynthesisErrorCode.unavailable);
     }
     final session = llama.ChatSession(engine)
-      ..systemPrompt = _systemPrompt(request.purpose);
+      ..systemPrompt = synthesisSystemPrompt(request.purpose);
     try {
-      final completion = await session
-          .send(
-            _userPrompt(request),
-            params: llama.GenerationParams(
-              maxTokens: manifest.maxTokens,
-              temp: 0.2,
-            ),
-            // Qwen3 is a hybrid reasoning model: with thinking enabled it
-            // spends the whole token budget on an internal monologue and can
-            // return an empty answer. These use cases want the rewritten text
-            // itself, so reasoning is disabled.
-            enableThinking: false,
-            responseFormat: _responseFormat(request.purpose),
-          )
-          .timeout(request.timeout);
-      if (isCancelled?.call() ?? false) {
-        throw const SynthesisException(SynthesisErrorCode.cancelled);
+      void checkInterrupted() {
+        if (isDeadlineExpired()) {
+          throw const SynthesisException(SynthesisErrorCode.timeout);
+        }
+        if (isCancelled?.call() ?? false) {
+          throw const SynthesisException(SynthesisErrorCode.cancelled);
+        }
+      }
+
+      if (request.purpose == SynthesisPurpose.periodSummary) {
+        checkInterrupted();
+        final messages = <llama.LlamaChatMessage>[
+          llama.LlamaChatMessage.fromText(
+            role: llama.LlamaChatRole.system,
+            text: synthesisSystemPrompt(request.purpose),
+          ),
+          llama.LlamaChatMessage.fromText(
+            role: llama.LlamaChatRole.user,
+            text: _userPrompt(request),
+          ),
+        ];
+        final rendered = await engine.chatTemplate(
+          messages,
+          enableThinking: false,
+          responseFormat: _responseFormat(request.purpose),
+          includeTokenCount: true,
+        );
+        checkInterrupted();
+        if (rendered.tokenCount == null) {
+          throw const SynthesisException(
+            SynthesisErrorCode.measurementUnavailable,
+          );
+        }
+        final engineContextSize = await engine.getContextSize();
+        checkInterrupted();
+        if (!PeriodSummaryGenerationPolicy.hasContextBudget(
+          promptTokens: rendered.tokenCount,
+          generationTokens: manifest.maxTokens,
+          manifestContextSize: manifest.contextSize,
+          engineContextSize: engineContextSize,
+        )) {
+          throw const SynthesisException(SynthesisErrorCode.inputOverBudget);
+        }
+      }
+      if (request.purpose == SynthesisPurpose.periodSummary) {
+        checkInterrupted();
+      }
+      final completion = await session.send(
+        _userPrompt(request),
+        params: llama.GenerationParams(
+          maxTokens: manifest.maxTokens,
+          temp: 0.2,
+        ),
+        // Qwen3 is a hybrid reasoning model: with thinking enabled it
+        // spends the whole token budget on an internal monologue and can
+        // return an empty answer. These use cases want the rewritten text
+        // itself, so reasoning is disabled.
+        enableThinking: false,
+        responseFormat: _responseFormat(request.purpose),
+      );
+      checkInterrupted();
+      if (request.purpose == SynthesisPurpose.periodSummary &&
+          !PeriodSummaryGenerationPolicy.acceptsCompletion(
+            requestFitContext: session.lastRequestFitContext,
+            stoppedNormally:
+                completion.finishReason == llama.LlamaFinishReason.stop,
+            hasText: completion.text.trim().isNotEmpty,
+            hasToolCalls: completion.toolCalls.isNotEmpty,
+          )) {
+        throw const SynthesisException(SynthesisErrorCode.incompleteOutput);
       }
       final text = completion.text.trim();
       if (text.length > request.maxOutputChars) {
@@ -159,24 +237,6 @@ class LlamaGgufSynthesisProvider implements SynthesisProvider {
     final engine = _engine;
     _engine = null;
     if (engine != null) await engine.dispose();
-  }
-
-  String _systemPrompt(SynthesisPurpose purpose) {
-    return switch (purpose) {
-      SynthesisPurpose.improveNoteText =>
-        'Eres un asistente que corrige y mejora la redacción y la ortografía '
-            'de un texto en español. Tu única tarea es devolver el mismo texto '
-            'con mejor gramática, puntuación y claridad, sin cambiar su '
-            'significado, sin añadir información nueva, sin parafrasear de '
-            'forma genérica y sin quitar datos. '
-            'Responde únicamente con el texto corregido.',
-      SynthesisPurpose.flagEntities =>
-        'Detectas entidades en un texto clínico en español. No reescribas el '
-            'texto. Responde únicamente con JSON válido.',
-      SynthesisPurpose.periodSummary =>
-        'Resumes un periodo clínico en español sin inventar hechos. '
-            'Responde solo con el resumen.',
-    };
   }
 
   String _userPrompt(SynthesisRequest request) => switch (request.purpose) {

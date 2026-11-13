@@ -266,6 +266,79 @@ void main() {
       expect(records.requestedRange?.toUtc, to);
     },
   );
+  test(
+    'prefers summaryDetail and falls back to detail for legacy timeline items',
+    () async {
+      final records = Records(
+        record: AuthorizedClinicalRecord(
+          status: 'complete',
+          truncated: false,
+          freshness: const ClinicalRecordFreshness(
+            retrievedAt: '2026-01-01T00:00:00Z',
+          ),
+          patient: const ClinicalRecordPatient(id: patient, name: 'Synthetic'),
+          hospitalization: const ClinicalHospitalization(
+            id: episode,
+            status: 'active',
+            admittedAt: '2026-01-01T00:00:00Z',
+          ),
+          sections: const [],
+          timeline: const [
+            ClinicalTimelineItem(
+              id: 'Observation/1',
+              resourceType: 'Observation',
+              title: 'Result',
+              occurredAt: '2026-01-01',
+              precision: 'date',
+              detail: 'legacy detail',
+              summaryDetail: 'typed summary',
+            ),
+            ClinicalTimelineItem(
+              id: 'Observation/2',
+              resourceType: 'Observation',
+              title: 'Legacy',
+              occurredAt: '2026-01-01',
+              precision: 'date',
+              detail: 'legacy only',
+            ),
+          ],
+        ),
+      );
+      final client = SupabaseClient(
+        'http://localhost:54321',
+        'test-key',
+        httpClient: MockClient(
+          (request) async => http.Response(
+            jsonEncode([
+              {'patient_id': patient, 'timezone': 'America/Santiago'},
+            ]),
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+      addTearDown(client.dispose);
+      final repo = SupabasePeriodSummaryRepository(
+        client: client,
+        clinicalRecords: records,
+        authenticatedUserId: () => actor,
+      );
+      final batch = await repo.loadSources(
+        organizationId: org,
+        hospitalizationId: episode,
+        window: SummaryWindow(
+          fromUtc: DateTime.utc(2026),
+          toUtc: DateTime.utc(2026, 2),
+          timezone: 'UTC',
+        ),
+        selectedKinds: {SummarySourceKind.observation},
+      );
+      expect(batch.sources.map((source) => source.content), [
+        'typed summary',
+        'legacy only',
+      ]);
+    },
+  );
   test('loads all 201 confirmed notes across exact-count pages', () async {
     final rows = List.generate(
       201,

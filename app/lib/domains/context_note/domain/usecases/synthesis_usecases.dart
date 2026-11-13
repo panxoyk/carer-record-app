@@ -9,7 +9,7 @@ import '../../../on_device_ai/domain/synthesis_provider.dart';
 class ImproveNoteDraft {
   const ImproveNoteDraft({
     required this.provider,
-    this.promptVersion = 'note-improve.v1',
+    this.promptVersion = 'note-improve.v2',
     // A local 1.7B model needs tens of seconds to load and to rewrite a note
     // on a mid-range device, and considerably more on an emulator. A timeout
     // below a couple of minutes turns a working model into a permanent
