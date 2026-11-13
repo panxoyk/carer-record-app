@@ -6,6 +6,15 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('ImproveNoteDraft', () {
+    test('keeps the author text unchanged as fallback', () async {
+      const original = '  Texto escrito por la autora, sin cambios.  ';
+      final outcome = await ImproveNoteDraft(
+        provider: FakeSynthesisProvider(available: false),
+      )(text: original);
+
+      expect(outcome.fallback, original.trim());
+    });
+
     test('returns an editable suggestion when the local model works', () async {
       final provider = FakeSynthesisProvider();
       final outcome = await ImproveNoteDraft(provider: provider)(
@@ -88,7 +97,7 @@ void main() {
         final request = provider.calls.single;
         expect(request.timeout, const Duration(seconds: 7));
         expect(request.idempotencyKey, 'op-1');
-        expect(request.promptVersion, 'note-improve.v1');
+        expect(request.promptVersion, 'note-improve.v2');
       },
     );
 

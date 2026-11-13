@@ -75,6 +75,16 @@ class SynthesisErrorCode {
   /// The model returned something the use case could not validate.
   static const String malformed = 'synthesis_malformed';
 
+  /// The complete rendered prompt and output reserve exceed the context.
+  static const String inputOverBudget = 'synthesis_input_over_budget';
+
+  /// The runtime cannot provide a trustworthy count of the rendered prompt.
+  static const String measurementUnavailable =
+      'synthesis_measurement_unavailable';
+
+  /// A period summary did not finish normally or fit its context.
+  static const String incompleteOutput = 'synthesis_incomplete_output';
+
   /// Anything else. The detail is never surfaced to the author.
   static const String internal = 'synthesis_internal';
 }
