@@ -11,6 +11,10 @@
     "integration:fhir": "python3 scripts/test_fhir_gateway_local.py",
     "security:check": "node scripts/check-secrets.mjs",
     "app:run": "node scripts/run-app.mjs",
+    "app:run:test": "node --test scripts/run-app.test.mjs",
+    "env:up": "node scripts/run-env.mjs",
+    "env:stop": "node scripts/stop-env.mjs",
+    "env:test": "node --test scripts/run-app.test.mjs scripts/run-env.test.mjs scripts/stop-env.test.mjs",
     "app:format": "cd app && fvm dart format lib test",
     "app:format:check": "cd app && fvm dart format --output=none --set-exit-if-changed lib test",
     "app:analyze": "cd app && fvm flutter analyze",
@@ -30,9 +34,10 @@
     "check": "pnpm format:check && pnpm lint && pnpm test",
     "fhir:down": "docker compose -f docker/hapi-fhir/docker-compose.yml down",
     "fhir:logs": "docker compose -f docker/hapi-fhir/docker-compose.yml logs -f",
+    "integration:hapi": "node scripts/fhir-sync/demo-hapi.integration.mjs",
     "fhir:sync:test": "cd scripts/fhir-sync && node --test",
     "integration:iam": "python3 scripts/test_iam_local.py",
-    "test": "pnpm app:test && pnpm functions:test && pnpm fhir:sync:test"
+    "test": "pnpm app:test && pnpm functions:test && pnpm fhir:sync:test && pnpm env:test"
   },
   "devDependencies": {
     "lefthook": "^2.2.2",

@@ -15,7 +15,7 @@ RLS es la autoridad de autorización. Un guard de UI no la reemplaza. No edites 
 
 ## Operación local
 
-Desde la raíz del repositorio, instala dependencias y copia `.env.example` a `.env`. Ejecuta `pnpm exec supabase start` para obtener la URL local y la clave anon/publishable, y completa `.env` con esa clave publishable. El arranque normal `pnpm app:run` inicia/reutiliza Supabase y los demás servicios locales.
+Desde la raíz del repositorio, instala dependencias y copia `.env.example` a `.env`. Ejecuta `pnpm exec supabase start` para obtener la URL local y la clave anon/publishable, y completa `.env` con esa clave publishable. El flujo normal mantiene `pnpm env:up` en una terminal para Supabase/HAPI y la pasarela autorizada; `pnpm app:run` en otra terminal inicia solo Flutter. `pnpm env:stop` detiene los servicios locales conservando los volúmenes.
 
 Para una base nueva o desechable, `pnpm db:reset` aplica migraciones y seed y destruye el estado local previo. No lo ejecutes como paso ordinario. `pnpm db:stop` detiene Supabase conservando el volumen. La cuenta de demo y contraseña están definidas en `seed.sql`; solo sirven para desarrollo local.
 

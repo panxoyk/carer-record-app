@@ -2,7 +2,7 @@
 
 ## Estado vigente (2026-10-23)
 
-El corte ADR-020 implementa sincronización estructural y lectura clínica en vivo mediante `clinical-record`; el censo filtrado procede de Supabase/RLS.
+El corte ADR-020 implementa sincronización estructural y lectura clínica en vivo mediante `clinical-record`; el censo filtrado procede de Supabase/RLS. El entorno local se inicia con `pnpm env:up` en foreground y Flutter, por separado, con `pnpm app:run`.
 Flutter no accede directamente a HAPI ni a las tablas de vínculos FHIR; la pasarela recibe JWT y la autorización por episodio se aplica en servidor/RLS.
 Las secciones de arquitectura objetivo e históricas siguientes no implican ingesta completa ni reemplazan este límite implementado.
 

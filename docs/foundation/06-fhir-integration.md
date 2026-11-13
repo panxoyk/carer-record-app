@@ -5,6 +5,7 @@
 ADR-020 sustituye la dirección de ADR-019: hay sincronización estructural mínima y lectura en vivo autorizada por pasarela, no lectura directa Flutter→HAPI.
 La sincronización vincula Patient/Encounter/Location y periodos de ubicación; la ficha/timeline se entrega por propósito autorizado, sin exponer JSON FHIR crudo al cliente.
 La pasarela acepta `range` opcional con `{fromUtc,toUtc}`: al omitirlo conserva la ficha completa. Los límites son instantes UTC; date-only usa `America/Santiago`, fija para este MVP local/sintético, y no un offset fijo UTC-3. El request no selecciona zona. El RPC de autorización de episodio se conserva para tenant/episodio, sin usar la zona institucional en el filtro. Solo aplican los campos de fecha reconocidos por `dateFor` (`effectiveDateTime`, `effectiveDate`, `issued`, `authoredOn`, `performedDateTime`, `performedPeriod.start`, `onsetDateTime`, `recordedDate`, `date`); faltantes/no soportados no se imputan. El tope de 500 recursos y la respuesta parcial/truncada se mantienen.
+HAPI local conserva H2 en `carer-record-hapi-data`; la transición es manual y la instancia actual no está migrada. Solo exportación explícita de datos sintéticos y ensayo en HAPI/volumen de staging separado; el archivo de recursos/historia no es respaldo completo de H2 ni garantiza revisions/versionIds o tombstones.
 El diseño amplio descrito abajo sigue siendo objetivo, no entrega completa. Contrato, tablas y límites vigentes: [ADR-020](decisions/adr-020-fhir-server-structural-sync.md).
 
 ## 1. Propósito y estado

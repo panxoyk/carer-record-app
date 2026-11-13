@@ -6,13 +6,15 @@ Aplicacion Flutter movil de Carer Record. La aplicacion se conecta a Supabase co
 
 Los comandos se ejecutan desde la raíz del repositorio. Sigue la [primera instalación y bootstrap de Supabase](../README.md#primera-instalación) antes del primer uso.
 
-Arranque normal, con Docker Desktop y un emulador/simulador iniciado:
+Arranque normal, con Docker Desktop y un emulador/simulador iniciado. En la primera instalación completa antes el bootstrap de Supabase indicado arriba.
 
 ```sh
 pnpm app:run
 ```
 
-`pnpm app:run` inicia/reutiliza los servicios, prepara la pasarela autorizada y ejecuta Flutter con `SUPABASE_URL` y la clave publishable de `.env`. El archivo `.env` está ignorado por Git.
+En una terminal, `pnpm env:up` inicia/reutiliza Supabase y HAPI, aplica bootstrap/sync sintético y sirve la pasarela autorizada en foreground. En otra terminal, `pnpm app:run` inicia solo Flutter con `SUPABASE_URL` y la clave publishable de `.env`; acepta argumentos Flutter como `-- --release` o `-- -d <DEVICE_ID>`. Usa una URL de host alcanzable desde el dispositivo, por ejemplo `http://10.0.2.2:54321` para Android Emulator. `.env` está ignorado por Git.
+
+Al cerrar Flutter, los servicios siguen activos. `Ctrl+C` en la terminal de `env:up` cierra solo el gateway que inició; los contenedores permanecen activos y al reabrir la app hay que iniciar de nuevo `pnpm env:up`. `pnpm env:stop` verifica el datasource/volumen H2 persistente de HAPI, desconecta HAPI de la red Supabase y detiene HAPI y Supabase sin borrar volúmenes. Un HAPI legado sin el volumen esperado se rechaza sin detenerlo. No se ejecuta reset como parte de este flujo.
 
 El censo se consulta desde Supabase mediante contratos protegidos por RLS. La ficha clínica y su timeline usan la pasarela autorizada `clinical-record`; la app no se conecta directamente a HAPI.
 

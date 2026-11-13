@@ -2,8 +2,10 @@
 
 ## Estado vigente (2026-10-23)
 
-El corte entregado no es el pipeline de ingesta clínica completa descrito en este flujo: sincroniza vínculos estructurales mínimos y habilita lectura en vivo autorizada por `clinical-record`. `pnpm app:run` orquesta el arranque local reutilizable de Supabase/HAPI, re-aplica el seed FHIR con PUT, sincroniza vínculos y asignaciones y espera la pasarela antes de iniciar Flutter; no ejecuta reset ni borra recursos FHIR.
+El corte entregado no es el pipeline de ingesta clínica completa descrito en este flujo: sincroniza vínculos estructurales mínimos y habilita lectura en vivo autorizada por `clinical-record`. `pnpm env:up` inicia/reutiliza Supabase/HAPI, re-aplica el seed FHIR con PUT, sincroniza vínculos y asignaciones y mantiene la pasarela en foreground; no ejecuta reset ni borra recursos FHIR. `pnpm app:run` solo ejecuta Flutter contra los servicios existentes. `pnpm env:stop` verifica HAPI persistente, desconecta su red Supabase y detiene HAPI/Supabase sin eliminar volúmenes.
 La ficha y timeline llegan por pasarela con JWT; el cliente no consulta HAPI directamente. No se escribe de vuelta a FCE.
+La solicitud admite el rango opcional `{ "fromUtc": "...", "toUtc": "..." }`; sin él conserva la ficha/timeline completa. Para un rango, fechas date-only se resuelven en `America/Santiago`, fija para el MVP local/sintético; la zona no se recibe en el request ni se toma del RPC de autorización. El filtro usa perfiles de fecha soportados por `dateFor` en `clinical-record/fhir.ts`. El límite de 500 recursos y respuesta parcial/truncada no cambian.
+El HAPI local usa H2 persistente sobre `carer-record-hapi-data`. La instancia actual no está migrada; bootstrap/guardas no la purgan ni recrean. La transferencia requiere exportación sintética explícita y ensayo en servidor/volumen de staging separado; el archivo FHIR no es respaldo completo de H2 ni garantiza historia/versionIds o tombstones.
 Las etapas objetivo siguientes siguen siendo diseño futuro; para el corte actual prevalece [ADR-020](../decisions/adr-020-fhir-server-structural-sync.md).
 
 ## 1. Objetivo

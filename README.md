@@ -32,8 +32,16 @@ Solo en la primera instalación o para descartar la base local: `pnpm db:reset` 
 ## Ejecutar (Docker Desktop y emulador/simulador abiertos)
 
 ```sh
+pnpm env:up
+```
+
+Deja este comando ejecutándose en una terminal: inicia/reutiliza Supabase y HAPI, aplica el bootstrap/sync sintético y sirve `clinical-record`. En otra terminal:
+
+```sh
 pnpm app:run
 ```
+
+`app:run` solo inicia Flutter y acepta sus argumentos habituales, por ejemplo `pnpm app:run -- --release`. Al terminar Flutter, los servicios siguen activos. `Ctrl+C` en la terminal de `env:up` detiene únicamente el gateway; los contenedores permanecen activos. Para detener servicios desde otra terminal usa `pnpm env:stop`; conserva los volúmenes. El HAPI legado sin el volumen H2 esperado se rechaza sin detenerlo. `pnpm db:stop` y `pnpm fhir:down` siguen disponibles para operaciones individuales.
 
 ## Demo
 

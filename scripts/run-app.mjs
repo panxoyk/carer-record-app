@@ -453,6 +453,13 @@ async function networkState(run) {
   return Object.hasOwn(networks, NETWORK) ? "attached" : "clean";
 }
 
+export function hasPersistentHapiData(mounts, datasource) {
+  return datasource === "true" && Array.isArray(mounts) && mounts.some((mount) =>
+    mount.Destination === "/data/hapi" && mount.Type === "volume" &&
+    mount.Name === "carer-record-hapi-data",
+  );
+}
+
 export async function runApp({
   args = [],
   env = process.env,
@@ -460,12 +467,18 @@ export async function runApp({
   fetcher = fetch,
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
   platform = process.platform,
+  now = () => new Date(),
   onSignal = true,
+  environmentOnly = false,
+  signal,
 } = {}) {
   const processes = runner ?? createRunner({ env, platform });
   const { run, cleanup } = processes;
   const start = processes.start ?? run;
   const controller = new AbortController();
+  const externalAbort = () => { signalCode = 130; controller.abort(); };
+  if (signal?.aborted) controller.abort();
+  else signal?.addEventListener("abort", externalAbort, { once: true });
   let gatewayProcess;
   let failureCode = 0;
   let signalCode = 0;
@@ -516,90 +529,46 @@ export async function runApp({
     return status.output;
   };
   try {
-    if (args[0] === "--gateway-only") {
-      await stage("gateway network", "docker", ["network", "inspect", NETWORK]);
-      const names = await stage("gateway HAPI check", "docker", [
-        "ps",
-        "--format",
-        "{{.Names}}",
-      ]);
-      if (!names.split(/\r?\n/).includes(HAPI))
-        throw new Error("gateway preflight: start Supabase and HAPI first");
-      const networkContainers = await stage(
-        "gateway network attachment",
-        "docker",
-        [
-          "network",
-          "inspect",
-          NETWORK,
-          "--format",
-          '{{range .Containers}}{{.Name}}{{"\\n"}}{{end}}',
-        ],
-      );
-      if (!networkContainers.includes(HAPI))
-        await stage("gateway network attach", "docker", [
-          "network",
-          "connect",
-          "--alias",
-          "hapi-fhir",
-          NETWORK,
-          HAPI,
-        ]);
-      const envFile = await pickGatewayEnv();
-      await stage(
-        "gateway serve",
-        "pnpm",
-        [
-          "exec",
-          "supabase",
-          "functions",
-          "serve",
-          "clinical-record",
-          "--env-file",
-          envFile,
-        ],
-        { interactive: true },
-      );
-      return 0;
-    }
+    if (args[0] === "--gateway-only")
+      throw new Error("app:run is Flutter-only; use `pnpm env:up` to start services and the gateway");
     const config = await configFrom(env);
     const childEnv = { ...process.env, ...config };
-    // Check Windows batch arguments before starting any services.
-    buildInvocation(
-      "fvm",
-      [
-        "flutter",
-        "run",
-        ...args,
-        `--dart-define=SUPABASE_URL=${config.SUPABASE_URL}`,
-        `--dart-define=SUPABASE_PUBLISHABLE_KEY=${config.SUPABASE_PUBLISHABLE_KEY}`,
-      ],
-      platform,
-      childEnv,
-    );
-    const preflight = async (label, name, argv, cwd = repo) =>
-      stage(label, name, argv, { cwd, env: childEnv });
-    for (const [name, argv, cwd] of [
-      ["docker", ["compose", "version"]],
-      ["pnpm", ["--version"]],
-      ["pnpm", ["exec", "supabase", "--version"]],
-      ["fvm", ["--version"]],
-      ["fvm", ["flutter", "--version"], resolve(repo, "app")],
-    ])
-      await preflight(
-        `preflight ${name}${name === "fvm" && argv[0] === "flutter" ? " flutter" : ""}`,
-        name,
-        argv,
-        cwd ?? repo,
-      );
-    await preflight("preflight Docker daemon", "docker", ["info"]);
-    await preflight("Supabase startup", "pnpm", ["exec", "supabase", "start"]);
+    const preflight = async (label, name, argv, cwd = repo, options = {}) =>
+      stage(label, name, argv, { cwd, env: childEnv, ...options });
+    if (environmentOnly) {
+      for (const [name, argv] of [["docker", ["compose", "version"]], ["pnpm", ["--version"]], ["pnpm", ["exec", "supabase", "--version"]]])
+        await preflight(`preflight ${name}`, name, argv);
+      await preflight("preflight Docker daemon", "docker", ["info"]);
+      await preflight("Supabase startup", "pnpm", ["exec", "supabase", "start"]);
+    } else {
+      const gatewayUrl = `${config.SUPABASE_LOCAL_URL.replace(/\/$/, "")}/functions/v1/clinical-record`;
+      if (!(await probe(gatewayUrl, config.SUPABASE_PUBLISHABLE_KEY, fetcher)))
+        throw new Error("gateway readiness: unavailable; run `pnpm env:up` in another terminal first");
+      buildInvocation("fvm", ["flutter", "run", ...args, `--dart-define=SUPABASE_URL=${config.SUPABASE_URL}`, `--dart-define=SUPABASE_PUBLISHABLE_KEY=${config.SUPABASE_PUBLISHABLE_KEY}`], platform, { ...process.env, ...config });
+      await preflight("preflight fvm flutter", "fvm", ["flutter", "--version"], resolve(repo, "app"));
+      const flutterArgs = ["flutter", "run", `--dart-define=SUPABASE_URL=${config.SUPABASE_URL}`, `--dart-define=SUPABASE_PUBLISHABLE_KEY=${config.SUPABASE_PUBLISHABLE_KEY}`, `--dart-define=FHIR_BASE_URL=http://127.0.0.1:${config.HAPI_FHIR_PORT}/fhir`, ...args.filter((arg, index) => !(index === 0 && arg === "--"))];
+      await stage("Flutter", "fvm", flutterArgs, { cwd: resolve(repo, "app"), env: { ...process.env, ...config }, interactive: true });
+      return 0;
+    }
     const prior = await networkState((name, argv) =>
       preflight("HAPI network inspect", name, argv),
     );
+    if (prior !== "missing") {
+      const mounts = await preflight("HAPI persistence inspect", "docker", [
+        "inspect", HAPI, "--format", "{{json .Mounts}}",
+      ]);
+      const datasource = await preflight("HAPI datasource inspect", "docker", [
+        "inspect", HAPI, "--format",
+        '{{range .Config.Env}}{{if eq . "SPRING_DATASOURCE_URL=jdbc:h2:file:/data/hapi/hapi;DB_CLOSE_ON_EXIT=FALSE"}}true{{end}}{{end}}',
+      ]);
+      let parsed;
+      try { parsed = JSON.parse(mounts); } catch { throw new Error("HAPI persistence: invalid Docker mount metadata; refusing startup"); }
+      if (!hasPersistentHapiData(parsed, datasource.trim()))
+        throw new Error("HAPI persistence: existing container does not have the expected persistent H2 datasource and /data/hapi volume. Refusing to start, stop, delete, or recreate it because its dataset cannot be recovered safely. Export synthetic data with `node scripts/fhir-sync/hapi-data-transfer.mjs export --confirm-synthetic` before any manual transition; then follow the restore instructions in docker/hapi-fhir/README.md.");
+    }
     if (prior === "stale")
       throw new Error(
-        "HAPI network: attached to an obsolete Docker network; run pnpm fhir:down then pnpm app:run (recreating HAPI deletes its in-memory data)",
+        "HAPI network: attached to an obsolete Docker network; do not stop/delete/recreate HAPI. Export the synthetic dataset first with `node scripts/fhir-sync/hapi-data-transfer.mjs export --confirm-synthetic`, then follow docker/hapi-fhir/README.md for the guarded network transition.",
       );
     await preflight("HAPI startup", "docker", [
       "compose",
@@ -609,16 +578,14 @@ export async function runApp({
       "-d",
       "hapi-fhir",
     ]);
-    await preflight("HAPI seed", "docker", [
-      "compose",
-      "-f",
-      composeFile,
-      "run",
-      "--rm",
-      "--no-deps",
-      "hapi-seed",
-    ]);
     const fhir = `http://127.0.0.1:${config.HAPI_FHIR_PORT}/fhir`;
+    await preflight("HAPI seed", process.execPath, [resolve(root, "fhir-sync/bootstrap-demo.mjs")], repo, { env: { ...childEnv, FHIR_BASE_URL: fhir } });
+    const institutionTimezone = "America/Santiago";
+    const dailyEnv = { ...childEnv, FHIR_BASE_URL: fhir, FHIR_DEMO_TIMEZONE: institutionTimezone };
+    const dailyDay = () => new Intl.DateTimeFormat("en-CA", { timeZone: institutionTimezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now());
+    const seededDay = dailyDay();
+    const runDaily = () => preflight("daily synthetic events", process.execPath, [resolve(root, "fhir-sync/ensure-demo-current-events.mjs")], repo, { env: dailyEnv });
+    await runDaily();
     await preflight("FHIR sync", process.execPath, [
       resolve(root, "fhir-sync/generate-sync.mjs"),
       "--apply",
@@ -681,19 +648,44 @@ export async function runApp({
       await sleep(2000);
     }
     if (!ready) throw new Error("gateway readiness: timed out");
-    const flutterArgs = [
-      "flutter",
-      "run",
-      `--dart-define=SUPABASE_URL=${config.SUPABASE_URL}`,
-      `--dart-define=SUPABASE_PUBLISHABLE_KEY=${config.SUPABASE_PUBLISHABLE_KEY}`,
-      `--dart-define=FHIR_BASE_URL=${fhir}`,
-      ...args.filter((arg, index) => !(index === 0 && arg === "--")),
-    ];
-    await stage("Flutter", "fvm", flutterArgs, {
-      cwd: resolve(repo, "app"),
-      env: childEnv,
-      interactive: true,
-    });
+    if (dailyDay() !== seededDay) {
+      const retryDay = dailyDay();
+      await runDaily();
+      if (dailyDay() !== retryDay)
+        throw new Error("daily synthetic events: institutional day changed repeatedly during startup");
+    }
+    if (environmentOnly) {
+      console.log("Environment ready. Ctrl+C stops the gateway only; containers remain running.");
+      let failedProbes = 0;
+      while (!controller.signal.aborted) {
+        if (gatewayStatus) {
+          let runtimeAvailable = false;
+          try {
+            const response = await fetcher(`${config.SUPABASE_LOCAL_URL.replace(/\/$/, "")}/rest/v1/`, { headers: { apikey: config.SUPABASE_PUBLISHABLE_KEY }, signal: AbortSignal.timeout(3000) });
+            runtimeAvailable = response.status > 0;
+          } catch {}
+          if (runtimeAvailable)
+            throw new StageFailure("gateway", "process exited unexpectedly", gatewayStatus.code ?? 1);
+          console.error("Supabase runtime is unavailable; env:stop has stopped services.");
+          break;
+        }
+        const gatewayReady = await probe(gatewayUrl, config.SUPABASE_PUBLISHABLE_KEY, fetcher);
+        failedProbes = gatewayReady ? 0 : failedProbes + 1;
+        if (failedProbes >= 3) {
+          let runtimeAvailable = false;
+          try {
+            const response = await fetcher(`${config.SUPABASE_LOCAL_URL.replace(/\/$/, "")}/rest/v1/`, { headers: { apikey: config.SUPABASE_PUBLISHABLE_KEY }, signal: AbortSignal.timeout(3000) });
+            runtimeAvailable = response.status > 0;
+          } catch {}
+          if (runtimeAvailable) {
+            throw new StageFailure("gateway", "unhealthy while Supabase remains available", 1);
+          }
+          console.error("Supabase runtime is unavailable; stopping only env:up's gateway process.");
+          break;
+        }
+        await sleep(2000);
+      }
+    }
   } catch (error) {
     if (!controller.signal.aborted)
       console.error(
@@ -707,6 +699,7 @@ export async function runApp({
       process.removeListener("SIGINT", onInt);
       process.removeListener("SIGTERM", onTerm);
     }
+    signal?.removeEventListener("abort", externalAbort);
   }
   return signalCode || (controller.signal.aborted ? 1 : failureCode);
 }
